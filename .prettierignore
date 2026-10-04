@@ -1,0 +1,7 @@
+.next
+node_modules
+next-env.d.ts
+package-lock.json
+
+# Authored prose. Prettier re-pads tables on every edit, which makes doc diffs noisy.
+*.md

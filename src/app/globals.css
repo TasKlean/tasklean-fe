@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — the single source of truth for colour, radius and type.
+ * Components reference these (bg-background, text-muted-foreground, rounded-card);
+ * never hard-code a hex or a rem value in a component.
+ *
+ * Tokens are named by ROLE, not by appearance: "surface", not "white". That is what
+ * makes a second theme possible without touching a single component.
+ *
+ * Dark mode currently follows the OS setting. The cookie-driven toggle — so the server
+ * renders the chosen theme with no flash on first paint — lands with the settings screen;
+ * at that point the dark variant moves to a data-attribute on <html>.
+ */
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+}
+
+:root {
+  color-scheme: light;
+
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.21 0.02 250);
+
+  --surface: oklch(1 0 0);
+  --surface-foreground: oklch(0.21 0.02 250);
+
+  --primary: oklch(0.56 0.11 182);
+  --primary-foreground: oklch(0.99 0 0);
+
+  --muted: oklch(0.96 0.005 250);
+  --muted-foreground: oklch(0.51 0.02 250);
+
+  --border: oklch(0.91 0.01 250);
+  --ring: oklch(0.56 0.11 182);
+
+  --danger: oklch(0.56 0.19 25);
+  --danger-foreground: oklch(0.99 0 0);
+
+  --success: oklch(0.57 0.13 150);
+  --success-foreground: oklch(0.99 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --background: oklch(0.17 0.015 250);
+    --foreground: oklch(0.96 0.005 250);
+
+    --surface: oklch(0.21 0.02 250);
+    --surface-foreground: oklch(0.96 0.005 250);
+
+    --primary: oklch(0.72 0.12 182);
+    --primary-foreground: oklch(0.17 0.015 250);
+
+    --muted: oklch(0.26 0.02 250);
+    --muted-foreground: oklch(0.69 0.02 250);
+
+    --border: oklch(0.31 0.02 250);
+    --ring: oklch(0.72 0.12 182);
+
+    --danger: oklch(0.66 0.18 25);
+    --danger-foreground: oklch(0.17 0.015 250);
+
+    --success: oklch(0.71 0.13 150);
+    --success-foreground: oklch(0.17 0.015 250);
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
