@@ -145,6 +145,27 @@ different fix, so it gets a different type rather than being flattened into a 50
 ordinary. A 2xx that _does_ carry a body must be the envelope. The leniency is deliberately
 one-sided: absence is plausible, malformed presence is not.
 
+### Time
+
+`src/lib/time.ts` is the only crossing point between API timestamps and `Date`.
+
+**Reading** is the known problem: unmarked UTC strings parse as local, so `parseApiDate` appends `Z`
+unless a zone marker is already there.
+
+**Writing takes no `Z`**, which was verified rather than assumed. The backend's DTOs are
+`LocalDateTime` (`TaskRequest.nextDueDate` — the only writable date-time field in the whole API) and
+there is no Jackson configuration anywhere, so Spring parses with `ISO_LOCAL_DATE_TIME`, which
+accepts no zone marker. Sending a trailing `Z` would be a parse failure, not a harmless extra. So
+`toApiDate` emits UTC wall time at second precision with nothing appended.
+
+**Sub-second precision is dropped on write** and tolerated on read: Postgres returns microseconds,
+which `Date` truncates to milliseconds anyway, and nothing we send needs better than seconds.
+
+**Tests run in a pinned non-UTC zone** (`Europe/Ljubljana`, which also observes DST). On a UTC
+machine a naive parse is accidentally correct, so without the pin the suite would pass against the
+exact bug it exists to catch. The pin was confirmed to take effect by temporarily flipping it to
+`America/New_York` and watching the local-to-UTC case fail as predicted.
+
 ### Testing
 
 **Vitest + Testing Library for units, MSW at the network boundary.** Arrives in phase 1, not phase 0
@@ -326,7 +347,9 @@ workaround **before** the feature depending on it gets built.
 ## Gotchas
 
 1. **API timestamps have no `Z`.** They're UTC, but `new Date("2026-09-28T10:00:00")` parses as
-   _local_. Every date bug in this app will be this bug.
+   _local_. Every date bug in this app will be this bug. The write direction is the mirror: the
+   DTOs are `LocalDateTime` with no Jackson config, so `ISO_LOCAL_DATE_TIME` applies and a trailing
+   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time.ts`.
 2. **Three id namespaces in one payload** — `uid` (string, external), numeric `id` (per entity), and
    GroupMember ids masquerading as person references.
 3. **Local dev issues year-long access tokens**, so refresh, rotation and the `401` path are
@@ -428,6 +451,15 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time.ts` exposes
+  `parseApiDate`, `parseApiDateOrNull` and `toApiDate`; reasoning is under _Time_ above. The write
+  format was settled by reading the backend rather than guessing: `LocalDateTime` DTOs and no
+  Jackson configuration mean `ISO_LOCAL_DATE_TIME`, so we send **no** `Z` — and
+  `TaskRequest.nextDueDate` turns out to be the only writable date-time field in the API, with the
+  other 25 read-only. Tests are pinned to `Europe/Ljubljana`; the pin was verified by flipping it to
+  `America/New_York` and confirming the local-to-UTC case failed. Display formatting ("in 2 days",
+  "10:00") is deliberately **not** here — it's presentation, needs a locale decision, and arrives
+  with the first screen that renders a date.
 - **2026-10-07** — Phase 1 step 2 done: the API client. `src/lib/api/client.ts` unwraps the envelope
   behind a single `request<T>()`; `errors.ts` adds `ApiError` (status, the backend's human message,
   `retryAfterSeconds`) and `ApiResponseFormatError`. Reasoning for the four shaping choices is under

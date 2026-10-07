@@ -21,9 +21,9 @@ go in the bible, not here.
 
 **Phase 1 in progress — the test harness and env validation exist; the API layer and session do
 not.** Next.js 16.3.8 (App Router, Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint,
-Prettier, Vitest + MSW. `src/app` holds placeholder routes only; `src/lib` holds `env.ts` and the
-`api/` client. There is no time module and no session handling yet. The phases and what each one is
-for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
+Prettier, Vitest + MSW. `src/app` holds placeholder routes only; `src/lib` holds `env.ts`, `time.ts`
+and the `api/` client. There is no session handling yet. The phases and what each one is for are in
+[the roadmap](PROJECT_BIBLE.md#roadmap).
 
 **Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
 2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
@@ -74,6 +74,10 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
   lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
   Unhandled requests **fail the test** (`onUnhandledRequest: "error"`) so a stray fetch can't quietly
   reach the network.
+- **The suite runs in a pinned non-UTC timezone** (`test.env.TZ = "Europe/Ljubljana"` in
+  `vitest.config.mts`). On a UTC machine — most CI — a naive `new Date(apiString)` is right by
+  accident, so the timestamp tests would pass against the very bug they exist to catch.
+  `src/lib/time.test.ts` asserts the pin is in effect; don't change the zone without reading it.
 
 ### Generated files
 
@@ -128,8 +132,11 @@ the first line of fetching code we write.
   (`memberId`, never `userId`, when it's a membership).
 - **All timestamps are UTC with no zone marker.** The API returns `date-time` strings from
   `TIMESTAMP WITHOUT TIME ZONE` columns the backend guarantees are UTC. They parse as _local_ time if
-  handled naively. Every conversion goes through one time module that appends `Z` before parsing.
-  Never `new Date(apiString)` directly; never send a local time back.
+  handled naively. Every conversion goes through `src/lib/time.ts` — `parseApiDate` /
+  `parseApiDateOrNull` on the way in, `toApiDate` on the way out. Never `new Date(apiString)`
+  directly; never send a local time back. **Writing back takes no `Z` either**: the backend's DTOs
+  are `LocalDateTime` with no Jackson config, so it parses with `ISO_LOCAL_DATE_TIME`, which accepts
+  no zone marker at all. (`TaskRequest.nextDueDate` is currently the only writable date-time field.)
 - **`401` and `403` get different handling.** `401` = no/expired/invalid token → one silent refresh
   attempt, and on failure clear the session and go to `/login`. `403` = authenticated but not allowed
   → show a permission message, **never** log out and never retry. The spec cannot say which endpoints

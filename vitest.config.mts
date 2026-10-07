@@ -18,5 +18,13 @@ export default defineConfig({
     // No globals: test files import `describe`/`it`/`expect` from vitest.
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    env: {
+      // Pinned to a non-UTC zone on purpose. The API sends UTC timestamps with
+      // no zone marker, so a naive `new Date(apiString)` is wrong by the local
+      // offset — and on a UTC machine that bug is invisible and every test
+      // passes anyway. Ljubljana also observes DST, so the summer/winter cases
+      // differ. src/lib/time.test.ts asserts this pin is actually in effect.
+      TZ: "Europe/Ljubljana",
+    },
   },
 });
