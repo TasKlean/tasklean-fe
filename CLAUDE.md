@@ -19,14 +19,16 @@ go in the bible, not here.
 
 ## Status
 
-**Phase 0 complete — the app is scaffolded and nothing else is built.** Next.js 16.3.8 (App Router,
-Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint, Prettier. `src/app` holds a
-placeholder route only; there is no API layer, no session handling and no tests yet. The phases and
-what each one is for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
+**Phase 1 in progress — the test harness and env validation exist; the API layer and session do
+not.** Next.js 16.3.8 (App Router, Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint,
+Prettier, Vitest + MSW. `src/app` holds placeholder routes only; `src/lib` holds `env.ts` and the
+`api/` client. There is no time module and no session handling yet. The phases and what each one is
+for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
 
 **Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
 2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
-life rather than migrating a month in.
+life rather than migrating a month in. `@types/node` tracks the Node major (`^26`) — Vitest also
+requires `>=22`, so the old `^20` pin no longer resolves.
 
 **npm comes from Node's bundled copy, deliberately** — there is no globally installed npm, so the
 npm version tracks the Node version. Note that Node's `npm` shim prefers a _globally installed_ npm
@@ -41,6 +43,8 @@ npm run build          # Production build
 npm run start          # Serve the production build
 npm run lint           # ESLint
 npm run typecheck      # next typegen && tsc --noEmit
+npm test               # Vitest, single run
+npm run test:watch     # Vitest, watch mode
 npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
@@ -50,6 +54,26 @@ npm run format:check   # Prettier, check only
 
 Prettier does not touch `*.md` (see `.prettierignore`) — it re-pads tables on every edit, which
 makes diffs in these docs noisy.
+
+### Tests
+
+Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code they cover as
+`*.test.ts(x)` under `src/`.
+
+- **The default environment is `node`**, because most of what we test is pure logic (env, the API
+  client, the time module). A component test opts into jsdom per file with
+  `// @vitest-environment jsdom` on the first line.
+- **No globals** — import `describe`/`it`/`expect` from `vitest`. Turning globals on would mean
+  adding `vitest/globals` to `tsconfig`'s `types`, which switches that field from "all `@types`
+  packages" to "only these", so it has to list everything else too. Explicit imports avoid that.
+- The `@/*` → `src/*` alias is mirrored in the Vitest config, so test imports match app imports.
+- `vitest.setup.ts` registers jest-dom matchers on `expect` — harmless under `node`, needed once
+  component tests run in jsdom.
+- **HTTP is mocked at the network boundary with MSW**, not by stubbing our own modules, so the API
+  client is exercised against real envelope payloads. The shared server is `src/test/msw.ts`, its
+  lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
+  Unhandled requests **fail the test** (`onUnhandledRequest: "error"`) so a stray fetch can't quietly
+  reach the network.
 
 ### Generated files
 
@@ -85,9 +109,10 @@ design, not preferences — breaking them produces bugs that look like backend b
 the first line of fetching code we write.
 
 - **Every response is an envelope.** Success and failure both return
-  `{ success: boolean, message: string | null, data: T | null }`. One module unwraps it and returns
-  `data`, throwing a typed error (status + message) otherwise. **Nothing above that module should
-  ever see the envelope.** Error responses use it too — the backend renders even a 404 on an unknown
+  `{ success: boolean, message: string | null, data: T | null }`. `src/lib/api/client.ts` unwraps it
+  and returns `data`, throwing `ApiError` (status + message) otherwise. **Nothing above that module
+  should ever see the envelope.** Note that no field is marked `required` in `openapi.json`, so the
+  client narrows rather than trusting the shape. Error responses use it too — the backend renders even a 404 on an unknown
   route and a 429 from the rate limiter as this JSON, never HTML — so parsing can be unconditional.
 - **Never branch on the exact 2xx code.** POSTs really return `201` while the spec declares `200`
   (springdoc doesn't read `ResponseEntity.status(...)`). Treat any 2xx as success.
@@ -129,8 +154,10 @@ Only what we've actually decided. This grows as we make choices.
 - **TypeScript strict, no `any`.** `unknown` plus a narrowing guard at boundaries.
 - **Server Components by default.** Add `'use client'` only when the component needs state, effects,
   event handlers or browser APIs — and push it as far down the tree as possible.
-- **Components never call `fetch` directly.** All HTTP goes through the API layer, so there's one
-  place that knows about the envelope, auth and error mapping.
+- **Components never call `fetch` directly.** All HTTP goes through `request()` in
+  `src/lib/api/client.ts`, so there's one place that knows about the envelope, auth and error
+  mapping. It takes the access token as a _parameter_ and knows nothing about sessions or refresh —
+  those wrap it rather than living inside it.
 - **Styling is Tailwind utility classes.** No CSS modules, no styled-components, no inline `style`
   except for genuinely dynamic values (a colour stored on a category). Extract a component, not an
   `@apply` class, when a pattern repeats.
@@ -150,6 +177,13 @@ Only what we've actually decided. This grows as we make choices.
 - **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL, the session
   secret and every token stay server-side. The Google _client id_ is public by design — the one
   exception.
+- **Environment variables are read through `src/lib/env.ts`**, never `process.env` directly.
+  `getEnv()` validates the required set on first call and throws naming every missing variable, so a
+  bad config fails loudly at startup instead of surfacing later as a confusing fetch or session bug.
+- **Line endings are LF**, pinned by `.gitattributes` (`* text=auto eol=lf`) for the repo and every
+  working tree. A fresh Windows clone with `core.autocrlf=true` otherwise checks the tree out as CRLF,
+  which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure
+  that looks like a formatting problem and isn't.
 - **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
   `BREAKING CHANGE:` → major. No prefix defaults to patch.
 
@@ -162,6 +196,8 @@ Only what we've actually decided. This grows as we make choices.
 | `API_BASE_URL`                 | server  | Spring API origin (local `http://localhost:8080`, or staging)                                                            |
 | `SESSION_SECRET`               | server  | Key for the encrypted httpOnly session cookie, unique per environment                                                    |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must exactly match** the backend's `GOOGLE_CLIENT_ID`, or token-audience verification fails |
+
+All three are required and validated by `src/lib/env.ts`; whitespace-only counts as missing.
 
 The frontend's origin must be listed in the backend's `CORS_ALLOWED_ORIGINS` and under **Authorized
 JavaScript origins** on the Google OAuth client. Because the browser never calls Spring directly

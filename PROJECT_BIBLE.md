@@ -78,6 +78,9 @@ is already right.
 | **Server Components fetch first, React Query after**       | See _Data fetching_ below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **No global state library**                                | React Query holds server data, the URL holds filters and sort, a cookie holds the active group and theme. That covers everything we have. Adding Zustand later is cheap; unwinding a store full of server data is not.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Design tokens before components**                        | Colour, spacing, typography and radius defined as Tailwind theme tokens in one place, with the dark-mode mechanism chosen up front. Both are miserable to retrofit across a built-out UI — the tokens because every hard-coded value has to be hunted down, dark mode because it changes how every colour is declared.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **One API client, one error type** | See _API client_ below. |
+| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
+| **LF line endings pinned in the repo** | `.gitattributes` with `* text=auto eol=lf`. A fresh Windows clone with `core.autocrlf=true` checks the tree out as CRLF, which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure that reads as a formatting problem and isn't. Pinning it in the repo makes the rule travel to every machine rather than depending on local git config. |
 | **Session in an httpOnly cookie, tokens server-side only** | Forced by the backend's design. See _Session and auth_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### React Query
@@ -116,6 +119,31 @@ neutral between client and server fetching. The argument is latency, not securit
 
 **One hard rule**: never put per-user data in a shared server cache. Per-session caching on the
 client is fine; a group's task list in a shared cache leaks between households.
+
+### API client
+
+`src/lib/api/client.ts` exposes a single `request<T>()`. Four choices in it are worth the reasoning:
+
+**Auth is a parameter, not a session lookup.** `request()` takes an `accessToken` and knows nothing
+about cookies, sessions or refresh. The session layer and single-flight refresh _wrap_ it. Folding
+refresh into the client would mean the module that unwraps envelopes also owns token rotation, and
+the refresh path is the one piece of phase 1 that can't be tested locally — keeping it outside means
+the client stays trivially testable and refresh can be reasoned about on its own.
+
+**One `ApiError` carrying a status, not a class per status code.** The status _is_ the discriminator,
+and the set isn't knowable in advance: `openapi.json` documents only 200/400/401/403/429/500, while
+`404` and `409` demonstrably occur. A subclass hierarchy over an open set would be wrong the first
+time the backend returns something new; a status field never is.
+
+**A second error type, `ApiResponseFormatError`, for "this isn't the envelope".** The backend renders
+_every_ failure as envelope JSON, including a 404 on an unknown route and a 429 from the rate
+limiter. So a non-JSON or non-envelope body doesn't mean the API failed — it means something else
+answered: a proxy, or `API_BASE_URL` pointing somewhere wrong. That's a different bug with a
+different fix, so it gets a different type rather than being flattened into a 500.
+
+**An empty 2xx body resolves to `undefined`** rather than throwing, so a `204` on a delete is
+ordinary. A 2xx that _does_ carry a body must be the envelope. The leniency is deliberately
+one-sided: absence is plausible, malformed presence is not.
 
 ### Testing
 
@@ -317,6 +345,15 @@ workaround **before** the feature depending on it gets built.
    and validate at the boundary; a typo is a `400` at runtime, not a compile error.
 10. **Notifications reference `userId`, not group membership**, and carry denormalized `taskId` and
     `groupId`. One can arrive for a group the user isn't a member of.
+11. **The spec's status-code list is incomplete.** Every one of the 56 operations documents
+    200/401/429/500 (most also 400/403) and _nothing else_ — `404` and `409` appear nowhere in
+    `openapi.json`, though both demonstrably occur (duplicate name → `409`, unknown invite code →
+    `404`). Never treat the documented set as exhaustive.
+12. **No response headers are documented at all**, including the `Retry-After` the rate limiter
+    actually sends on `429`. Read it defensively and tolerate its absence.
+13. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
+    `ErrorResponse` schema is the same envelope with `success: false`, and is referenced by zero
+    responses. Narrow at the boundary rather than trusting the shape.
 
 ---
 
@@ -373,8 +410,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   for one specific reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so if the
   BFF forwards it into error reports, a frontend error links straight to the backend log line. Nearly
   free now, hard to bolt on later.
-- **Env validation at boot** — parse the required variables at module load so a missing
-  `SESSION_SECRET` crashes at startup instead of silently breaking logins in production.
 - **Session cookie implementation** — a library (`iron-session`) or a hand-rolled encrypted cookie.
 - **Active group** — a user is in multiple groups and nearly every list endpoint needs `?groupId=`,
   so "which group am I looking at" is app-level state. Where it lives (session cookie, URL, or both)
@@ -393,6 +428,26 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-07** — Phase 1 step 2 done: the API client. `src/lib/api/client.ts` unwraps the envelope
+  behind a single `request<T>()`; `errors.ts` adds `ApiError` (status, the backend's human message,
+  `retryAfterSeconds`) and `ApiResponseFormatError`. Reasoning for the four shaping choices is under
+  _API client_ above. MSW arrived with it, wired globally in `vitest.setup.ts` with unhandled
+  requests failing the test. Reading `openapi.json` directly turned up three things the summary
+  docs didn't say, now recorded as gotchas 11–13: the documented status set omits `404`/`409`
+  although both occur, no response headers are documented including `Retry-After`, and no envelope
+  field is marked `required`. Refresh and session deliberately stay out of the client — they wrap it
+  in step 4.
+- **2026-10-07** — Phase 1 step 1 done: the test harness and env validation. Vitest + Testing
+  Library + jsdom, with `node` as the default environment and jsdom opted into per file, and no
+  globals (enabling them would force `tsconfig`'s `types` to enumerate every `@types` package).
+  `src/lib/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
+  hand-rolled rather than with Zod, treating whitespace-only as missing and naming every missing
+  variable in one error — this closes the _Env validation at boot_ open question. `@types/node`
+  bumped `^20` → `^26`, since Vitest requires `>=22` and it should track the Node major anyway.
+  Added `.gitattributes` pinning LF, after a fresh Windows clone checked the tree out as CRLF and
+  failed `format:check` across the whole repo. MSW is **not** installed yet — it arrives with the
+  API client, the first code with a network boundary worth mocking. The harness deliberately came
+  before the code it guards, so everything later in phase 1 gets tests written alongside it.
 - **2026-10-03** — Phase 0 done. Next.js 16.3.8 scaffolded (App Router, Turbopack, TS strict,
   Tailwind 4, ESLint) with `--empty` so no demo page. Added Prettier, the Node 26 pin, `.env.example`
   and the design-token layer. React Compiler and Cache Components both left off — each can be enabled
