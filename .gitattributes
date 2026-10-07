@@ -1,0 +1,5 @@
+# Line endings are LF everywhere — in the repo and in every working tree.
+# Without this, a Windows clone (core.autocrlf=true) checks the tree out as CRLF
+# and Prettier (endOfLine: lf) then rejects every file. eol=lf also forces LF in
+# the working tree on checkout, so the setting holds regardless of local git config.
+* text=auto eol=lf
