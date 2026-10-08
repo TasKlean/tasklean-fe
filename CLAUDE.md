@@ -19,11 +19,12 @@ go in the bible, not here.
 
 ## Status
 
-**Phase 1 in progress — the test harness and env validation exist; the API layer and session do
-not.** Next.js 16.3.8 (App Router, Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint,
-Prettier, Vitest + MSW. `src/app` holds placeholder routes only; `src/lib` holds `env.ts`, `time.ts`
-and the `api/` client. There is no session handling yet. The phases and what each one is for are in
-[the roadmap](PROJECT_BIBLE.md#roadmap).
+**Phase 1 complete — the API layer, the time module and the session all exist. There are no screens
+yet.** Next.js 16.3.8 (App Router, Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint,
+Prettier, Vitest + MSW. `src/lib` holds `env.ts`, `time.ts`, `session.ts`, the `api/` client and
+`auth/`; `src/proxy.ts` draws the auth boundary. `src/app` still holds placeholder routes only —
+**so the app currently redirects everything to `/login`, and that page does not exist yet.** Phase 2
+builds it. The phases and what each one is for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
 
 **Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
 2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
@@ -74,6 +75,10 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
   lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
   Unhandled requests **fail the test** (`onUnhandledRequest: "error"`) so a stray fetch can't quietly
   reach the network.
+- **`server-only` is aliased to a stub** (`src/test/server-only-stub.ts`) in the Vitest config. That
+  package throws unless resolved under React’s `react-server` condition, which Vitest does not
+  apply, so server modules would otherwise be unimportable in tests. The real guard is unaffected:
+  the production build does apply that condition.
 - **The suite runs in a pinned non-UTC timezone** (`test.env.TZ = "Europe/Ljubljana"` in
   `vitest.config.mts`). On a UTC machine — most CI — a naive `new Date(apiString)` is right by
   accident, so the timestamp tests would pass against the very bug they exist to catch.
@@ -105,6 +110,32 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
 
 Swagger UI for poking at the API by hand (local backend only, disabled in staging/prod):
 http://localhost:8080/swagger-ui.html
+
+## Session and auth
+
+- **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a JWE and
+  holding the token pair, `userUid` and `activeGroupId`. Encrypted, not signed: a signed payload is
+  plain base64url and ours carries the refresh token. `src/lib/session.ts` owns it; the cookie name
+  and options are exported so `proxy.ts` cannot drift from them.
+- **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`. A `middleware.ts` never runs
+  — silently, with no error.
+- **Proxy is the auth boundary and the only refresh site on the navigation path.** It is default
+  deny: everything is protected unless listed in `PUBLIC_PATHS`. It refreshes only when the access
+  token is inside the skew window, writes the rotated pair back to the cookie, and drops the session
+  if refresh is refused. `/api` is excluded from the matcher so Route Handlers answer `401` rather
+  than redirecting to HTML.
+- **Never refresh where the rotated pair cannot be persisted.** Refresh tokens are single-use: the
+  backend revokes the one presented, so losing its replacement kills the session. Cookies can only
+  be written in Proxy, a Route Handler or a Server Action — **never during a Server Component
+  render**.
+- **`serverApi()` is the session-aware entry point**; `request()` is the raw one. `serverApi` throws
+  `SessionExpiredError` on `401` and deliberately does not refresh. A `403` passes through as an
+  `ApiError` — authenticated but not allowed is not a session problem.
+- **Modules holding secrets import `server-only`**, so pulling one into a client bundle is a build
+  error rather than a leak.
+- **Role checks in our code are UX, never authorization.** Spring stays the authority; gate the UI
+  optimistically *and* still handle the `403`. Role access is designed but not built — see the
+  bible.
 
 ## Consuming the API
 
@@ -191,6 +222,9 @@ Only what we've actually decided. This grows as we make choices.
   working tree. A fresh Windows clone with `core.autocrlf=true` otherwise checks the tree out as CRLF,
   which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure
   that looks like a formatting problem and isn't.
+- **Run `/pre-commit` before committing.** The skill in `.claude/skills/pre-commit/` runs the four
+  gates, checks the conventions on this page, updates the docs and drafts the message. It never
+  commits.
 - **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
   `BREAKING CHANGE:` → major. No prefix defaults to patch.
 

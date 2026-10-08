@@ -79,6 +79,9 @@ is already right.
 | **No global state library**                                | React Query holds server data, the URL holds filters and sort, a cookie holds the active group and theme. That covers everything we have. Adding Zustand later is cheap; unwinding a store full of server data is not.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Design tokens before components**                        | Colour, spacing, typography and radius defined as Tailwind theme tokens in one place, with the dark-mode mechanism chosen up front. Both are miserable to retrofit across a built-out UI — the tokens because every hard-coded value has to be hunted down, dark mode because it changes how every colour is declared.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **One API client, one error type** | See _API client_ below. |
+| **Session cookie encrypted with `jose`** | See _Session cookie implementation_. Encrypted (JWE), not signed — a signed payload is readable, and ours holds the refresh token. |
+| **Refresh happens in Proxy** | See _Refresh lives in Proxy_. A Server Component render cannot write cookies, so refreshing anywhere else loses the rotated token and kills the session. |
+| **Client-side role checks are UX, never authorization** | See _Roles and access_. Spring stays the authority; the UI gates optimistically and still handles the 403. |
 | **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
 | **LF line endings pinned in the repo** | `.gitattributes` with `* text=auto eol=lf`. A fresh Windows clone with `core.autocrlf=true` checks the tree out as CRLF, which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure that reads as a formatting problem and isn't. Pinning it in the repo makes the rule travel to every machine rather than depending on local git config. |
 | **Session in an httpOnly cookie, tokens server-side only** | Forced by the backend's design. See _Session and auth_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -268,6 +271,90 @@ device".
 
 ---
 
+### Session cookie implementation
+
+**`jose` with `EncryptJWT` (JWE, `dir` + `A256GCM`)** — not `iron-session`, not hand-rolled.
+
+Next provides the cookie layer (`cookies()`), so no library is needed for *that*. What Next does not
+provide is encrypting the value, and its auth guide says so outright, recommending iron-session or
+jose. Of the three ways:
+
+- **`jose`** has **zero transitive dependencies**, so the dependency cost is about as low as a
+  library gets; it genuinely encrypts; it enforces `exp`, which is the piece most easily botched by
+  hand; and it leaves the cookie to Next, so every step stays visible.
+- **`iron-session`** needs the least code but owns the cookie too, hiding the mechanics.
+- **`node:crypto` AES-256-GCM** was the zero-dependency option and is defensible — it is a vetted
+  primitive, not rolling our own crypto. Rejected only because we would then own IV generation, key
+  derivation *and* expiry enforcement.
+
+**It encrypts rather than signs, and that distinction is the point.** Next own auth example names its
+helpers `encrypt`/`decrypt` but uses `SignJWT` — signing, whose payload is plain base64url and
+readable by anyone holding the cookie. That is fine for its `{ userId }` payload; it would publish
+our refresh token. A test asserts the sealed cookie contains neither token in any decodable form.
+
+The key is derived with **WebCrypto** SHA-256 rather than `node:crypto`, so the module also works in
+the Edge runtime where Proxy runs. A length guard rejects a short secret, which SHA-256 would
+otherwise silently expand to 32 bytes.
+
+Rotating `SESSION_SECRET` invalidates every session at once. That is the emergency revoke-all lever,
+and the reason it must differ per environment.
+
+### Refresh lives in Proxy, not in the API client
+
+**Cookies cannot be written during a Server Component render.** Next is explicit that `.set` and
+`.delete` require a Server Function or Route Handler. Combined with the backend refresh tokens being
+single-use with rotation, the obvious design — refresh on a 401 inside the API client — is actively
+destructive: the backend revokes the token presented, the replacement cannot be persisted, and the
+session dies on the next request.
+
+So refresh happens in `src/proxy.ts` before anything renders, and `serverApi()` deliberately does
+**not** refresh. A 401 that reaches it means the session is genuinely over.
+
+Next also advises keeping Proxy cheap and free of network calls, since it runs on every route
+including prefetches. **We deviate knowingly**: the refresh fires only when the access token is
+inside the skew window — roughly once per 15 minutes per session, not once per request. The
+alternative caps every session at the access-token lifetime.
+
+Single-flight de-duplication is **per-process and best-effort**. Two instances can still refresh
+concurrently; solving that properly needs a shared lock, which is not worth it at this scale.
+
+### Roles and access
+
+Two role namespaces that behave completely differently:
+
+| | Platform role | Group role |
+| --- | --- | --- |
+| Values | `USER`, `ADMIN`, `SUPER_ADMIN` | `GROUP_ADMIN`, `GROUP_MEMBER` |
+| Where it lives | **in the access token** (`role` claim) | **not in the token** — per membership |
+| Source | the JWT we already hold | `MyGroupResponse.myRole`, `GroupMemberResponse.role` |
+| Scope | global | **per group** — admin of one, member of another |
+| Spring enforces via | `ROLE_<role>` authority | service code, not annotations |
+
+That last row is why the spec cannot express authorization and why a 403 is always a runtime
+discovery.
+
+**Platform role barely matters to this product.** Every real user is `USER`; listing all users is
+ADMIN-only and changing a role is SUPER_ADMIN-only, neither of which belongs in the product UI.
+**Group role is what gates anything.**
+
+**Client-side role checks are UX, never authorization.** They decide what to render and enable, and
+that is all they can be: anything in the browser is editable, duplicating Spring rules creates two
+sources of truth that drift, and a cached role goes stale — a role change or deactivation only takes
+effect at refresh, up to 15 minutes later. So the rule is **both, with different jobs**: gate the UI
+optimistically so people are not shown controls that will fail, *and* still handle the 403 when the
+optimistic guess is wrong. Exactly the pattern the last-admin case already needs — disable the
+control *and* handle the 409.
+
+The access token also carries `userId` and `uid` claims, so the numeric id is available without
+storing it in the session or calling `/me` for it. Claims are decoded, never verified: only Spring
+can verify its own signature, and we do not need to, because none of this is a security boundary.
+
+**Not built yet.** When it arrives it should be capability predicates (`canManageMembers(role)`),
+not `role === "GROUP_ADMIN"` scattered around, so the mapping sits in one place when the backend
+rules shift. Group role needs a fetch, so it belongs with phase 3, where an active group first
+exists.
+
+
 ## The API, annotated
 
 The full catalog is the spec. This is what a _client_ needs that the spec can't say.
@@ -372,9 +459,13 @@ workaround **before** the feature depending on it gets built.
     200/401/429/500 (most also 400/403) and _nothing else_ — `404` and `409` appear nowhere in
     `openapi.json`, though both demonstrably occur (duplicate name → `409`, unknown invite code →
     `404`). Never treat the documented set as exhaustive.
-12. **No response headers are documented at all**, including the `Retry-After` the rate limiter
+12. **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`, not `middleware.ts`. A
+    `middleware.ts` written from memory simply never runs — no error, no warning.
+13. **Cookies cannot be set during a Server Component render.** `.set`/`.delete` need a Proxy,
+    Route Handler or Server Action. This is what forces refresh into Proxy.
+14. **No response headers are documented at all**, including the `Retry-After` the rate limiter
     actually sends on `429`. Read it defensively and tolerate its absence.
-13. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
+15. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
     `ErrorResponse` schema is the same envelope with `success: false`, and is referenced by zero
     responses. Narrow at the boundary rather than trusting the shape.
 
@@ -391,8 +482,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | #     | Phase                      | What it is                                                                                                                                                         | Why here                                                                                                                                                                                                    |
 | ----- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
-| 1     | **API layer and session** ← _current_ | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
-| 2     | **Auth screens**           | Register → verify → login, Google sign-in, logout.                                                                                                                 | The first flow that exercises phase 1 end to end against a real backend. Needs the staging URL, because refresh can't be tested locally. End-to-end testing and CI start making sense once this exists.     |
+| **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
+| 2     | **Auth screens** ← _current_ | Register → verify → login, Google sign-in, logout.                                                                                                                 | The first flow that exercises phase 1 end to end against a real backend. Needs the staging URL, because refresh can't be tested locally. End-to-end testing and CI start making sense once this exists.     |
 | 3     | **Group onboarding**       | `/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
 | 4     | **Tasks — the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
 | 5     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
@@ -433,7 +524,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   for one specific reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so if the
   BFF forwards it into error reports, a frontend error links straight to the backend log line. Nearly
   free now, hard to bolt on later.
-- **Session cookie implementation** — a library (`iron-session`) or a hand-rolled encrypted cookie.
 - **Active group** — a user is in multiple groups and nearly every list endpoint needs `?groupId=`,
   so "which group am I looking at" is app-level state. Where it lives (session cookie, URL, or both)
   isn't decided.
@@ -451,6 +541,17 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-08** — Phase 1 done: the session, refresh and the auth boundary. The cookie is encrypted
+  with `jose` (JWE), not signed — reasoning under _Session cookie implementation_. Refresh lives in
+  `src/proxy.ts` because a Server Component render cannot write cookies, and single-use rotation
+  means refreshing where the new pair cannot be persisted kills the session; `serverApi()` therefore
+  surfaces a 401 as `SessionExpiredError` rather than refreshing. Single-flight de-duplicates
+  concurrent refreshes and holds the result through a short grace window so a straggler does not
+  re-spend a revoked token. **Next 16 renamed Middleware to Proxy** — a `middleware.ts` written from
+  memory would simply never run; recorded as gotcha 12. Dropped `userId` from the session: the
+  access token already carries `userId` and `uid` claims, so storing it was speculative. Role
+  access is designed but **not built** — see _Roles and access_; it needs an active group, so it
+  belongs with phase 3. Added a `/pre-commit` skill mirroring the backend own.
 - **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time.ts` exposes
   `parseApiDate`, `parseApiDateOrNull` and `toApiDate`; reasoning is under _Time_ above. The write
   format was settled by reading the backend rather than guessing: `LocalDateTime` DTOs and no

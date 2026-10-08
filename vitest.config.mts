@@ -11,6 +11,10 @@ export default defineConfig({
     // Mirror the `@/*` -> `src/*` alias from tsconfig so imports match the app.
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // `server-only` throws unless resolved under React's "react-server"
+      // condition, which Vitest doesn't apply. See the stub for why this is
+      // safe; the package's own empty.js isn't reachable (not in its exports).
+      "server-only": fileURLToPath(new URL("./src/test/server-only-stub.ts", import.meta.url)),
     },
   },
   test: {
