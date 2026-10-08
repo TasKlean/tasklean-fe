@@ -4,11 +4,17 @@
  * Hand-rolled rather than schema-based while the set is this small.
  */
 
+// Declared before the types rather than after, against the usual file order:
+// RequiredKey is derived from this array, and Env from RequiredKey, so the chain
+// only reads in one direction.
 const REQUIRED = ["API_BASE_URL", "SESSION_SECRET", "NEXT_PUBLIC_GOOGLE_CLIENT_ID"] as const;
 
 type RequiredKey = (typeof REQUIRED)[number];
 
 export type Env = Record<RequiredKey, string>;
+
+// Memoised after the first successful read; getEnv() is called on every request.
+let cached: Env | undefined;
 
 /**
  * Reads and validates the required variables.
@@ -40,8 +46,6 @@ export function readEnv(source: Record<string, string | undefined> = process.env
 
   return env;
 }
-
-let cached: Env | undefined;
 
 /**
  * Returns the validated environment, memoised after the first call.

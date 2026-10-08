@@ -20,13 +20,32 @@ import {
   unsealSession,
 } from "@/lib/session";
 
+export const config = {
+  // `/api` is excluded deliberately: Route Handlers must answer 401 rather than
+  // redirect to an HTML page, so they handle sessions themselves via serverApi().
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
+  ],
+};
+
 // Default deny: adding a route must not require remembering to protect it.
 const PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/about"];
 
+/**
+ * Reports whether a path is reachable without a session.
+ *
+ * Matches a prefix as well as the exact path, so `/login/callback` is public
+ * because `/login` is.
+ */
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+/**
+ * Builds the redirect to `/login`, preserving where the visitor was headed.
+ *
+ * @returns A redirect carrying a `next` parameter for login to return them to.
+ */
 function redirectToLogin(request: NextRequest): NextResponse {
   const url = new URL("/login", request.nextUrl);
   // Preserved so login can return them where they were headed.
@@ -81,11 +100,3 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     return response;
   }
 }
-
-export const config = {
-  // `/api` is excluded deliberately: Route Handlers must answer 401 rather than
-  // redirect to an HTML page, so they handle sessions themselves via serverApi().
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
-  ],
-};

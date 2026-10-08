@@ -10,7 +10,8 @@
 
 import "server-only";
 
-import { type RequestOptions, request } from "@/lib/api/client";
+import { request } from "@/lib/api/client";
+import type { RequestOptions } from "@/lib/api/client.types";
 import { isApiError } from "@/lib/api/errors";
 import { getSession } from "@/lib/session";
 

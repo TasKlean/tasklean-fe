@@ -15,11 +15,7 @@ import { getEnv } from "@/lib/env";
 export type Session = {
   accessToken: string;
   refreshToken: string;
-  // The opaque id used in URLs. The numeric one is not stored — the access
-  // token already carries it as a claim.
   userUid: string;
-  // Nearly every list endpoint needs a group scope, so "which group am I
-  // looking at" belongs with the session.
   activeGroupId: number | null;
 };
 
@@ -59,6 +55,14 @@ function getKey(): Promise<Uint8Array> {
   return keyPromise;
 }
 
+/**
+ * Narrows a decrypted JWE payload back to a Session.
+ *
+ * The payload is whatever was sealed, which may be an older shape after a
+ * deploy, so every field is checked rather than trusted.
+ *
+ * @returns The session, or null when a required field is missing or mistyped.
+ */
 function toSession(payload: unknown): Session | null {
   if (typeof payload !== "object" || payload === null) return null;
   const value = payload as Record<string, unknown>;

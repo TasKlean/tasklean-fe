@@ -252,16 +252,40 @@ front rather than discovered.
 Browser  ──(httpOnly cookie)──▶  Next.js server  ──(Authorization: Bearer)──▶  Spring API
 ```
 
-The Next.js **server** is the only thing that ever holds a JWT.
+The Next.js **server** is the only thing that can ever _read_ a JWT. It is not the only thing that
+holds one: **there is no server-side session store.** The tokens are sealed into the cookie, which
+lives in the browser's cookie jar and rides along on every request; the server decrypts it, uses the
+access token and discards it. Nothing persists between requests. Three consequences follow, and they
+are easy to miss if you picture the tokens sitting on the server:
 
-- The browser gets an **httpOnly, Secure, SameSite=Lax** cookie holding an _encrypted_ session
-  (access token, refresh token, user identity, active group). Browser JavaScript never sees a JWT,
-  so an XSS can't steal one.
+- **No per-session revocation.** Killing one session means rotating `SESSION_SECRET`, which kills
+  every session at once. A server-side store (an opaque id in the cookie, tokens in Redis or a
+  table) is the design that buys targeted revocation; we skipped it because it is infrastructure we
+  do not have. Revisit it when "sign out my other devices" becomes a requirement.
+- **Everything must fit a cookie.** Two tokens plus our own fields, inside the ~4KB limit.
+- **The tokens do transit the browser**, on every request. Encrypted and unreadable, but present —
+  not "never leaves the server".
+
+With that correction in place, the pieces are:
+
+- The browser gets an **httpOnly, SameSite=Lax** cookie (`Secure` in production; off locally so
+  `http://localhost` works) holding an _encrypted_ session: access token, refresh token, user
+  identity, active group.
+- **`httpOnly` stops exfiltration, not abuse.** Browser JavaScript cannot read the token, so an XSS
+  cannot steal it — but the browser attaches the cookie automatically, so an XSS can still call our
+  Route Handlers as the user. It protects the credential, not the session.
 - Browser→server calls go to our own Route Handlers or Server Actions. Client code has no knowledge
   of the Spring origin and couldn't reach it if it tried.
-- Mutations from the browser carry a **CSRF token** (double-submit, checked server-side).
-  `SameSite=Lax` alone isn't the whole defence.
-- The cookie is persistent, tracking the refresh-token TTL (14 days), giving a rolling session.
+- **CSRF: designed, not built.** The intent is a double-submit token on every mutation, checked
+  server-side, because `SameSite=Lax` alone isn't the whole defence. **None of it exists yet** —
+  there is no code and nothing to grep for. Nothing is exposed today because there are no mutation
+  endpoints at all, but this has to land with the first Route Handler or Server Action we write, not
+  after.
+- The cookie is persistent and tracks the refresh-token TTL (14 days). It is **rolling only where
+  refresh actually fires**: each refresh rewrites the cookie and restarts the 14 days. Locally that
+  never happens, because the dev profile issues 1-year access tokens, so the cookie is a flat
+  14-day expiry there. `sealSession` also sets its own `exp` inside the encrypted payload, so expiry
+  does not depend on the browser honouring `maxAge`.
 
 ### Flows worth knowing before writing them
 
@@ -567,6 +591,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   `typescript-eslint` throws on `versionMajor >= 7`, so linting dies outright. Its own tracking
   issue (typescript-eslint#10940) targets TS >=7.1, so revisit when that lands — and only together
   with raising the `~6.0.3` pin.
+- **Absolute session cap** — the session is rolling: every refresh restarts the 14 days, so an
+  active session never ends on its own. An absolute cap (a hard maximum age regardless of activity,
+  forcing a real re-login) is normal hardening and we have none. It needs a decision on the limit
+  and on where the clock lives, since a cap the cookie reports is a cap the cookie can lie about —
+  it has to be sealed into the payload at first login and carried through every rotation.
 - **Canonical URL for `metadataBase`** — Open Graph and canonical tags need an absolute origin, and
   we have no deployed URL yet (the staging one is still unrecorded). Until there is one, pages carry
   titles and descriptions but no link-preview metadata, because a relative OG image resolves against
@@ -581,6 +610,36 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-08** — Corrected this document's description of the session, which overstated three
+  things. It said the Next server "is the only thing that ever holds a JWT"; in fact there is no
+  server-side store at all — the sealed tokens live in the browser's cookie and transit it on every
+  request, which is why we have no per-session revocation and why the 4KB cookie limit is a real
+  constraint. It presented the **CSRF token as part of the architecture when none is implemented**,
+  the kind of error that gets read as "covered" and leaves the first mutation endpoint unprotected.
+  And "rolling session" was unqualified, though refresh never fires locally against 1-year dev
+  tokens. Added the absolute session cap as an open question; it had only ever been mentioned in
+  conversation.
+- **2026-10-08** — Fixed file structure adopted: imports, types, metadata and module config,
+  variables, then content, so configuration always sits above the implementation. `proxy.ts`'s
+  `config` moved up with it — Next puts it at the bottom by habit, but it is configuration.
+  Reordered `layout.tsx`, `env.ts`, `refresh.ts` and `proxy.ts` to match. `env.ts` is a documented
+  exception: `RequiredKey` derives from `REQUIRED` and `Env` from `RequiredKey`, so dependency order
+  wins over section order. **Wider gaps between sections were rejected, not forgotten**: Prettier
+  collapses consecutive blank lines with no option to disable it, verified by probe, and banner
+  comments would outweigh the code in files this small. One blank line it is.
+- **2026-10-08** — Two code-organisation rules, both in CLAUDE.md. **Types move out at two**: a
+  module declaring more than one type or interface keeps them in a sibling `<module>.types.ts`, so
+  logic isn't buried under declarations. The types file is the single import source — no
+  re-exporting from the module, because two valid paths to one type is the mess the rule exists to
+  stop. Two exceptions found while applying it: a type computed from a value in the module stays
+  put (`env.ts` keeps `RequiredKey`, derived from `REQUIRED`, since moving it means a runtime value
+  in a `.types.ts` or an import cycle), and splitting makes a private type importable, which is a
+  real cost for `Envelope` — noted in the types file's header, with the containment rule in
+  CLAUDE.md doing the actual work. **Every function now takes TSDoc, exported or not.** The
+  previous rule exempted helpers whose "name says it", and that judgement call had left eight
+  functions uncommented — `buildUrl`, `isEnvelope`, `performRefresh`, `toSession`, `isPublic`,
+  `redirectToLogin`, `RootLayout`, `AboutPage`. An exemption that depends on taste cannot be
+  checked, so it is gone.
 - **2026-10-08** — Page metadata convention settled: `metadata` is exported from every page
   directly after the imports, titles carry only the page name because the root layout owns the
   `%s - TasKlean` template, and the homepage deliberately sets none so it renders as `TasKlean`

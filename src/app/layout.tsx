@@ -2,14 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-// Self-hosted by next/font at build time: no runtime request to Google, and no
-// layout shift. latin-ext is required for Slovenian diacritics (c-caron, s-caron, z-caron).
-const inter = Inter({
-  subsets: ["latin", "latin-ext"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
 export const metadata: Metadata = {
   title: {
     // `default` is the whole title for pages that set none — the homepage relies
@@ -32,6 +24,18 @@ export const viewport: Viewport = {
   ],
 };
 
+// Self-hosted by next/font at build time: no runtime request to Google, and no
+// layout shift. latin-ext is required for Slovenian diacritics (c-caron, s-caron, z-caron).
+const inter = Inter({
+  subsets: ["latin", "latin-ext"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+/**
+ * The root layout: sets the document language, applies the font variable and
+ * renders every page. Owns the title template that all page titles flow through.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={inter.variable}>

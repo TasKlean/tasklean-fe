@@ -6,28 +6,16 @@
  * session and refresh wrap this module instead of living inside it.
  */
 
+import type { Envelope, QueryValue, RequestOptions } from "@/lib/api/client.types";
 import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { getEnv } from "@/lib/env";
 
-// No field is marked `required` in openapi.json, so none may be assumed
-// present — not even on a 2xx.
-type Envelope = {
-  success?: boolean;
-  message?: string | null;
-  data?: unknown;
-};
-
-type QueryValue = string | number | boolean | null | undefined;
-
-export type RequestOptions = {
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  body?: unknown;
-  query?: Record<string, QueryValue>;
-  accessToken?: string;
-  headers?: Record<string, string>;
-  signal?: AbortSignal;
-};
-
+/**
+ * Joins the configured base URL, a path and a query object into a request URL.
+ *
+ * @param query Null and undefined values are dropped rather than serialised.
+ * @returns An absolute URL, with no doubled slash at the join.
+ */
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   const base = getEnv().API_BASE_URL.replace(/\/+$/, "");
   const suffix = path.startsWith("/") ? path : `/${path}`;
@@ -47,12 +35,23 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   return serialised ? `${url}?${serialised}` : url;
 }
 
+/**
+ * Narrows a parsed body to the envelope shape.
+ *
+ * Only rejects what cannot carry fields: an array or a non-object. Every field
+ * is optional, so a plain object always qualifies and the caller checks the
+ * parts it needs.
+ */
 function isEnvelope(value: unknown): value is Envelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// Seconds only. The HTTP-date form is legal but not something this API sends,
-// so an unparseable or absent header yields null rather than a guess.
+/**
+ * Reads `Retry-After` as a count of seconds.
+ *
+ * Seconds only: the HTTP-date form is legal but not something this API sends,
+ * so an unparseable or absent header yields null rather than a guess.
+ */
 function parseRetryAfter(header: string | null): number | null {
   if (!header) return null;
   const seconds = Number.parseInt(header, 10);

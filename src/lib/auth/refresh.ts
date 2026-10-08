@@ -11,19 +11,14 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
+import type { AuthResponse, RefreshedTokens } from "@/lib/auth/refresh.types";
 
-// The backend's AuthResponse: `token`, not `accessToken`, and no numeric id.
-type AuthResponse = {
-  token: string;
-  refreshToken: string;
-  uid: string;
-};
+// Keyed by the token being spent, so callers holding the same one converge.
+const inFlight = new Map<string, Promise<RefreshedTokens>>();
 
-export type RefreshedTokens = {
-  accessToken: string;
-  refreshToken: string;
-  userUid: string;
-};
+// Successful entries linger this long so a straggler that read the old cookie
+// gets the new pair instead of presenting a token that is already revoked.
+const GRACE_MS = 10_000;
 
 export class RefreshFailedError extends Error {
   /** The backend's status, or `null` when the failure wasn't an HTTP one. */
@@ -35,13 +30,6 @@ export class RefreshFailedError extends Error {
     this.status = status;
   }
 }
-
-// Keyed by the token being spent, so callers holding the same one converge.
-const inFlight = new Map<string, Promise<RefreshedTokens>>();
-
-// Successful entries linger this long so a straggler that read the old cookie
-// gets the new pair instead of presenting a token that is already revoked.
-const GRACE_MS = 10_000;
 
 /**
  * Refreshes the token pair, sharing one request per refresh token.
@@ -71,6 +59,14 @@ export function refreshTokens(refreshToken: string): Promise<RefreshedTokens> {
   return pending;
 }
 
+/**
+ * Performs the actual refresh call, with no de-duplication of its own.
+ *
+ * Kept separate from `refreshTokens` so the single-flight map wraps exactly one
+ * request, and renames the backend's field names onto ours.
+ *
+ * @throws RefreshFailedError when the backend refuses, or returns half a pair.
+ */
 async function performRefresh(refreshToken: string): Promise<RefreshedTokens> {
   let response: AuthResponse;
 

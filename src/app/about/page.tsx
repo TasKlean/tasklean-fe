@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   description: "What TasKlean is and who builds it.",
 };
 
+/** Renders the public about page. */
 export default function AboutPage() {
   return (
     <div>

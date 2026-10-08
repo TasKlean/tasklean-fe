@@ -219,10 +219,16 @@ Only what we've actually decided. This grows as we make choices.
   `409` messages for humans.
 - **Every page exports `metadata`**, placed **directly after the imports**, before the component.
   See [Page metadata](#page-metadata) below.
+- **Files read in one order**: imports, types, metadata, variables, content. See
+  [File structure](#file-structure).
+- **Types move out at two.** A module declaring more than one type or interface keeps them in a
+  sibling `<module>.types.ts`. See [Where types live](#where-types-live).
 - **Comments** follow [Comments](#comments) below — file header, TSDoc on exports, inline for _why_.
-- **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL, the session
-  secret and every token stay server-side. The Google _client id_ is public by design — the one
-  exception.
+- **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL and the
+  session secret are server-only, and no token is ever readable by browser code — note that the
+  tokens themselves do travel to the browser, sealed inside the session cookie, so "server-only"
+  describes the secret and the base URL, not them. The Google _client id_ is public by design — the
+  one exception.
 - **Environment variables are read through `src/lib/env.ts`**, never `process.env` directly.
   `getEnv()` validates the required set on first call and throws naming every missing variable, so a
   bad config fails loudly at startup instead of surfacing later as a confusing fetch or session bug.
@@ -258,6 +264,53 @@ the first thing a reader sees.
   and `/verify-email` are public for *access* but should not be indexed. See the bible for what
   "SEO proper" will mean when we build it.
 
+### File structure
+
+**Every file reads in the same order**, so finding a thing never depends on knowing the file:
+
+1. **Imports.**
+2. **Types** — only when a single one stays inline; two or more live in `<module>.types.ts`.
+3. **Metadata and module config** — `metadata` and `viewport` on a page or layout, and `config` on
+   `proxy.ts`. Next puts `config` at the bottom by habit; it is configuration, not logic, so here it
+   goes with the metadata.
+4. **Variables** — every module-level constant and every piece of module state. All of them, not
+   just the ones declared before the first function. A `let cached` sitting between two functions is
+   the exact thing this rule exists to stop.
+5. **Content** — classes, functions, components.
+
+The payoff is that configuration is always above the fold: you can read what a module needs and what
+it is wired to without scrolling past its implementation.
+
+**One blank line between sections, not two.** Prettier collapses consecutive blank lines to a single
+one and offers no option to change that, so a wider gap cannot survive `npm run format`. We
+considered banner comments (`// --- Variables ---`) to get the separation back and decided against
+them: our files are small enough that the banners would outweigh the code, and the fixed order above
+already tells you where to look. Don't add them to one file without changing this rule.
+
+**When a type derives from a variable, dependency order wins** and the two interleave. `env.ts`
+declares `REQUIRED` first, then `RequiredKey` from it, then `Env`, then the `cached` typed by `Env`
+— any other order makes the file read backwards. Say so in a comment where it happens, as that file
+does.
+
+### Where types live
+
+**A module with more than one `type` or `interface` moves them to a sibling `<module>.types.ts`** —
+same directory, named after the module that owns them. `client.ts` has `client.types.ts` next to it.
+One type stays inline; the second one triggers the split. The point is that a file's logic should
+not be something you scroll past declarations to reach.
+
+- **The types file is the single source.** Don't re-export its types from the module as well — two
+  valid import paths for one type is the mess this is meant to prevent. Import from
+  `@/lib/api/client.types`, not from `@/lib/api/client`.
+- **A type derived from a value in the module stays with it.** `env.ts` keeps `RequiredKey` because
+  it is computed from the `REQUIRED` array; moving it would mean either putting a runtime value in a
+  `.types.ts` or creating an import cycle. Both are worse than two types in one file.
+- **Splitting makes a private type importable**, which TypeScript cannot prevent. Where that matters
+  — `Envelope` must not escape `client.ts` — say so in the types file's header, and keep the rule in
+  this document doing the real work.
+- Feature types stay per-feature and hand-written, as [Consuming the API](#consuming-the-api) says.
+  This is about where they sit, not where they come from.
+
 ### Comments
 
 Meaningful, compact, contextual. A comment earns its place by saying something the code cannot.
@@ -266,16 +319,18 @@ Meaningful, compact, contextual. A comment earns its place by saying something t
 single thing a reader must know before touching it. No history, no essays, no restating the exports.
 Plain presentational components and barrel files get none.
 
-**Functions** — TSDoc (`/** ... */`) on every exported function. This mirrors the backend Javadoc
-rule, so the two repos read the same way.
+**Functions** — TSDoc (`/** ... */`) on **every function, exported or not**, including page and
+layout components. This mirrors the backend Javadoc rule, so the two repos read the same way. There
+is no "obvious enough to skip" exemption: that judgement call is what left eight helpers
+uncommented the first time, and a rule with no exceptions is the only kind that can be checked.
 
 - A one-line summary, imperative mood: "Parses…", not "This function parses…".
 - `@param` for each parameter whose purpose is not obvious from its name and type.
 - `@returns` when the return value is not obvious from the name and type.
 - `@throws` for anything a caller must anticipate and handle.
 
-Skip a tag rather than padding it — `@param token The token` is noise. Internal helpers get a single
-`//` line, or nothing when the name says it.
+Skip a tag rather than padding it — `@param token The token` is noise. A trivial helper may have a
+one-line TSDoc (`/** Returns the group's active members. */`) and no tags at all — but it has one.
 
 **Types** — a `//` above a field only when the type cannot carry the meaning: units, which id
 namespace it belongs to, or what `null` signifies. Never one per field.
