@@ -1,15 +1,13 @@
-// The auth boundary, and the only place a rotated token pair can be persisted
-// on the navigation path.
-//
-// Next 16 renamed Middleware to Proxy; the file convention is `src/proxy.ts`.
-//
-// Next's guidance is to keep Proxy cheap and avoid network calls, because it
-// runs on every route including prefetches. We make exactly one, and only when
-// `accessTokenExpiresWithin` says the access token is about to die — roughly
-// once per 15 minutes per session, not once per request. The alternative is
-// worse: a Server Component render cannot set cookies, so a 401 reached during
-// rendering can only log the user out, which would cap every session at the
-// access-token lifetime.
+/**
+ * The auth boundary, and the only place a rotated token pair can be persisted
+ * on the navigation path. Next 16 renamed Middleware to Proxy, so this file is
+ * `proxy.ts` — a `middleware.ts` would never run.
+ *
+ * Next advises keeping Proxy free of network calls. We make one, but only when
+ * the access token is near expiry: roughly once per 15 minutes per session. The
+ * alternative caps every session at the access-token lifetime, since a Server
+ * Component render cannot set cookies.
+ */
 
 import { type NextRequest, NextResponse } from "next/server";
 import { accessTokenExpiresWithin } from "@/lib/auth/access-token";
@@ -22,8 +20,7 @@ import {
   unsealSession,
 } from "@/lib/session";
 
-// Default deny: everything is protected unless it is listed here. Adding a
-// route should not require remembering to protect it.
+// Default deny: adding a route must not require remembering to protect it.
 const PUBLIC_PATHS = ["/login", "/register", "/verify-email"];
 
 function isPublic(pathname: string): boolean {
@@ -32,11 +29,16 @@ function isPublic(pathname: string): boolean {
 
 function redirectToLogin(request: NextRequest): NextResponse {
   const url = new URL("/login", request.nextUrl);
-  // Preserve the destination so login can return them to it.
+  // Preserved so login can return them where they were headed.
   url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   return NextResponse.redirect(url);
 }
 
+/**
+ * Guards every matched route: redirects anonymous visitors to `/login`,
+ * refreshes a near-expiry token pair and persists the rotation, and drops the
+ * session when refresh is refused.
+ */
 export default async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
   const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
@@ -44,9 +46,9 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
   if (!session) {
     if (isPublic(pathname)) return NextResponse.next();
 
-    // Clear a cookie that exists but no longer unseals (tampered or expired),
-    // so the browser stops sending it on every subsequent request.
     const response = redirectToLogin(request);
+    // A cookie that exists but no longer unseals would otherwise be resent on
+    // every request forever.
     if (request.cookies.has(SESSION_COOKIE_NAME)) {
       response.cookies.delete(SESSION_COOKIE_NAME);
     }
@@ -68,11 +70,12 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     };
 
     const response = NextResponse.next();
+    // Writing this back is not optional: the backend has already revoked the
+    // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
     return response;
   } catch {
-    // The refresh token is spent, revoked or the backend refused. There is no
-    // recovery: drop the session rather than leaving a dead cookie in place.
+    // Spent, revoked, or refused — there is no recovery from here.
     const response = redirectToLogin(request);
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;
@@ -80,8 +83,9 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
 }
 
 export const config = {
-  // Skips Next internals and static assets. `/api` is excluded deliberately:
-  // our own Route Handlers must answer with a 401 rather than a redirect to an
-  // HTML page, so they do their own session handling via serverApi().
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
+  // `/api` is excluded deliberately: Route Handlers must answer 401 rather than
+  // redirect to an HTML page, so they handle sessions themselves via serverApi().
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
+  ],
 };

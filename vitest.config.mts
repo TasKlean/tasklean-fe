@@ -1,19 +1,22 @@
+/**
+ * Test harness for the whole app. `node` is the default environment because
+ * most of what we test is pure logic; a component test opts into jsdom per file
+ * with `// @vitest-environment jsdom`.
+ */
+
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// Test harness for the whole app. Node is the default environment because most
-// of what we test (API client, env, time) is pure; a component test opts into
-// jsdom per file with `// @vitest-environment jsdom`.
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    // Mirror the `@/*` -> `src/*` alias from tsconfig so imports match the app.
     alias: {
+      // Mirrors tsconfig's `@/*`, so test imports match app imports.
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      // `server-only` throws unless resolved under React's "react-server"
-      // condition, which Vitest doesn't apply. See the stub for why this is
-      // safe; the package's own empty.js isn't reachable (not in its exports).
+      // Vitest doesn't resolve React's "react-server" condition, so the real
+      // package would hit its deliberate throw. Its own empty.js isn't
+      // reachable — not in its exports map — hence a local stub.
       "server-only": fileURLToPath(new URL("./src/test/server-only-stub.ts", import.meta.url)),
     },
   },
@@ -23,11 +26,10 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     env: {
-      // Pinned to a non-UTC zone on purpose. The API sends UTC timestamps with
-      // no zone marker, so a naive `new Date(apiString)` is wrong by the local
-      // offset — and on a UTC machine that bug is invisible and every test
-      // passes anyway. Ljubljana also observes DST, so the summer/winter cases
-      // differ. src/lib/time.test.ts asserts this pin is actually in effect.
+      // Non-UTC on purpose: on a UTC machine a naive `new Date(apiString)` is
+      // correct by accident, so the timestamp tests would pass against the very
+      // bug they exist to catch. Ljubljana also observes DST, so the summer and
+      // winter cases differ. src/lib/time.test.ts asserts this pin holds.
       TZ: "Europe/Ljubljana",
     },
   },

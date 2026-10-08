@@ -531,6 +531,10 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 - **End-to-end testing** — whether to do it, with what, and where it runs. Two things fall outside
   what Vitest can reach and would need it: async Server Components and the httpOnly cookie session.
   Not urgent until there's a flow spanning several pages.
+- **TypeScript 7** — we are on 6.0.3; 7.0 is the native rewrite and is **blocked, not deferred**.
+  `typescript-eslint` throws on `versionMajor >= 7`, so linting dies outright. Its own tracking
+  issue (typescript-eslint#10940) targets TS >=7.1, so revisit when that lands — and only together
+  with raising the `~6.0.3` pin.
 - **Offline behaviour** — read caching is straightforward; queuing mutations offline is a genuine
   distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be
   waved at.
@@ -541,6 +545,28 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-08** — Dependencies brought current: Next and eslint-config-next 16.3.8 → 16.4.0, React
+  19.2.8 → 19.3.0, ESLint 9 → 10, jsdom 29 → 30 (which needs Node 26, so the Node upgrade unlocked
+  it), MSW 2 → 3. ESLint 10 was verified by probe rather than trusted: `eslint-config-next` bundles
+  `eslint-plugin-import`, `-jsx-a11y` and `-react` whose peer ranges cap at 9 and resolve as
+  invalid, but a probe file confirmed all of their rules still fire. **MSW 3 renamed
+  `onUnhandledRequest` to `onUnhandledFrame` and defaults to warning**, so our "fail the test"
+  guard was silently downgraded to a pass-through to the real network; `typecheck` caught it, and a
+  first probe gave a false positive because the unresolvable host made `fetch` reject on its own.
+  TypeScript 5.9.3 → **6.0.3**, not 7: TS 7 installs and typechecks fine, but `typescript-eslint`
+  has a hard `versionMajor >= 7` guard that throws, killing `npm run lint` entirely — a real block,
+  not the stale peer metadata ESLint 10 turned out to be. TS 6.0.3 is the last JS-based line and
+  sits inside typescript-eslint's `>=4.8.4 <6.1.0` range; all four gates pass and a probe confirmed
+  the `@typescript-eslint/*` rules still fire. Pinned `~6.0.3` rather than `^6.0.3` on purpose —
+  the caret would admit 6.1.0, which is outside that range and would break lint on a later install.
+- **2026-10-08** — Commenting standard adopted (file header, TSDoc on exports, inline for the _why_
+  only) and applied across every source file; it is in CLAUDE.md under _Comments_ and mirrors the
+  backend Javadoc rule. Brought this machine onto **Node 26.8.1** via the signed MSI: it had been
+  running Node 22.19 against an `engines.node` of `>=26`, with a global npm 11.6.4 shadowing the
+  bundled copy — the exact trap CLAUDE.md documents, caught by its own test (`npm -v` disagreeing
+  with the bundled version). Removed the global npm; `npm -v` now matches at 11.19.0. Denied
+  `msw`'s postinstall, which npm 11.19 surfaces as uncovered: it installs the browser service
+  worker and we only use `msw/node`.
 - **2026-10-08** — Phase 1 done: the session, refresh and the auth boundary. The cookie is encrypted
   with `jose` (JWE), not signed — reasoning under _Session cookie implementation_. Refresh lives in
   `src/proxy.ts` because a Server Component render cannot write cookies, and single-use rotation

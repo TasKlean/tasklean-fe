@@ -4,9 +4,8 @@ import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { request } from "@/lib/api/client";
 import { server } from "@/test/msw";
 
-// Deliberately configured with a trailing slash: every assertion below that the
-// request reached http://api.test/api/... also proves the base URL and path are
-// joined without doubling the slash (MSW fails unhandled requests).
+// The trailing slash is deliberate: every request MSW matches below also proves
+// the base and path join without doubling the slash.
 const BASE = "http://api.test";
 
 beforeAll(() => {

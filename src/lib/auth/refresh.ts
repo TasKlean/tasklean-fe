@@ -1,22 +1,18 @@
-// Exchanging a refresh token for a new token pair, de-duplicated.
-//
-// The backend's refresh tokens are SINGLE-USE WITH ROTATION: each successful
-// refresh revokes the token presented and returns a new pair. That makes
-// concurrent refreshes actively dangerous — the second caller would present a
-// token the first just revoked, and the whole session dies. So every refresh
-// for a given token shares one in-flight request.
-//
-// This module deliberately knows nothing about cookies. Persisting the new pair
-// is the caller's job, because only a middleware, Route Handler or Server
-// Action can write a cookie — a Server Component render cannot.
+/**
+ * Exchanges a refresh token for a new pair, de-duplicated.
+ *
+ * Refresh tokens are single-use with rotation: a successful refresh revokes the
+ * token presented. So concurrent refreshes would revoke each other's token and
+ * kill the session, and persisting the new pair is the caller's job — only
+ * Proxy, a Route Handler or a Server Action can write a cookie.
+ */
 
 import "server-only";
 
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 
-// The backend's AuthResponse. Note `token`, not `accessToken`, and no numeric
-// user id — only `uid`.
+// The backend's AuthResponse: `token`, not `accessToken`, and no numeric id.
 type AuthResponse = {
   token: string;
   refreshToken: string;
@@ -30,6 +26,7 @@ export type RefreshedTokens = {
 };
 
 export class RefreshFailedError extends Error {
+  /** The backend's status, or `null` when the failure wasn't an HTTP one. */
   readonly status: number | null;
 
   constructor(message: string, status: number | null = null) {
@@ -39,16 +36,22 @@ export class RefreshFailedError extends Error {
   }
 }
 
-// Keyed by the refresh token being spent. Entries linger briefly after settling
-// so a straggler that read the old cookie still gets the new pair instead of
-// presenting the now-revoked token and killing the session.
+// Keyed by the token being spent, so callers holding the same one converge.
 const inFlight = new Map<string, Promise<RefreshedTokens>>();
 
+// Successful entries linger this long so a straggler that read the old cookie
+// gets the new pair instead of presenting a token that is already revoked.
 const GRACE_MS = 10_000;
 
-// Per-process only. On a multi-instance deploy two instances can still refresh
-// concurrently; that is inherent to a shared-nothing deployment and would need
-// a shared lock to solve properly.
+/**
+ * Refreshes the token pair, sharing one request per refresh token.
+ *
+ * De-duplication is per-process and best-effort; two deployed instances can
+ * still refresh concurrently, which would need a shared lock to prevent.
+ *
+ * @returns The rotated pair. The caller must persist it or the session is lost.
+ * @throws RefreshFailedError when the backend refuses, or returns no pair.
+ */
 export function refreshTokens(refreshToken: string): Promise<RefreshedTokens> {
   const existing = inFlight.get(refreshToken);
   if (existing) return existing;
@@ -56,10 +59,14 @@ export function refreshTokens(refreshToken: string): Promise<RefreshedTokens> {
   const pending = performRefresh(refreshToken);
   inFlight.set(refreshToken, pending);
 
-  const forget = () => {
-    setTimeout(() => inFlight.delete(refreshToken), GRACE_MS).unref?.();
-  };
-  pending.then(forget, () => inFlight.delete(refreshToken));
+  // A failure is forgotten at once so a retry is possible; a success is kept
+  // for the grace window.
+  pending.then(
+    () => {
+      setTimeout(() => inFlight.delete(refreshToken), GRACE_MS).unref?.();
+    },
+    () => inFlight.delete(refreshToken),
+  );
 
   return pending;
 }
@@ -79,8 +86,7 @@ async function performRefresh(refreshToken: string): Promise<RefreshedTokens> {
     throw error;
   }
 
-  // A 2xx that doesn't carry both tokens is unusable — treat it as a failure
-  // rather than writing half a session back to the cookie.
+  // Half a pair is unusable, and writing it back would strand the session.
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
     throw new RefreshFailedError("Refresh succeeded but returned no token pair.");
   }

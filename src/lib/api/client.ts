@@ -1,17 +1,16 @@
-// The only module that talks to the Spring API, and the only one that knows the
-// response envelope exists. Callers get `data`, typed, or an ApiError — never
-// `{ success, message, data }`.
-//
-// Server-side only: API_BASE_URL is a server variable and the browser never
-// calls Spring directly. Auth is a parameter here, not a session lookup; the
-// session and single-flight refresh wrap this module later and it stays unaware
-// of both.
+/**
+ * The only module that talks to the Spring API, and the only one that knows the
+ * response envelope exists. Callers get `data`, typed, or an `ApiError`.
+ *
+ * Server-side only, and auth is a parameter rather than a session lookup — the
+ * session and refresh wrap this module instead of living inside it.
+ */
 
 import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { getEnv } from "@/lib/env";
 
-// Every field is optional in openapi.json — none is marked `required` — so
-// nothing may be assumed present, even on a 2xx.
+// No field is marked `required` in openapi.json, so none may be assumed
+// present — not even on a 2xx.
 type Envelope = {
   success?: boolean;
   message?: string | null;
@@ -38,8 +37,8 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    // A null or undefined scope param is a bug, but it is the caller's bug to
-    // surface as a 400 from the backend rather than one this layer invents.
+    // A missing scope param is the caller's bug, best surfaced as the backend's
+    // 400 rather than as an error this layer invents.
     if (value === null || value === undefined) continue;
     params.set(key, String(value));
   }
@@ -52,15 +51,24 @@ function isEnvelope(value: unknown): value is Envelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// The backend sends `Retry-After` in seconds. The HTTP-date form is legal but
-// not something this API produces, so it is not handled; an unparseable or
-// absent header yields null rather than a guess.
+// Seconds only. The HTTP-date form is legal but not something this API sends,
+// so an unparseable or absent header yields null rather than a guess.
 function parseRetryAfter(header: string | null): number | null {
   if (!header) return null;
   const seconds = Number.parseInt(header, 10);
   return Number.isFinite(seconds) ? seconds : null;
 }
 
+/**
+ * Calls the API and unwraps the envelope.
+ *
+ * @param path Path from the API root, e.g. `/api/tasks`.
+ * @param options Method, body, query parameters, bearer token, abort signal.
+ * @returns The envelope's `data`, typed as `T`. An empty 2xx body gives
+ * `undefined`, for a caller typed `request<void>`.
+ * @throws ApiError on any non-2xx, carrying the backend's message when it sent one.
+ * @throws ApiResponseFormatError when a 2xx body is not the envelope.
+ */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, query, accessToken, headers = {}, signal } = options;
 
@@ -73,22 +81,21 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
-    // Never let a per-user API response land in a shared cache.
+    // Never let a per-user response land in a shared cache.
     cache: "no-store",
   });
 
-  // Parsed from text, not response.json(), so an empty body is distinguishable
+  // Read as text, not response.json(), so an empty body stays distinguishable
   // from malformed JSON. Parsing is unconditional because the backend renders
-  // every failure as envelope JSON too, never HTML.
+  // failures as envelope JSON too, never HTML.
   const raw = await response.text();
   let parsed: unknown = undefined;
   if (raw.trim() !== "") {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      // A non-JSON body means something other than this API answered — a proxy,
-      // or API_BASE_URL pointing somewhere wrong. On an error status the status
-      // is still the useful signal, so it stays an ApiError.
+      // Something other than this API answered. On an error status the status is
+      // still the useful signal, so it stays an ApiError.
       if (!response.ok) {
         throw new ApiError(
           response.status,
@@ -106,9 +113,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const envelope = isEnvelope(parsed) ? parsed : undefined;
   const message = typeof envelope?.message === "string" ? envelope.message : null;
 
-  // Any 2xx is success. POSTs really return 201 while the spec declares 200, and
-  // 404/409 are absent from the spec entirely though both occur — so the exact
-  // code is never the thing branched on.
+  // Any 2xx is success: POSTs return 201 though the spec says 200, and 404/409
+  // are absent from the spec entirely despite both occurring.
   if (!response.ok) {
     throw new ApiError(
       response.status,
@@ -117,8 +123,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     );
   }
 
-  // An empty 2xx body is tolerated and yields undefined, for a caller typed
-  // `request<void>`; a 2xx that carries a body must be the envelope.
   if (raw.trim() === "") return undefined as T;
   if (!envelope) {
     throw new ApiResponseFormatError(

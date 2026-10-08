@@ -11,9 +11,8 @@ beforeAll(() => {
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "client-id.apps.googleusercontent.com";
 });
 
-// Each test uses a distinct refresh token: the single-flight cache is
-// module-level and lingers for a grace window, so sharing one would leak state
-// between tests.
+// Each test uses a distinct token: the single-flight cache is module-level and
+// lingers for a grace window, so sharing one would leak state between tests.
 function handler(counter: { calls: number }, status = 200) {
   return http.post(`${BASE}/api/auth/refresh`, async ({ request: req }) => {
     counter.calls += 1;

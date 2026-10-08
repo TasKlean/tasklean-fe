@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 import { InvalidApiDateError, parseApiDate, parseApiDateOrNull, toApiDate } from "@/lib/time";
 
 describe("test timezone pin", () => {
-  // Asserts vitest.config.mts's TZ pin is in effect. Without it, a UTC machine
-  // (most CI) makes a naive `new Date(apiString)` right by accident, so the
-  // tests below would pass against the exact bug this module exists to prevent.
-  // One test here — toApiDate's local-to-UTC case — depends on this zone.
+  // Without this pin, a UTC machine makes a naive parse correct by accident and
+  // every test below passes against the bug this module exists to prevent.
   it("runs in the pinned non-UTC zone, so UTC bugs cannot hide", () => {
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("Europe/Ljubljana");
     expect(new Date("2026-07-01T12:00:00Z").getTimezoneOffset()).not.toBe(0);

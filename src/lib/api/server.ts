@@ -1,12 +1,12 @@
-// The session-aware entry point for API calls. Everything above the API layer
-// should use this rather than `request()` directly.
-//
-// It does NOT refresh on 401, on purpose. Refreshing means writing a rotated
-// token pair back to the cookie, and a Server Component render cannot set
-// cookies — so a refresh here would revoke the stored token with no way to save
-// its replacement, killing the session. Refresh happens in middleware, before
-// the request reaches any of this. A 401 that still arrives means the session
-// is genuinely finished.
+/**
+ * The session-aware entry point for API calls; everything above the API layer
+ * uses this rather than `request()` directly.
+ *
+ * It deliberately does not refresh on 401. Refreshing means persisting a
+ * rotated pair, which a Server Component render cannot do — so it would revoke
+ * the stored token with no way to save its replacement. Proxy refreshes before
+ * the request gets here, so a 401 that still arrives means the session is over.
+ */
 
 import "server-only";
 
@@ -21,10 +21,21 @@ export class SessionExpiredError extends Error {
   }
 }
 
+/**
+ * Narrows an unknown caught value to `SessionExpiredError`.
+ */
 export function isSessionExpiredError(error: unknown): error is SessionExpiredError {
   return error instanceof SessionExpiredError;
 }
 
+/**
+ * Calls the API with the current session's access token.
+ *
+ * @param options As `request()`, minus `accessToken` — the session supplies it.
+ * @throws SessionExpiredError when there is no session, or the API returns 401.
+ * @throws ApiError for every other failure, including 403: authenticated but
+ * not allowed is a permission problem, not a session one.
+ */
 export async function serverApi<T>(
   path: string,
   options: Omit<RequestOptions, "accessToken"> = {},
@@ -35,9 +46,6 @@ export async function serverApi<T>(
   try {
     return await request<T>(path, { ...options, accessToken: session.accessToken });
   } catch (error) {
-    // 401 means the token is gone or rejected -> the session is over.
-    // 403 is NOT a session problem: the user is authenticated but not allowed,
-    // so it passes through as an ApiError for the UI to explain.
     if (isApiError(error) && error.status === 401) {
       throw new SessionExpiredError();
     }

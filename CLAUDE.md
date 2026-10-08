@@ -20,7 +20,7 @@ go in the bible, not here.
 ## Status
 
 **Phase 1 complete — the API layer, the time module and the session all exist. There are no screens
-yet.** Next.js 16.3.8 (App Router, Turbopack), React 19.2, TypeScript strict, Tailwind 4, ESLint,
+yet.** Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
 Prettier, Vitest + MSW. `src/lib` holds `env.ts`, `time.ts`, `session.ts`, the `api/` client and
 `auth/`; `src/proxy.ts` draws the auth boundary. `src/app` still holds placeholder routes only —
 **so the app currently redirects everything to `/login`, and that page does not exist yet.** Phase 2
@@ -73,7 +73,7 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
 - **HTTP is mocked at the network boundary with MSW**, not by stubbing our own modules, so the API
   client is exercised against real envelope payloads. The shared server is `src/test/msw.ts`, its
   lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
-  Unhandled requests **fail the test** (`onUnhandledRequest: "error"`) so a stray fetch can't quietly
+  Unhandled requests **fail the test** (`onUnhandledFrame: "error"`) so a stray fetch can't quietly
   reach the network.
 - **`server-only` is aliased to a stub** (`src/test/server-only-stub.ts`) in the Vitest config. That
   package throws unless resolved under React’s `react-server` condition, which Vitest does not
@@ -100,6 +100,14 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
   `eslint-config-next` to 14.x on a Next 16 project, so **leave it**.
 - **`unrs-resolver`'s postinstall is denied** (`allowScripts` in `package.json`). ESLint runs clean
   without it; the denial is committed so no future install silently approves it.
+- **`typescript` is pinned `~6.0.3`, not `^6.0.3`** — the caret would admit 6.1.0, and
+  `typescript-eslint` declares `>=4.8.4 <6.1.0`. **TypeScript 7 is not an option yet**: it
+  typechecks and builds fine, but typescript-eslint has a hard `versionMajor >= 7` guard that
+  throws, so `npm run lint` fails outright. Don't widen the pin until typescript-eslint ships TS 7
+  support.
+- **`msw`'s postinstall is denied too.** It installs the browser service worker, which we never use
+  — only `msw/node` in tests. npm 11.19 surfaces it as uncovered by `allowScripts`; the suite passes
+  with the script unrun, so it is denied rather than approved.
 
 ### Running against a backend
 
@@ -209,9 +217,7 @@ Only what we've actually decided. This grows as we make choices.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never show
   a bare "Something went wrong" when the envelope carried a usable `message` — the backend writes
   `409` messages for humans.
-- **Comments**: a short header on any non-obvious module saying what it's _for_; inline `//` above
-  (not trailing) complex logic, explaining _why_. Never restate the code. Plain presentational
-  components need none. Update or delete a comment when the code beneath it changes.
+- **Comments** follow [Comments](#comments) below — file header, TSDoc on exports, inline for _why_.
 - **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL, the session
   secret and every token stay server-side. The Google _client id_ is public by design — the one
   exception.
@@ -227,6 +233,38 @@ Only what we've actually decided. This grows as we make choices.
   commits.
 - **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
   `BREAKING CHANGE:` → major. No prefix defaults to patch.
+
+### Comments
+
+Meaningful, compact, contextual. A comment earns its place by saying something the code cannot.
+
+**File header** — one to three lines at the top of any non-obvious module: what it is _for_, plus the
+single thing a reader must know before touching it. No history, no essays, no restating the exports.
+Plain presentational components and barrel files get none.
+
+**Functions** — TSDoc (`/** ... */`) on every exported function. This mirrors the backend Javadoc
+rule, so the two repos read the same way.
+
+- A one-line summary, imperative mood: "Parses…", not "This function parses…".
+- `@param` for each parameter whose purpose is not obvious from its name and type.
+- `@returns` when the return value is not obvious from the name and type.
+- `@throws` for anything a caller must anticipate and handle.
+
+Skip a tag rather than padding it — `@param token The token` is noise. Internal helpers get a single
+`//` line, or nothing when the name says it.
+
+**Types** — a `//` above a field only when the type cannot carry the meaning: units, which id
+namespace it belongs to, or what `null` signifies. Never one per field.
+
+**Inline** — `//` above the line (never trailing), explaining the _why_. Reach for one when the code
+is correct but looks wrong, encodes a backend quirk, or deliberately rejects an obvious alternative.
+If it restates the mechanics, delete it.
+
+**Tests** — normally none: the `it(...)` description is the comment. Comment only a non-obvious
+assertion, or one that exists to catch a specific trap.
+
+**Upkeep** — update or delete a comment in the same change as the code beneath it. A stale comment is
+worse than none.
 
 ## Environment
 

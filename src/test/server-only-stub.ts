@@ -1,8 +1,8 @@
-// Stands in for the `server-only` package under Vitest.
-//
-// That package deliberately throws unless resolved under React's "react-server"
-// condition, which Vitest doesn't apply — so importing any server module in a
-// test would fail. Aliased in vitest.config.mts. The real guard is unaffected:
-// the production build does apply that condition, so importing a server-only
-// module into a client bundle is still a build error.
+/**
+ * Stands in for the `server-only` package under Vitest, which doesn't resolve
+ * React's `react-server` condition and would otherwise hit that package's
+ * deliberate throw. Aliased in `vitest.config.mts`. The production build does
+ * apply the condition, so the real guard is unaffected.
+ */
+
 export {};
