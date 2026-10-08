@@ -207,6 +207,38 @@ clock and mocked responses; a staging-targeted e2e run is the only real-world ch
 
 ---
 
+### Page metadata and SEO
+
+**Every page exports `metadata` directly after its imports.** The placement is a convention, not a
+requirement — Next reads the export wherever it sits. It goes at the top because a page is found by
+its route rather than its filename, so the title and description are the fastest way to confirm you
+have opened the right file.
+
+**Titles never contain the brand.** The root layout owns `template: "%s - TasKlean"` and a
+`default` of `TasKlean`, so a page supplies only its own name. That keeps the separator and the
+brand in one place: changing either is a one-line edit, not a sweep through every route. The
+homepage is the deliberate exception — it sets no title, because the template would turn `Home`
+into `Home - TasKlean`, and a landing page should read as the product.
+
+**Real SEO applies to public pages only, and today that set is one page: `/about`.** Note that the
+root route is *not* in it. `/` is destined to become "today" — the task feed — so it sits behind the
+auth boundary like the rest of the app, and Proxy redirects an anonymous request before a crawler
+ever sees HTML. That is the same reason the data-fetching decision above notes SEO is irrelevant
+behind a login. If we ever want a marketing landing page, it needs its own route or a split on auth
+state; it is not something `/` grows into.
+
+**Public and indexable are different things.** `PUBLIC_PATHS` also holds `/login`, `/register` and
+`/verify-email` — reachable without a session because they have to be, but there is no reason for
+them to appear in search results. They are public for access, not for crawlers, and should carry
+`robots: { index: false }` when we build them.
+
+So protected routes get a title and a description for the browser tab and nothing more; spending
+effort on Open Graph images or structured data there would be work no one can observe. When we do
+build out `/about` and any marketing routes, "SEO proper" means: `metadataBase` plus a canonical
+URL, Open Graph and Twitter cards so a shared link renders, `robots: { index: false }` on
+everything protected and on the auth screens, and a `sitemap.ts` listing only the genuinely
+indexable set.
+
 ## Session and auth architecture
 
 The backend decided this and it isn't ours to relitigate: **Spring stays a pure stateless Bearer API
@@ -535,6 +567,10 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   `typescript-eslint` throws on `versionMajor >= 7`, so linting dies outright. Its own tracking
   issue (typescript-eslint#10940) targets TS >=7.1, so revisit when that lands — and only together
   with raising the `~6.0.3` pin.
+- **Canonical URL for `metadataBase`** — Open Graph and canonical tags need an absolute origin, and
+  we have no deployed URL yet (the staging one is still unrecorded). Until there is one, pages carry
+  titles and descriptions but no link-preview metadata, because a relative OG image resolves against
+  nothing and Next warns about it at build time.
 - **Offline behaviour** — read caching is straightforward; queuing mutations offline is a genuine
   distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be
   waved at.
@@ -545,6 +581,15 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-08** — Page metadata convention settled: `metadata` is exported from every page
+  directly after the imports, titles carry only the page name because the root layout owns the
+  `%s - TasKlean` template, and the homepage deliberately sets none so it renders as `TasKlean`
+  rather than `Home - TasKlean`. The separator changed from `·` to `-`. Real SEO is scoped to the
+  public set — which is `/about` alone, since `/` becomes the protected task feed and the auth
+  screens are public for access but should not be indexed — and deferred until those pages exist;
+  reasoning under _Page metadata and SEO_.
+  Dropped `'use client'` from the about page: it had no state, effects or handlers, and the
+  directive silently makes a `metadata` export dead, which is the trap the convention now records.
 - **2026-10-08** — Dependencies brought current: Next and eslint-config-next 16.3.8 → 16.4.0, React
   19.2.8 → 19.3.0, ESLint 9 → 10, jsdom 29 → 30 (which needs Node 26, so the Node upgrade unlocked
   it), MSW 2 → 3. ESLint 10 was verified by probe rather than trusted: `eslint-config-next` bundles

@@ -12,8 +12,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
+    // `default` is the whole title for pages that set none — the homepage relies
+    // on it. `template` wraps whatever a page does set, so pages supply the bare
+    // name ("Login") and never repeat the brand.
     default: "TasKlean",
-    template: "%s · TasKlean",
+    template: "%s - TasKlean",
   },
   description: "Clean tasks, clear minds. Household task management for families and roommates.",
   applicationName: "TasKlean",

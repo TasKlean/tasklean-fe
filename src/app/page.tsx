@@ -1,6 +1,10 @@
 // Placeholder. The real root route ("today": tasks due now) arrives with the task
 // feature; this exists only so the scaffold has something to render and so the
 // design tokens, font and dark mode can be eyeballed.
+// No `metadata` export on purpose: the root layout's title `default` already
+// renders this page as "TasKlean", and setting a title here would run through
+// the template and give "Home - TasKlean". This route is protected and becomes
+// the task feed, so a tab title is all it ever needs — no SEO is coming.
 export default function Home() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-2xl flex-col justify-center gap-6 px-4">

@@ -21,7 +21,7 @@ import {
 } from "@/lib/session";
 
 // Default deny: adding a route must not require remembering to protect it.
-const PUBLIC_PATHS = ["/login", "/register", "/verify-email"];
+const PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/about"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

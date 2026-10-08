@@ -217,6 +217,8 @@ Only what we've actually decided. This grows as we make choices.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never show
   a bare "Something went wrong" when the envelope carried a usable `message` — the backend writes
   `409` messages for humans.
+- **Every page exports `metadata`**, placed **directly after the imports**, before the component.
+  See [Page metadata](#page-metadata) below.
 - **Comments** follow [Comments](#comments) below — file header, TSDoc on exports, inline for _why_.
 - **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL, the session
   secret and every token stay server-side. The Google _client id_ is public by design — the one
@@ -233,6 +235,28 @@ Only what we've actually decided. This grows as we make choices.
   commits.
 - **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
   `BREAKING CHANGE:` → major. No prefix defaults to patch.
+
+### Page metadata
+
+Every `page.tsx` exports a `metadata` object, and it sits **directly after the imports** — above the
+component, never below it. Pages are found by their route, so the title and description should be
+the first thing a reader sees.
+
+- **Titles are the bare page name — never the brand.** The root layout sets
+  `template: "%s - TasKlean"`, so `title: "Login"` renders as `Login - TasKlean`. Writing the brand
+  into a page title doubles it.
+- **The homepage is the exception.** It sets no title at all: the root layout's `default` renders it
+  as `TasKlean`, whereas a title there would come out `Home - TasKlean`.
+- **A `metadata` export is impossible in a client component.** Next only reads it from Server
+  Components, and it fails silently rather than erroring — if a page needs `'use client'`, the
+  directive belongs on a child component, not the page.
+- **Descriptions are written for a human**, one sentence, specific to the page. Not keyword soup, and
+  not a copy of the root description.
+- **SEO proper is for public pages only, and `/` is not one of them.** The root route becomes the
+  task feed and stays behind the auth boundary; `/about` is the public page today. Anything a
+  crawler cannot reach gets a title and a description and nothing more. Note `/login`, `/register`
+  and `/verify-email` are public for *access* but should not be indexed. See the bible for what
+  "SEO proper" will mean when we build it.
 
 ### Comments
 

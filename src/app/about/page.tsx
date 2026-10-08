@@ -1,4 +1,9 @@
-"use client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About",
+  description: "What TasKlean is and who builds it.",
+};
 
 export default function AboutPage() {
   return (
