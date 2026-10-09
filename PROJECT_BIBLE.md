@@ -171,41 +171,30 @@ exact bug it exists to catch. The pin was confirmed to take effect by temporaril
 
 ### Testing
 
-**Vitest + Testing Library for units, MSW at the network boundary.** Arrives in phase 1, not phase 0
-— an empty harness rots, and phase 0's job is a running app. **The end-to-end tool is a separate
-decision, deferred** (see _Open questions_).
+**Vitest + Testing Library for units, MSW at the network boundary.** It arrived in phase 1, not phase
+0 — an empty harness rots, and phase 0's job was a running app. **The end-to-end tool is a separate
+decision, still open.**
 
-There is a limit on how far unit tests can reach here, and it's worth knowing up front. The Next.js
-docs are explicit that **async Server Components can't be unit tested**, and recommend e2e for them:
+**Unit tests cannot reach the pages, and that is structural.** The Next docs state that async Server
+Components can't be unit tested and recommend e2e for them; the reason given is that they are new to
+*React*, so this is not a Vitest-vs-Jest gap — Jest is in the same position. Our convention is Server
+Components by default and they will be async because they fetch, so units cover the logic layer and
+client components only. The httpOnly cookie session is the other thing jsdom cannot reach, which puts
+login → cookie → protected route on the same side of the line.
 
-> Since `async` Server Components are new to the React ecosystem, Vitest currently does not support
-> them. While you can still run unit tests for synchronous Server and Client Components, we recommend
-> using E2E tests for `async` components.
+**Vitest over Jest** for setup cost: five dev dependencies and a short config against Jest's
+`next/jest` transform wrapper and ESM wrangling. Vitest is ESM/TypeScript-native through Vite, so
+there is no Babel/SWC layer to debug when an import fails for no visible reason. Its API is
+Jest-compatible, so nothing learned is wasted. Jest's one advantage — the React Native default —
+matters only if a native sibling ever happens, in its own repo.
 
-Our convention is Server Components by default, and they'll be async because they fetch. So **unit
-tests cover the logic layer and client components, and the pages need something else** — whatever we
-pick later. The reason Next gives is that async Server Components are new to _React_, so this is not
-a Vitest-vs-Jest differentiator; Jest is in the same position. Our httpOnly cookie session is the
-other thing jsdom can't reach, so the login → cookie → protected-route path falls on the same side
-of that line.
+**MSW returns the envelope**, including the `401`/`403`/`409`/`429` shapes, so the client is exercised
+against realistic payloads rather than stubbed functions. That is the point of mocking at the network
+boundary rather than mocking our own modules.
 
-**Vitest over Jest** because its setup is five dev dependencies and a ten-line config, where Jest
-needs the `next/jest` transform wrapper and more ESM wrangling. Vitest is ESM/TypeScript-native
-through Vite, so there's no Babel/SWC layer to debug when an import mysteriously fails — fewer
-confusing moving parts, which is worth real money while learning. Its API is Jest-compatible
-(`describe`/`it`/`expect`, mocks, fake timers), so nothing learned is wasted. The one point for Jest
-is that it's the React Native default — relevant only if the native sibling ever happens, in its own
-repo.
-
-**MSW returns the envelope**, including the `401`/`403`/`409`/`429` shapes, so the API client is
-exercised against realistic payloads rather than stubbed functions. That's the whole point of mocking
-at the network boundary instead of mocking our own modules.
-
-**A hole to be honest about**: the refresh-and-rotation path can't be exercised end-to-end locally,
-because the local backend issues year-long access tokens. Refresh gets unit-tested with a controlled
-clock and mocked responses; a staging-targeted e2e run is the only real-world check.
-
----
+**A hole to be honest about**: refresh and rotation cannot be exercised end to end locally, because
+the local backend issues year-long access tokens. It is unit-tested with a controlled clock and mocked
+responses; a staging-targeted e2e run is the only real check.
 
 ### The design system
 
@@ -238,70 +227,53 @@ every card.
 
 ### The password policy
 
-**The frontend is the spec here, not the mirror.** `src/lib/validation/password.ts` holds the policy
-and the backend is being changed to match it, which is the reverse of the usual direction — so that
-file is the thing to read, and any disagreement is a backend bug.
+**The frontend is the spec here, not the mirror.** `validation/password.ts` holds it and the backend
+is being changed to match, so that file is the thing to read and any disagreement is a backend bug.
 
-The rules: **8–64 characters**, with an uppercase letter, a lowercase letter, a number and a
-special character. All four classes are required, and **a password rated weak is rejected** — the
-form's minimum is "good".
-
-Three decisions inside that are worth the reasoning:
+**8–64 characters**, one each of uppercase, lowercase, digit and non-alphanumeric, and **a password
+rated weak is rejected** — the form's minimum is "good". Three decisions worth the reasoning:
 
 - **Special characters are "anything that is not a letter or a digit"**, not a list. The original
   policy listed about twenty symbols and omitted `+ % & ( ) < > "` and backslash, so a
   password-manager string could be refused while the person stared at the symbol they had typed. A
-  list is how gaps appear; the negated class cannot develop one. (The written policy also showed a
-  curly `’` rather than a straight apostrophe, which no keyboard types.)
+  list is how gaps appear. (It also showed a curly `’`, which no keyboard types.)
 - **The maximum is 64, not 20.** A 20-character cap forbids `Correct-Horse-Battery-Staple-2026`
-  while permitting `Password1!` — it rules out the strongest password a person actually remembers.
-  BCrypt accepts 72 bytes, so nothing technical required the lower cap.
-- **Character rules alone are not enough.** `Password1!` satisfies every one of them and sits near
-  the top of every breach list, so `isGuessable` rejects a short common-password list, leet
-  substitutions (`P@ssw0rd`) and a stripped trailing tail (`Password123!` → `password`). **That
-  list is 24 entries, which is enough for the obvious cases and nothing more.** A real check wants
-  the Pwned Passwords k-anonymity API or a local top-10k list; see _Open questions_.
+  while permitting `Password1!`. BCrypt takes 72 bytes, so nothing technical required the lower cap.
+- **Character rules alone are not enough.** `Password1!` satisfies every one and sits near the top of
+  every breach list, so `isGuessable` also rejects a common-password list, leet substitutions and a
+  stripped trailing tail (`Password123!` → `password`). **That list is 24 entries** — enough for the
+  obvious cases and nothing more; see _Open questions_.
 
-**Strength is advisory and reads as progress**: fewer than four rules met is weak, four is good, all
-five is good below twelve characters and strong at or above. Nothing short of the full policy can
-read "strong", because a meter calling a password strong while the form refuses it contradicts
-itself.
+**Strength is advisory and reads as progress**: under four rules met is weak, four is good, all five
+is good below twelve characters and strong at or above. Nothing short of the full policy can read
+strong, because a meter praising a password the form rejects contradicts itself.
 
-**Strength is enforced at register, never at login.** A rule applied at sign-in locks people out of
-their own accounts with no way to fix it, and publishes the policy to anyone probing. Login checks
-only that a password was typed.
+**Enforced at register, never at login.** A rule at sign-in locks people out of their own accounts
+with no way to fix it, and publishes the policy to anyone probing.
 
 ### Page metadata and SEO
 
-**Every page exports `metadata` directly after its imports.** The placement is a convention, not a
-requirement — Next reads the export wherever it sits. It goes at the top because a page is found by
-its route rather than its filename, so the title and description are the fastest way to confirm you
-have opened the right file.
+**`metadata` sits directly after the imports.** Next reads it wherever it is; the placement is so
+that a file found by its route rather than its filename announces which page it is.
 
-**Titles never contain the brand.** The root layout owns `template: "%s - TasKlean"` and a
-`default` of `TasKlean`, so a page supplies only its own name. That keeps the separator and the
-brand in one place: changing either is a one-line edit, not a sweep through every route. The
-homepage is the deliberate exception — it sets no title, because the template would turn `Home`
-into `Home - TasKlean`, and a landing page should read as the product.
+**Titles never contain the brand.** The root layout owns `template: "%s - TasKlean"` and a `default`
+of `TasKlean`, so changing the separator or the brand is a one-line edit. The homepage is the
+deliberate exception, setting none — the template would make it `Home - TasKlean`.
 
-**Real SEO applies to public pages only, and today that set is one page: `/about`.** Note that the
-root route is *not* in it. `/` is destined to become "today" — the task feed — so it sits behind the
-auth boundary like the rest of the app, and Proxy redirects an anonymous request before a crawler
-ever sees HTML. That is the same reason the data-fetching decision above notes SEO is irrelevant
-behind a login. If we ever want a marketing landing page, it needs its own route or a split on auth
-state; it is not something `/` grows into.
+**Real SEO applies to one page today: `/about`.** The root route is *not* in that set — `/` becomes
+the task feed and sits behind the auth boundary, where Proxy redirects before a crawler sees HTML. A
+marketing landing page would need its own route or a split on auth state; it is not something `/`
+grows into.
 
-**Public and indexable are different things.** `PUBLIC_PATHS` also holds `/login`, `/register` and
-`/verify-email` — reachable without a session because they have to be, but there is no reason for
-them to appear in search results. They are public for access, not for crawlers, and should carry
-`robots: { index: false }` when we build them.
+**Public and indexable are different things.** `/login`, `/register` and `/verify-email` are in
+`PUBLIC_PATHS` because they must be reachable, but have no business in search results — the
+`(auth)` layout sets `robots: { index: false }` for all of them.
 
-So protected routes get a title and a description for the browser tab and nothing more; spending
-effort on Open Graph images or structured data there would be work no one can observe. When we do
-build out `/about` and any marketing routes, "SEO proper" means: `metadataBase` plus a canonical
-URL, Open Graph and Twitter cards so a shared link renders, `robots: { index: false }` on
-everything protected and on the auth screens, and a `sitemap.ts` listing only the genuinely
-indexable set.
+So protected routes get a title and description for the tab and nothing more. When `/about` and any
+marketing routes get built, "SEO proper" means `metadataBase` and a canonical URL, Open Graph and
+Twitter cards, and a `sitemap.ts` listing only the indexable set.
+
+---
 
 ## Session and auth architecture
 
@@ -389,8 +361,6 @@ session is dead. Two consequences:
 The backend plans per-device logout later. Until then, don't word the button as "sign out of this
 device".
 
----
-
 ### Session cookie implementation
 
 **`jose` with `EncryptJWT` (JWE, `dir` + `A256GCM`)** — not `iron-session`, not hand-rolled.
@@ -474,6 +444,7 @@ not `role === "GROUP_ADMIN"` scattered around, so the mapping sits in one place 
 rules shift. Group role needs a fetch, so it belongs with phase 3, where an active group first
 exists.
 
+---
 
 ## The API, annotated
 
@@ -629,237 +600,125 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 
 Unanswered on purpose. Each gets decided when the work reaches it.
 
-- **Hosting.** Cloudflare is the likely target, but it's far off and Next.js on Cloudflare Workers
-  has real constraints worth checking before committing. Nothing should assume a host yet.
-- **Staging API URL** — not recorded anywhere in either repo. Needed for `.env.example`.
-- **UI primitives** — hand-rolled, or a headless library (Radix / shadcn-style)? Trade-off is
-  learning focus management ourselves versus getting accessible dialogs and menus for free.
-- **Cache Components** — Next 16 ships a newer rendering model (`cacheComponents: true`) under which
-  reading `cookies()` no longer forces the whole route dynamic, so even logged-in pages prerender a
-  static shell and stream the per-user parts. It also adds `use cache: private`, which caches
-  cookie-dependent reads per session in the browser rather than in any shared cache. Better for us,
-  and stricter: it requires explicit `<Suspense>` boundaries and more concepts at once. Decide at
-  scaffold time.
-- **Error tracking** — nothing exists, so a production bug is currently invisible. Worth doing early
-  for one specific reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so if the
-  BFF forwards it into error reports, a frontend error links straight to the backend log line. Nearly
-  free now, hard to bolt on later.
-- **Active group** — a user is in multiple groups and nearly every list endpoint needs `?groupId=`,
-  so "which group am I looking at" is app-level state. Where it lives (session cookie, URL, or both)
-  isn't decided.
-- **Forms and validation** — whether we reach for React Hook Form + Zod or start plainer.
-- **End-to-end testing** — whether to do it, with what, and where it runs. Two things fall outside
-  what Vitest can reach and would need it: async Server Components and the httpOnly cookie session.
-  Not urgent until there's a flow spanning several pages.
-- **TypeScript 7** — we are on 6.0.3; 7.0 is the native rewrite and is **blocked, not deferred**.
-  `typescript-eslint` throws on `versionMajor >= 7`, so linting dies outright. Its own tracking
-  issue (typescript-eslint#10940) targets TS >=7.1, so revisit when that lands — and only together
-  with raising the `~6.0.3` pin.
+- **Staging API URL** — recorded nowhere in either repo. Blocks `.env.example`, `metadataBase` and
+  any real refresh test.
+- **Hosting** — Cloudflare is likely, but Next on Workers has real constraints. Nothing should assume
+  a host yet.
 - **A real breached-password check** — `isGuessable` carries 24 common passwords, which stops the
-  obvious ones and nothing else. The Pwned Passwords range API (k-anonymity, so no password or full
-  hash leaves our server) is the normal answer, at the cost of a network call inside register. A
-  bundled top-10k list avoids the call and the dependency on someone else's uptime. Undecided, and
-  worth settling before launch rather than after.
-- **Absolute session cap** — the session is rolling: every refresh restarts the 14 days, so an
-  active session never ends on its own. An absolute cap (a hard maximum age regardless of activity,
-  forcing a real re-login) is normal hardening and we have none. It needs a decision on the limit
-  and on where the clock lives, since a cap the cookie reports is a cap the cookie can lie about —
-  it has to be sealed into the payload at first login and carried through every rotation.
-- **Canonical URL for `metadataBase`** — Open Graph and canonical tags need an absolute origin, and
-  we have no deployed URL yet (the staging one is still unrecorded). Until there is one, pages carry
-  titles and descriptions but no link-preview metadata, because a relative OG image resolves against
-  nothing and Next warns about it at build time.
-- **Offline behaviour** — read caching is straightforward; queuing mutations offline is a genuine
-  distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be
-  waved at.
+  obvious ones and nothing else. Pwned Passwords' range API is the normal answer (k-anonymity, so no
+  password or full hash leaves our server) at the cost of a call inside register; a bundled top-10k
+  list avoids the call and the dependency on someone else's uptime. Worth settling before launch.
+- **Absolute session cap** — the session is rolling, so every refresh restarts the 14 days and an
+  active session never ends. A cap needs a limit *and* a decision on where the clock lives: one the
+  cookie reports is one the cookie can lie about, so it must be sealed at first login and carried
+  through every rotation.
+- **Active group** — a user is in several groups and nearly every list endpoint needs `?groupId=`, so
+  this is app-level state. Session cookie, URL, or both — undecided.
+- **Error tracking** — nothing exists, so a production bug is invisible. Worth doing early for one
+  reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into
+  error reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.
+- **End-to-end testing** — whether, with what, and where it runs. Async Server Components and the
+  httpOnly session both fall outside Vitest's reach. Not urgent until a flow spans several pages.
+- **Cache Components** — Next 16's newer rendering model (`cacheComponents: true`), under which
+  reading `cookies()` no longer forces a route dynamic, so logged-in pages prerender a static shell
+  and stream the per-user parts; `use cache: private` caches cookie-dependent reads per session.
+  Better for us and stricter — explicit `<Suspense>` boundaries and more concepts. Left off at
+  scaffold; revisit when the first real data screen makes the cost visible.
+- **TypeScript 7** — **blocked, not deferred**: typescript-eslint throws on `versionMajor >= 7`, so
+  lint dies. Its tracking issue (typescript-eslint#10940) targets TS >=7.1. Revisit with the
+  `~6.0.3` pin.
+- **UI primitives** — hand-rolled or headless (Radix / shadcn-style)? Learning focus management
+  ourselves against accessible dialogs and menus for free.
+- **Forms and validation** — React Hook Form + Zod, or stay plain. Currently plain, and the shared
+  `validation/` modules have not yet hurt.
+- **Canonical URL for `metadataBase`** — needs an absolute origin we do not have. Until then pages
+  carry titles and descriptions but no link-preview metadata, since a relative OG image resolves
+  against nothing and Next warns at build.
+- **Offline behaviour** — read caching is straightforward; queuing mutations is a real
+  distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be waved
+  at.
 
 ---
 
 ## Log
 
-Newest first. What we decided and when, so the reasoning is recoverable later.
+Newest first, one entry per change. The reasoning lives in the sections above — this is the dated
+index of what moved and the surprises worth not rediscovering.
 
-- **2026-10-09** — Built `/register` and the shared form machinery. The password policy was
-  rewritten twice in the process: it started as the backend's bare `@Size(min=8)`, became a
-  four-class rule with a 20-character cap, and ended at 8–64 with any non-alphanumeric accepted and
-  guessable passwords rejected — reasoning under _The password policy_. The frontend is now the
-  spec and the backend is being changed to match.
-
-  Two things caught by writing tests rather than by thinking: a first scorer rated **`P@ssw0rd` as
-  "good"**, the exact failure mode it was meant to avoid, which is why leet-normalisation and the
-  length gate on variety exist; and letting length alone reach "strong" produced a meter that
-  praised a password the form rejected, so nothing below the full policy can read strong now.
-
-  Form conventions adopted across both screens: rules live in `src/lib/validation/` and are called
-  by the client and the action alike, inputs are controlled because React resets an uncontrolled
-  form after its action returns, and a field complains on blur only once it has content — an empty
-  one waits for submit. First names reject internal spaces; **last names allow them**, because
-  "Van Der Berg" is an ordinary surname where a two-word first name rarely is.
-
-  Also fixed in `vitest.setup.ts`: Testing Library registers `cleanup()` automatically only when
-  Vitest globals are on, and ours are off, so renders were stacking across tests — one test read a
-  password field holding four concatenated copies of its input.
-- **2026-10-09** — Built `/login` on the new `feat/auth-screens` branch, from the Stitch screens
-  rather than my own preview. Decisions: **`lucide-react`** for icons over the Material Symbols
-  webfont the designs use (a font request that flashes is wrong for a PWA); **filled, borderless
-  inputs** as the screens show, overriding DESIGN.md's prose, which describes a bordered field; the
-  login panel reduced to **brand only**, since a signed-out visitor cannot be shown real household
-  data. Three features in the designs have **no backend** — password reset (no endpoint at all),
-  "remember this device for 30 days" (the session is a fixed 14 days) and "log out" on the verify
-  screen (there is no session until verification). The first is rendered inert at the user's
-  request; the other two are gone.
-
-  Two things the screens settled that DESIGN.md could not: `#355872` is the brand fill and `#1c415a`
-  its hover and emphasis tone, now `primary` and `primary-strong`; `#316384` is link text, now
-  `link`. **Stitch ships its own radius scale** — its `rounded-xl` is 0.75rem against our 1.5rem —
-  so copying a class verbatim doubles every corner. Its `rounded-xl` maps to our `rounded-md`.
-
-  A Server Action, not a Route Handler: Next checks `Origin` against `Host`, so the CSRF token the
-  session architecture calls for is unnecessary on this path. Added `safe-next.ts` with 16 tests
-  because `?next=` is attacker-controlled and would otherwise make our own login form an open
-  redirect.
-
-- **2026-10-09** — Reorganised the codebase, since `lib` and a flat `components` folder were both
-  becoming dumping grounds. `src/lib` is now defined as the app's non-UI logic with **no module
-  sitting directly in it**: `api/`, `auth/` (with `signin/` and `tokens/` beneath it), `config/`
-  and `time/`. Components split into `common/` and per-feature directories. Depth follows need
-  rather than symmetry — `signin/` is a directory because four endpoints are coming, while
-  `session.ts` stays a single file. Found while auditing: **`config/env.ts` and `api/client.ts` had
-  no `server-only` guard**, so a client import would have thrown about missing configuration at
-  runtime instead of failing the build. Also consolidated two copies of `AuthResponse`; the
-  duplicate declared `uid: string`, which typecheck immediately exposed as a lie the callers had
-  always worked around.
-- **2026-10-09** — Adopted the DESIGN.md design system ("Domestic Serenity", from Stitch) as the
-  design authority, implemented as tokens in `globals.css`: colour, the type scale with per-step
-  line height and weight, radii, spacing and the tinted elevation shadows. Typeface changed from
-  Inter to **Plus Jakarta Sans**. Token names are Tailwind's rather than DESIGN.md's Material ones
-  — reasoning under _The design system_, including what that costs when pasting a Stitch screen.
-  Light and dark both exist; dark is derived. `/` now renders a throwaway design preview and is
-  **temporarily public** so it can be opened without a session — it must come out of
-  `PUBLIC_PATHS` when the task feed lands. Also fixed a real hole found while adding it: `isPublic`
-  matched prefixes, so `"/"` produced the prefix `"//"` and a request arriving as `//dashboard`
-  would have been treated as public and skipped the auth check while Next still routed it to the
-  protected page. `"/"` now matches exactly.
-- **2026-10-08** — Corrected this document's description of the session, which overstated three
-  things. It said the Next server "is the only thing that ever holds a JWT"; in fact there is no
-  server-side store at all — the sealed tokens live in the browser's cookie and transit it on every
-  request, which is why we have no per-session revocation and why the 4KB cookie limit is a real
-  constraint. It presented the **CSRF token as part of the architecture when none is implemented**,
-  the kind of error that gets read as "covered" and leaves the first mutation endpoint unprotected.
-  And "rolling session" was unqualified, though refresh never fires locally against 1-year dev
-  tokens. Added the absolute session cap as an open question; it had only ever been mentioned in
-  conversation.
-- **2026-10-08** — Fixed file structure adopted: imports, types, metadata and module config,
-  variables, then content, so configuration always sits above the implementation. `proxy.ts`'s
-  `config` moved up with it — Next puts it at the bottom by habit, but it is configuration.
-  Reordered `layout.tsx`, `env.ts`, `refresh.ts` and `proxy.ts` to match. `env.ts` is a documented
-  exception: `RequiredKey` derives from `REQUIRED` and `Env` from `RequiredKey`, so dependency order
-  wins over section order. **Wider gaps between sections were rejected, not forgotten**: Prettier
-  collapses consecutive blank lines with no option to disable it, verified by probe, and banner
-  comments would outweigh the code in files this small. One blank line it is.
-- **2026-10-08** — Two code-organisation rules, both in CLAUDE.md. **Types move out at two**: a
-  module declaring more than one type or interface keeps them in a sibling `<module>.types.ts`, so
-  logic isn't buried under declarations. The types file is the single import source — no
-  re-exporting from the module, because two valid paths to one type is the mess the rule exists to
-  stop. Two exceptions found while applying it: a type computed from a value in the module stays
-  put (`env.ts` keeps `RequiredKey`, derived from `REQUIRED`, since moving it means a runtime value
-  in a `.types.ts` or an import cycle), and splitting makes a private type importable, which is a
-  real cost for `Envelope` — noted in the types file's header, with the containment rule in
-  CLAUDE.md doing the actual work. **Every function now takes TSDoc, exported or not.** The
-  previous rule exempted helpers whose "name says it", and that judgement call had left eight
-  functions uncommented — `buildUrl`, `isEnvelope`, `performRefresh`, `toSession`, `isPublic`,
-  `redirectToLogin`, `RootLayout`, `AboutPage`. An exemption that depends on taste cannot be
-  checked, so it is gone.
-- **2026-10-08** — Page metadata convention settled: `metadata` is exported from every page
-  directly after the imports, titles carry only the page name because the root layout owns the
-  `%s - TasKlean` template, and the homepage deliberately sets none so it renders as `TasKlean`
-  rather than `Home - TasKlean`. The separator changed from `·` to `-`. Real SEO is scoped to the
-  public set — which is `/about` alone, since `/` becomes the protected task feed and the auth
-  screens are public for access but should not be indexed — and deferred until those pages exist;
-  reasoning under _Page metadata and SEO_.
-  Dropped `'use client'` from the about page: it had no state, effects or handlers, and the
-  directive silently makes a `metadata` export dead, which is the trap the convention now records.
-- **2026-10-08** — Dependencies brought current: Next and eslint-config-next 16.3.8 → 16.4.0, React
-  19.2.8 → 19.3.0, ESLint 9 → 10, jsdom 29 → 30 (which needs Node 26, so the Node upgrade unlocked
-  it), MSW 2 → 3. ESLint 10 was verified by probe rather than trusted: `eslint-config-next` bundles
-  `eslint-plugin-import`, `-jsx-a11y` and `-react` whose peer ranges cap at 9 and resolve as
-  invalid, but a probe file confirmed all of their rules still fire. **MSW 3 renamed
-  `onUnhandledRequest` to `onUnhandledFrame` and defaults to warning**, so our "fail the test"
-  guard was silently downgraded to a pass-through to the real network; `typecheck` caught it, and a
-  first probe gave a false positive because the unresolvable host made `fetch` reject on its own.
-  TypeScript 5.9.3 → **6.0.3**, not 7: TS 7 installs and typechecks fine, but `typescript-eslint`
-  has a hard `versionMajor >= 7` guard that throws, killing `npm run lint` entirely — a real block,
-  not the stale peer metadata ESLint 10 turned out to be. TS 6.0.3 is the last JS-based line and
-  sits inside typescript-eslint's `>=4.8.4 <6.1.0` range; all four gates pass and a probe confirmed
-  the `@typescript-eslint/*` rules still fire. Pinned `~6.0.3` rather than `^6.0.3` on purpose —
-  the caret would admit 6.1.0, which is outside that range and would break lint on a later install.
-- **2026-10-08** — Commenting standard adopted (file header, TSDoc on exports, inline for the _why_
-  only) and applied across every source file; it is in CLAUDE.md under _Comments_ and mirrors the
-  backend Javadoc rule. Brought this machine onto **Node 26.8.1** via the signed MSI: it had been
-  running Node 22.19 against an `engines.node` of `>=26`, with a global npm 11.6.4 shadowing the
-  bundled copy — the exact trap CLAUDE.md documents, caught by its own test (`npm -v` disagreeing
-  with the bundled version). Removed the global npm; `npm -v` now matches at 11.19.0. Denied
-  `msw`'s postinstall, which npm 11.19 surfaces as uncovered: it installs the browser service
-  worker and we only use `msw/node`.
-- **2026-10-08** — Phase 1 done: the session, refresh and the auth boundary. The cookie is encrypted
-  with `jose` (JWE), not signed — reasoning under _Session cookie implementation_. Refresh lives in
-  `src/proxy.ts` because a Server Component render cannot write cookies, and single-use rotation
-  means refreshing where the new pair cannot be persisted kills the session; `serverApi()` therefore
-  surfaces a 401 as `SessionExpiredError` rather than refreshing. Single-flight de-duplicates
-  concurrent refreshes and holds the result through a short grace window so a straggler does not
-  re-spend a revoked token. **Next 16 renamed Middleware to Proxy** — a `middleware.ts` written from
-  memory would simply never run; recorded as gotcha 12. Dropped `userId` from the session: the
-  access token already carries `userId` and `uid` claims, so storing it was speculative. Role
-  access is designed but **not built** — see _Roles and access_; it needs an active group, so it
-  belongs with phase 3. Added a `/pre-commit` skill mirroring the backend own.
-- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time/api-date.ts` exposes
-  `parseApiDate`, `parseApiDateOrNull` and `toApiDate`; reasoning is under _Time_ above. The write
-  format was settled by reading the backend rather than guessing: `LocalDateTime` DTOs and no
-  Jackson configuration mean `ISO_LOCAL_DATE_TIME`, so we send **no** `Z` — and
-  `TaskRequest.nextDueDate` turns out to be the only writable date-time field in the API, with the
-  other 25 read-only. Tests are pinned to `Europe/Ljubljana`; the pin was verified by flipping it to
-  `America/New_York` and confirming the local-to-UTC case failed. Display formatting ("in 2 days",
-  "10:00") is deliberately **not** here — it's presentation, needs a locale decision, and arrives
-  with the first screen that renders a date.
-- **2026-10-07** — Phase 1 step 2 done: the API client. `src/lib/api/client.ts` unwraps the envelope
-  behind a single `request<T>()`; `errors.ts` adds `ApiError` (status, the backend's human message,
-  `retryAfterSeconds`) and `ApiResponseFormatError`. Reasoning for the four shaping choices is under
-  _API client_ above. MSW arrived with it, wired globally in `vitest.setup.ts` with unhandled
-  requests failing the test. Reading `openapi.json` directly turned up three things the summary
-  docs didn't say, now recorded as gotchas 11–13: the documented status set omits `404`/`409`
-  although both occur, no response headers are documented including `Retry-After`, and no envelope
-  field is marked `required`. Refresh and session deliberately stay out of the client — they wrap it
-  in step 4.
-- **2026-10-07** — Phase 1 step 1 done: the test harness and env validation. Vitest + Testing
-  Library + jsdom, with `node` as the default environment and jsdom opted into per file, and no
-  globals (enabling them would force `tsconfig`'s `types` to enumerate every `@types` package).
-  `src/lib/config/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
-  hand-rolled rather than with Zod, treating whitespace-only as missing and naming every missing
-  variable in one error — this closes the _Env validation at boot_ open question. `@types/node`
-  bumped `^20` → `^26`, since Vitest requires `>=22` and it should track the Node major anyway.
-  Added `.gitattributes` pinning LF, after a fresh Windows clone checked the tree out as CRLF and
-  failed `format:check` across the whole repo. MSW is **not** installed yet — it arrives with the
-  API client, the first code with a network boundary worth mocking. The harness deliberately came
-  before the code it guards, so everything later in phase 1 gets tests written alongside it.
-- **2026-10-03** — Phase 0 done. Next.js 16.3.8 scaffolded (App Router, Turbopack, TS strict,
-  Tailwind 4, ESLint) with `--empty` so no demo page. Added Prettier, the Node 26 pin, `.env.example`
-  and the design-token layer. React Compiler and Cache Components both left off — each can be enabled
-  later without rewriting code, so neither is worth the concept load today. Kept the generated
-  `AGENTS.md`: reading `writeAgentFiles` showed that deleting it makes `next dev` inject its block
-  into our CLAUDE.md instead. Denied `unrs-resolver`'s postinstall; ESLint runs clean without it.
-- **2026-10-03** — Data fetching settled: Server Components for first load, React Query after, because
-  the BFF makes client-side fetches cost two hops. No global state library. Design tokens and the
-  dark-mode mechanism to be set before components get built.
-- **2026-10-03** — Unit testing settled: Vitest + Testing Library + MSW, arriving in phase 1. Vitest
-  over Jest for the lighter ESM/TS setup and Jest-compatible API. End-to-end testing deliberately
-  left open — Next.js documents that async Server Components can't be unit tested, so something will
-  be needed for the pages, but the choice waits until there's a flow worth covering.
-- **2026-10-03** — Node 26.7.0 installed from the official signed MSI via winget; no version manager,
-  after weighing the supply-chain surface. Removed a globally installed npm 10.9.1 that was shadowing
-  Node's bundled npm 11.19.0.
-- **2026-09-28** — Node 26 chosen over the current Active LTS (24), since 26 goes LTS on 2026-10-28
-  and we'd otherwise migrate a month into the project.
-- **2026-09-28** — Repo documented. Read the backend's bible and OpenAPI spec end to end; recorded
-  the API consumption rules, the session architecture the backend forced, and six API gaps that
-  block MVP features. Decided against generating API types. Laid out the phase roadmap. Nothing
-  scaffolded yet — phase 0.
+- **2026-10-09** — Compacted these two documents. CLAUDE.md became a reference (what exists, where,
+  the rules) and this file took the reasoning, mirroring the backend's split. CLAUDE.md 437 → ~250
+  lines; the Log alone had grown to 187 and was mostly restating the sections above it. Two stale
+  claims surfaced while doing it: the auth screens' `robots` was written as future work when the
+  `(auth)` layout already sets it, and Cache Components still said "decide at scaffold time".
+- **2026-10-09** — `/register`, the shared form machinery and the password policy — see _The
+  password policy_. Two things tests caught that thinking had not: a first scorer rated **`P@ssw0rd`
+  "good"**, the exact failure it was written to avoid, and letting length alone reach "strong"
+  produced a meter praising a password the form rejected. Also fixed: Testing Library registers
+  `cleanup()` only when Vitest globals are on, so renders were stacking — one test saw a password
+  field holding four copies of its input.
+- **2026-10-09** — `/login` from the Stitch screens. `lucide-react` over the Material Symbols
+  webfont; filled borderless inputs, overriding DESIGN.md's prose; the brand panel reduced to brand
+  only, since a signed-out visitor cannot be shown real household data. **Three designed features
+  have no backend**: password reset (no endpoint), "remember this device for 30 days" (the session
+  is a fixed 14 days) and "log out" on the verify screen (there is no session until verification).
+  The first is inert by request; the others are gone. **Stitch ships its own radius scale** — its
+  `rounded-xl` is 0.75rem against our 1.5rem, so a copied class doubles every corner; it maps to our
+  `rounded-md`. Added `safe-next.ts` because `?next=` is attacker-controlled.
+- **2026-10-09** — Reorganised the tree: `src/lib` defined as non-UI logic with nothing directly in
+  it, components split into `common/` and per-feature. Found while auditing: **`config/env.ts` and
+  `api/client.ts` had no `server-only` guard**. Consolidated two copies of `AuthResponse` — the
+  duplicate declared `uid: string`, which typecheck exposed as a lie the callers already worked
+  around.
+- **2026-10-09** — DESIGN.md adopted as the design authority, implemented as tokens — see _The
+  design system_. Inter → Plus Jakarta Sans. `/` became a design preview and is temporarily public.
+  Fixed a real hole found while adding it: `isPublic` matched prefixes, so `"/"` produced the prefix
+  `"//"` and a request arriving as `//dashboard` would have been treated as public and skipped the
+  auth check while Next still routed it to the protected page.
+- **2026-10-08** — Corrected this document, which overstated three things: that the Next server "is
+  the only thing that ever holds a JWT" (there is no server-side store at all), that a **CSRF token
+  was part of the architecture** when none is implemented, and that the session is "rolling"
+  unqualified. Added the absolute session cap as an open question.
+- **2026-10-08** — File order fixed (imports, types, config, variables, content) and **types move out
+  at two**. Wider gaps between sections were **rejected, not forgotten**: Prettier collapses
+  consecutive blank lines with no option to disable it, verified by probe. Every function now takes
+  TSDoc, exported or not — the old "obvious enough to skip" exemption had left eight uncommented.
+- **2026-10-08** — Page metadata convention — see _Page metadata and SEO_. Separator `·` → `-`.
+  Dropped `'use client'` from the about page: the directive **silently makes a `metadata` export
+  dead**, which is the trap the convention records.
+- **2026-10-08** — Dependencies current: Next 16.4.0, React 19.3, ESLint 10, jsdom 30, MSW 3.
+  **MSW 3 renamed `onUnhandledRequest` to `onUnhandledFrame` and defaults to warning**, silently
+  downgrading our "fail the test" guard to a pass-through; typecheck caught it. ESLint 10's invalid
+  peer ranges were verified harmless by probe. TypeScript 5.9.3 → **6.0.3, not 7**: typescript-eslint
+  throws on `versionMajor >= 7`. Pinned `~6.0.3`, since `^` would admit 6.1.0 and break lint.
+- **2026-10-08** — Commenting standard adopted and applied. Moved this machine to **Node 26.8.1**: it
+  had been on 22.19 against `engines.node: >=26`, with a global npm shadowing the bundled copy — the
+  exact trap CLAUDE.md documents, caught by its own test. Denied `msw`'s postinstall.
+- **2026-10-07** — Session, refresh and the auth boundary — see _Session cookie implementation_ and
+  _Refresh lives in Proxy_. **Next 16 renamed Middleware to Proxy**; a `middleware.ts` written from
+  memory would simply never run (gotcha 12). Dropped `userId` from the session: the access token
+  already carries it. Role access designed but not built. Added the `/pre-commit` skill.
+- **2026-10-07** — The UTC time module — see _Time_. The write format came from reading the backend,
+  not guessing: `LocalDateTime` DTOs with no Jackson config mean `ISO_LOCAL_DATE_TIME`, so **no
+  `Z`** — and `TaskRequest.nextDueDate` is the only writable date-time field in the API. The
+  `Europe/Ljubljana` test pin was verified by flipping it to `America/New_York`. Display formatting
+  deliberately deferred to the first screen that renders a date.
+- **2026-10-07** — The API client — see _API client_. MSW arrived with it. Reading `openapi.json`
+  directly turned up three things the summary docs didn't say, now gotchas 11–13: the documented
+  status set omits `404`/`409` although both occur, no response headers are documented including
+  `Retry-After`, and no envelope field is marked `required`.
+- **2026-10-07** — Test harness and env validation. `node` as the default environment, jsdom per
+  file, no globals (enabling them forces `tsconfig`'s `types` to enumerate every `@types` package).
+  `config/env.ts` hand-rolled rather than Zod. `@types/node` `^20` → `^26`. Added `.gitattributes`
+  pinning LF after a fresh Windows clone failed `format:check` repo-wide. The harness came before the
+  code it guards, so everything later got tests alongside it.
+- **2026-10-03** — Phase 0: Next 16.3.8 scaffolded with `--empty`, plus Prettier, the Node pin,
+  `.env.example` and the token layer. React Compiler and Cache Components left off — both can be
+  enabled later without rewriting code. Kept the generated `AGENTS.md`: reading `writeAgentFiles`
+  showed that deleting it makes `next dev` inject its block into CLAUDE.md instead.
+- **2026-10-03** — Data fetching settled (Server Components first load, React Query after), unit
+  testing settled (Vitest + Testing Library + MSW), end-to-end left open. Node 26.7.0 from the signed
+  MSI, no version manager; removed a global npm shadowing the bundled one.
+- **2026-09-28** — Node 26 chosen over Active LTS 24, which goes LTS 2026-10-28 and would otherwise
+  mean migrating a month in. Read the backend's bible and OpenAPI spec end to end: recorded the API
+  consumption rules, the session architecture the backend forced, and six API gaps blocking MVP
+  features. Decided against generating API types. Laid out the roadmap.

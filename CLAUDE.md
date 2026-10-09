@@ -1,50 +1,24 @@
 # CLAUDE.md
 
-TasKlean frontend — a Next.js + TailwindCSS web app (also installable as a PWA) consuming the
-TasKlean REST API.
+TasKlean frontend — Next.js + TailwindCSS web app (installable as a PWA) consuming the TasKlean REST
+API.
 
-For product scope, architecture decisions and the running notes on what we're building and why, see
-[PROJECT_BIBLE.md](PROJECT_BIBLE.md).
+For deep context — why the architecture is what it is, the session design, API behaviour, design
+system, gotchas, roadmap and the decision log — see [PROJECT_BIBLE.md](PROJECT_BIBLE.md). This file
+is the reference: what exists, where it lives, and the rules.
 
-**Backend lives in a sibling repo**: `../tasklean-be`. Pull it into a session with
-`/add-dir ../tasklean-be` when you need to read it. Its `PROJECT_BIBLE.md` is authoritative on **API
-behaviour**; its `docs/openapi.json` is authoritative on **API shapes**. Never restate backend
-internals here — link to them.
+**Backend is a sibling repo**: `../tasklean-be` (`/add-dir ../tasklean-be` to read it). Its
+`PROJECT_BIBLE.md` is authoritative on **API behaviour**, its `docs/openapi.json` on **API shapes**.
+Never restate backend internals here — link to them.
 
-## How this file works
-
-**It describes what exists, not what is planned.** Add to it when you add the thing it describes — a
-script, a directory, a convention we actually adopted — in the same change. Plans and open questions
-go in the bible, not here.
-
-## Status
-
-**The API layer, the session, login and register exist. Verify-email does not yet.**
-Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
-Prettier, Vitest + MSW, lucide-react for icons. `src/lib` holds `api/`, `auth/`, `config/`, `time/`
-and `validation/`; `src/proxy.ts` draws the auth boundary.
-
-`src/app` holds **`/login`** and **`/register`**, both **unverified against a real backend** — no
-seeded account can authenticate and nothing has ever reached Spring, so they are covered by MSW
-tests only. The `(auth)` route group gives them a shared shell that verify-email will reuse.
-**`/` renders a throwaway design preview** of the DESIGN.md tokens and components and sits
-**temporarily in `PUBLIC_PATHS`**; the real root route is the task feed. The phases and what each
-one is for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
-
-**Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
-2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
-life rather than migrating a month in. `@types/node` tracks the Node major (`^26`) — Vitest also
-requires `>=22`, so the old `^20` pin no longer resolves.
-
-**npm comes from Node's bundled copy, deliberately** — there is no globally installed npm, so the
-npm version tracks the Node version. Note that Node's `npm` shim prefers a _globally installed_ npm
-over the bundled one when both exist, so if `npm -v` ever disagrees with the version in
-`C:\Program Files\nodejs\node_modules\npm\package.json`, something has run `npm install -g npm`.
+**State**: API layer, session, `/login` and `/register` exist. Verify-email does not. Nothing has
+ever reached a real backend — all tests are MSW. `/` is a throwaway design preview, temporarily in
+`PUBLIC_PATHS`.
 
 ## Quick reference
 
 ```bash
-npm run dev            # Dev server on :3000 (the origin the backend's CORS allows by default)
+npm run dev            # Dev server on :3000 (the origin the backend's CORS allows)
 npm run build          # Production build
 npm run start          # Serve the production build
 npm run lint           # ESLint
@@ -55,383 +29,221 @@ npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
 
-`typecheck` runs `next typegen` first on purpose: Next 16 generates global route types
-(`LayoutProps`, `PageProps`) into `.next/types`, so a bare `tsc --noEmit` fails on a clean checkout.
+Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
+Prettier, Vitest + MSW, `jose`, `lucide-react`. **Node 26** (`.nvmrc` + `engines.node`); npm comes
+from Node's bundled copy, so a global npm install would silently shadow it.
 
-Prettier does not touch `*.md` (see `.prettierignore`) — it re-pads tables on every edit, which
-makes diffs in these docs noisy.
-
-### Tests
-
-Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code they cover as
-`*.test.ts(x)` under `src/`.
-
-- **The default environment is `node`**, because most of what we test is pure logic (env, the API
-  client, the time module). A component test opts into jsdom per file with
-  `// @vitest-environment jsdom` on the first line.
-- **No globals** — import `describe`/`it`/`expect` from `vitest`. Turning globals on would mean
-  adding `vitest/globals` to `tsconfig`'s `types`, which switches that field from "all `@types`
-  packages" to "only these", so it has to list everything else too. Explicit imports avoid that.
-- The `@/*` → `src/*` alias is mirrored in the Vitest config, so test imports match app imports.
-- `vitest.setup.ts` registers jest-dom matchers on `expect` — harmless under `node`, needed once
-  component tests run in jsdom. It also calls Testing Library's **`cleanup()` after each test**:
-  that is automatic only when Vitest globals are on, and ours are off, so without it every `render`
-  stacks into the same document and the second test in a file sees the first one's markup.
-- **HTTP is mocked at the network boundary with MSW**, not by stubbing our own modules, so the API
-  client is exercised against real envelope payloads. The shared server is `src/test/msw.ts`, its
-  lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
-  Unhandled requests **fail the test** (`onUnhandledFrame: "error"`) so a stray fetch can't quietly
-  reach the network.
-- **`server-only` is aliased to a stub** (`src/test/server-only-stub.ts`) in the Vitest config. That
-  package throws unless resolved under React’s `react-server` condition, which Vitest does not
-  apply, so server modules would otherwise be unimportable in tests. The real guard is unaffected:
-  the production build does apply that condition.
-- **The suite runs in a pinned non-UTC timezone** (`test.env.TZ = "Europe/Ljubljana"` in
-  `vitest.config.mts`). On a UTC machine — most CI — a naive `new Date(apiString)` is right by
-  accident, so the timestamp tests would pass against the very bug they exist to catch.
-  `src/lib/time/api-date.test.ts` asserts the pin is in effect; don't change the zone without reading it.
-
-### Generated files
-
-- **`AGENTS.md`** — written and re-added by `next dev`; it points agents at the Next.js docs bundled
-  in `node_modules`. **Leave it in place.** `writeAgentFiles` only skips CLAUDE.md while `AGENTS.md`
-  exists and hosts its marker block — delete `AGENTS.md` and Next writes that block into CLAUDE.md
-  instead.
-- **`next-env.d.ts`** and `.next/types` — generated, gitignored, never hand-edited.
-
-### Known install noise
-
-- **5 "high" npm audit findings** all trace to `braces` → `micromatch` → `fast-glob` →
-  `@next/eslint-plugin-next`. That is a devDependency chain feeding ESLint's glob matching, it never
-  sees untrusted input and never ships to the browser. `npm audit fix --force` would downgrade
-  `eslint-config-next` to 14.x on a Next 16 project, so **leave it**.
-- **`unrs-resolver`'s postinstall is denied** (`allowScripts` in `package.json`). ESLint runs clean
-  without it; the denial is committed so no future install silently approves it.
-- **`typescript` is pinned `~6.0.3`, not `^6.0.3`** — the caret would admit 6.1.0, and
-  `typescript-eslint` declares `>=4.8.4 <6.1.0`. **TypeScript 7 is not an option yet**: it
-  typechecks and builds fine, but typescript-eslint has a hard `versionMajor >= 7` guard that
-  throws, so `npm run lint` fails outright. Don't widen the pin until typescript-eslint ships TS 7
-  support.
-- **`msw`'s postinstall is denied too.** It installs the browser service worker, which we never use
-  — only `msw/node` in tests. npm 11.19 surfaces it as uncovered by `allowScripts`; the suite passes
-  with the script unrun, so it is denied rather than approved.
+`typecheck` runs `next typegen` first because Next 16 generates `LayoutProps`/`PageProps` into
+`.next/types` — a bare `tsc` fails on a clean checkout. Prettier skips `*.md` (`.prettierignore`).
 
 ### Running against a backend
 
-| Target           | `API_BASE_URL`          | Notes                                                                                                                                                                                                             |
-| ---------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local backend    | `http://localhost:8080` | Needs `docker-compose up -d` + `./mvnw spring-boot:run` in `../tasklean-be`. Dev profile seeds data and issues **1-year** access tokens, so token refresh never fires locally — **test refresh against staging**. |
-| Staging (Render) | _not recorded yet_      | Prod profile: 15-minute access tokens, no seed data, Swagger disabled.                                                                                                                                            |
+| Target           | `API_BASE_URL`          | Notes                                                                                        |
+| ---------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| Local            | `http://localhost:8080` | `docker-compose up -d` + `./mvnw spring-boot:run` in `../tasklean-be`. Dev issues **1-year** access tokens, so refresh never fires locally. |
+| Staging (Render) | _not recorded yet_      | Prod profile: 15-minute access tokens, no seed data, Swagger disabled.                       |
 
-Swagger UI for poking at the API by hand (local backend only, disabled in staging/prod):
-http://localhost:8080/swagger-ui.html
+Swagger UI (local only): http://localhost:8080/swagger-ui.html
 
-## Session and auth
+### Generated files
 
-- **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a JWE and
-  holding the token pair, `userUid` and `activeGroupId`. Encrypted, not signed: a signed payload is
-  plain base64url and ours carries the refresh token. `src/lib/auth/session.ts` owns it; the cookie name
-  and options are exported so `proxy.ts` cannot drift from them.
-- **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`. A `middleware.ts` never runs
-  — silently, with no error.
-- **Proxy is the auth boundary and the only refresh site on the navigation path.** It is default
-  deny: everything is protected unless listed in `PUBLIC_PATHS`. It refreshes only when the access
-  token is inside the skew window, writes the rotated pair back to the cookie, and drops the session
-  if refresh is refused. `/api` is excluded from the matcher so Route Handlers answer `401` rather
-  than redirecting to HTML.
-- **Never refresh where the rotated pair cannot be persisted.** Refresh tokens are single-use: the
-  backend revokes the one presented, so losing its replacement kills the session. Cookies can only
-  be written in Proxy, a Route Handler or a Server Action — **never during a Server Component
-  render**.
-- **`serverApi()` is the session-aware entry point**; `request()` is the raw one. `serverApi` throws
-  `SessionExpiredError` on `401` and deliberately does not refresh. A `403` passes through as an
-  `ApiError` — authenticated but not allowed is not a session problem.
-- **Modules holding secrets import `server-only`**, so pulling one into a client bundle is a build
-  error rather than a leak.
-- **Role checks in our code are UX, never authorization.** Spring stays the authority; gate the UI
-  optimistically *and* still handle the `403`. Role access is designed but not built — see the
-  bible.
+`AGENTS.md` is written by `next dev` and points agents at the bundled Next docs — **leave it**;
+deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.d.ts` and
+`.next/types` are generated and gitignored.
 
-## Consuming the API
+### Known install noise
 
-These are the rules a client of _this_ backend has to follow. They are consequences of the backend's
-design, not preferences — breaking them produces bugs that look like backend bugs. They apply from
-the first line of fetching code we write.
+- **5 "high" audit findings** — `braces` → `micromatch` → `fast-glob` → `@next/eslint-plugin-next`,
+  a devDependency chain. `audit fix --force` would downgrade `eslint-config-next` to 14.x. Leave it.
+- **`unrs-resolver` and `msw` postinstalls are denied** (`allowScripts` in `package.json`).
+- **`typescript` is pinned `~6.0.3`, not `^`** — typescript-eslint declares `<6.1.0`, and **TS 7
+  throws** on a hard `versionMajor >= 7` guard, killing lint. Don't widen the pin.
 
-- **Every response is an envelope.** Success and failure both return
-  `{ success: boolean, message: string | null, data: T | null }`. `src/lib/api/client.ts` unwraps it
-  and returns `data`, throwing `ApiError` (status + message) otherwise. **Nothing above that module
-  should ever see the envelope.** Note that no field is marked `required` in `openapi.json`, so the
-  client narrows rather than trusting the shape. Error responses use it too — the backend renders even a 404 on an unknown
-  route and a 429 from the rate limiter as this JSON, never HTML — so parsing can be unconditional.
-- **Never branch on the exact 2xx code.** POSTs really return `201` while the spec declares `200`
-  (springdoc doesn't read `ResponseEntity.status(...)`). Treat any 2xx as success.
-- **`uid` vs `id` is not interchangeable.** `User`, `Group` and `Task` are addressed in URLs by their
-  opaque string `uid`. Everything else — category, tag, group member, device, task completion,
-  notification — is addressed by its numeric `id`. Response payloads are flat: foreign keys come back
-  as numeric ids, _never_ nested objects, so a task's `categoryId` is a `number` while the task
-  itself is fetched at `/api/tasks/{uid}`.
-- **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, not User ids.** A user acts
-  inside a group through their membership, so these are a _third_ id namespace. To create or assign a
-  task you need your own `GroupMember.id` for that group — resolve it from
-  `GET /api/group-members?groupId=` matched against `GET /api/users/me`. Name variables accordingly
-  (`memberId`, never `userId`, when it's a membership).
-- **All timestamps are UTC with no zone marker.** The API returns `date-time` strings from
-  `TIMESTAMP WITHOUT TIME ZONE` columns the backend guarantees are UTC. They parse as _local_ time if
-  handled naively. Every conversion goes through `src/lib/time/api-date.ts` — `parseApiDate` /
-  `parseApiDateOrNull` on the way in, `toApiDate` on the way out. Never `new Date(apiString)`
-  directly; never send a local time back. **Writing back takes no `Z` either**: the backend's DTOs
-  are `LocalDateTime` with no Jackson config, so it parses with `ISO_LOCAL_DATE_TIME`, which accepts
-  no zone marker at all. (`TaskRequest.nextDueDate` is currently the only writable date-time field.)
-- **`401` and `403` get different handling.** `401` = no/expired/invalid token → one silent refresh
-  attempt, and on failure clear the session and go to `/login`. `403` = authenticated but not allowed
-  → show a permission message, **never** log out and never retry. The spec cannot say which endpoints
-  need which role, so a `403` is always a runtime discovery.
-- **`429` is real and carries `Retry-After`.** The backend rate-limits per user _and_ per IP, plus a
-  tighter bucket on `POST /api/groups/join`. Show the retry window; never auto-retry in a loop.
-- **List endpoints require a scope parameter.** `?groupId=` for tasks, categories, tags, group members
-  and audit logs; `?userId=` for devices and notifications; `?taskId=` for task completions. A missing
-  one is a `400`, not an empty list.
-- **No pagination, sorting or server-side filtering exists.** List endpoints return everything. Filter
-  and sort on the client, keeping the predicates in one place per resource so they can move
-  server-side later.
-- **Types are hand-written, per feature.** We are not generating a client from `openapi.json`. When
-  you build a feature, read that endpoint's schema in `../tasklean-be/docs/openapi.json` and write
-  only the types that feature needs. Keep them close to the code that uses them. The spec wins on
-  shape; the backend bible wins on behaviour.
+## Architecture
+
+```
+src/
+  app/
+    (auth)/            shared shell (brand panel + form), robots noindex
+      login/           page.tsx, actions.ts
+      register/        page.tsx, actions.ts
+    about/             the one public, indexable page
+    page.tsx           throwaway design preview
+    globals.css        design tokens — the only place colours/radii/fonts are defined
+  proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
+  components/
+    common/            primitives, no feature knowledge: text-field, password-field,
+                       submit-button, password-strength-meter
+    auth/              login-form, register-form
+  lib/                 all non-UI logic; nothing sits directly in src/lib
+    api/               client.ts (the only module that knows the envelope), errors.ts,
+                       server.ts (session-aware), client.types.ts
+    auth/
+      signin/          one module per credential exchange: login.ts, register.ts
+      tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation)
+      session.ts       the encrypted cookie; auth.types.ts the wire shapes
+      safe-next.ts     blocks open redirect via Proxy's ?next=
+    config/env.ts      validated environment
+    time/api-date.ts   API timestamps ↔ Date
+    validation/        form rules, shared by a form and its action
+  test/                msw.ts, server-only-stub.ts
+```
+
+**Depth follows need, not symmetry** — `signin/` is a directory because four endpoints are coming;
+`session.ts` is one file because it stays one. **Server Actions stay with their route**, not in
+`components/`. A component used by one feature starts in that feature's directory. **Tests sit beside
+the code** they cover.
 
 ## Conventions
 
-Only what we've actually decided. This grows as we make choices.
+- **TypeScript strict, no `any`** — `unknown` plus a narrowing guard at boundaries.
+- **Server Components by default.** `'use client'` only for state, effects, handlers or browser APIs,
+  pushed as far down the tree as possible.
+- **Components never call `fetch`.** All HTTP goes through `request()` in `api/client.ts`, which takes
+  the access token as a parameter and knows nothing about sessions.
+- **A module reading a server variable or holding a secret imports `server-only`** — `config/env.ts`,
+  `api/client.ts`, `api/server.ts`, `auth/session.ts`, `auth/signin/*`, `auth/tokens/refresh.ts`.
+  `validation/` must **not**, since client components import it.
+- **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
+  **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
+- **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
+  genuinely dynamic value. Extract a component, not an `@apply` class.
+- **Every colour, radius and font is a token** in `src/app/globals.css`, named by role (`card`,
+  `muted-foreground`, `destructive`) never by appearance. Never hard-code a hex or rem elsewhere.
+  **[DESIGN.md](DESIGN.md) is the design authority**; `globals.css` implements it. Token names are
+  Tailwind's, not DESIGN.md's Material ones — each value carries a comment naming its origin.
+  Typeface **Plus Jakarta Sans** via `next/font`. Dark mode follows the OS.
+- **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
+  design's Material Symbols. `aria-hidden` when a text label says the same thing.
+- **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
+  labelled. Check phone, tablet and desktop — tablet is the one that gets skipped.
+- **Forms validate in one place, twice.** Rules live in `validation/`; the client component and the
+  Server Action call the same function, and the action is the authority (it runs without JS). Inputs
+  are **controlled** — React resets an uncontrolled form after its action returns.
+- **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
+  password is never echoed back through server state; other values are.
+- **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
+  surname where a two-word first name rarely is. Both trim surrounding whitespace rather than
+  rejecting it.
+- **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never a
+  bare "Something went wrong" when the envelope carried a `message`.
+- **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
+  file and looks like a formatting problem.
+- **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
+- **Commit prefixes**: `fix:` → patch, `feat:` → minor, `BREAKING CHANGE:` → major.
 
-- **TypeScript strict, no `any`.** `unknown` plus a narrowing guard at boundaries.
-- **Server Components by default.** Add `'use client'` only when the component needs state, effects,
-  event handlers or browser APIs — and push it as far down the tree as possible.
-- **Components never call `fetch` directly.** All HTTP goes through `request()` in
-  `src/lib/api/client.ts`, so there's one place that knows about the envelope, auth and error
-  mapping. It takes the access token as a _parameter_ and knows nothing about sessions or refresh —
-  those wrap it rather than living inside it.
-- **Styling is Tailwind utility classes.** No CSS modules, no styled-components, no inline `style`
-  except for genuinely dynamic values (a colour stored on a category). Extract a component, not an
-  `@apply` class, when a pattern repeats.
-- **Every colour, radius and font comes from a token** in `src/app/globals.css`. Tokens are named by
-  role (`card`, `muted-foreground`, `destructive`), never by appearance — that is what makes a second
-  theme possible without touching a component. Never hard-code a hex or a rem outside that file.
-  **[DESIGN.md](DESIGN.md) is the design authority** and `globals.css` is its implementation, so a
-  change starts there. The token *names* are Tailwind's (`x` / `x-foreground`), not DESIGN.md's
-  Material ones (`on-surface`, `surface-container-low`) — each value carries a comment with its
-  Material name, because translating a pasted Stitch screen means walking that mapping backwards.
-  The typeface is **Plus Jakarta Sans**, self-hosted by `next/font`.
-  Dark mode currently follows the OS setting; the cookie-driven toggle lands with the settings
-  screen, at which point the dark variant moves to a data-attribute on `<html>`.
-- **Icons come from `lucide-react`** as components, never an icon font. The designs specify Material
-  Symbols, but a webfont costs a request and flashes before it loads, which is wrong for a PWA on a
-  kitchen tablet. Pick the nearest lucide equivalent rather than chasing an exact match. Mark one
-  `aria-hidden` when a text label already says the same thing.
-- **Forms validate in one place and twice.** The rules live in `src/lib/validation/`, and both the
-  client component and its Server Action call the same function — the action is the authority and
-  the only one that runs without JavaScript. Inputs are **controlled**, because React resets an
-  uncontrolled form once its action returns, which silently wipes what was typed.
-- **A field complains on blur, but only once it has content.** An empty field stays quiet until
-  submit is attempted, so tabbing through a form does not light it up in red. A password is never
-  echoed back through server state; everything else is, so a rejected submit keeps its values.
-- **Mobile-first.** People open this on a phone while standing in a kitchen. Design the narrow layout
-  first, then widen. Touch targets at least 44px, keyboard-reachable, labelled for screen readers.
-- **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never show
-  a bare "Something went wrong" when the envelope carried a usable `message` — the backend writes
-  `409` messages for humans.
-- **Every page exports `metadata`**, placed **directly after the imports**, before the component.
-  See [Page metadata](#page-metadata) below.
-- **Files read in one order**: imports, types, metadata, variables, content. See
-  [File structure](#file-structure).
-- **Types move out at two.** A module declaring more than one type or interface keeps them in a
-  sibling `<module>.types.ts`. See [Where types live](#where-types-live).
-- **Comments** follow [Comments](#comments) below — file header, TSDoc on exports, inline for _why_.
-- **No secrets in `NEXT_PUBLIC_*`.** That prefix ships to the browser. The API base URL and the
-  session secret are server-only, and no token is ever readable by browser code — note that the
-  tokens themselves do travel to the browser, sealed inside the session cookie, so "server-only"
-  describes the secret and the base URL, not them. The Google _client id_ is public by design — the
-  one exception.
-- **Environment variables are read through `src/lib/config/env.ts`**, never `process.env` directly.
-  `getEnv()` validates the required set on first call and throws naming every missing variable, so a
-  bad config fails loudly at startup instead of surfacing later as a confusing fetch or session bug.
-- **Line endings are LF**, pinned by `.gitattributes` (`* text=auto eol=lf`) for the repo and every
-  working tree. A fresh Windows clone with `core.autocrlf=true` otherwise checks the tree out as CRLF,
-  which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure
-  that looks like a formatting problem and isn't.
-- **Run `/pre-commit` before committing.** The skill in `.claude/skills/pre-commit/` runs the four
-  gates, checks the conventions on this page, updates the docs and drafts the message. It never
-  commits.
-- **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
-  `BREAKING CHANGE:` → major. No prefix defaults to patch.
+### File layout
 
-### Where logic lives
+**Every file reads in one order**: imports → types → metadata and module config → variables →
+content. All module-level constants and state go in the variables block, not between functions.
+`metadata`/`viewport` and `proxy.ts`'s `config` count as config and go above the implementation.
+One blank line between sections — Prettier collapses more and offers no option.
 
-**`src/lib` is the app's non-UI logic** — everything that is neither a React component nor a route.
-That phrasing is deliberately the only definition, because "lib" means nothing on its own, which is
-how loose files accumulate in it. **No module sits directly in `src/lib`**: if it does not belong to
-one of these, the right move is a new directory with a name that says what it is for.
+**Types move out at two.** A module declaring more than one type keeps them in a sibling
+`<module>.types.ts`, which is then the single import source — never re-export them from the module.
+A type derived from a value in the module stays with it (`env.ts` keeps `RequiredKey`), and
+dependency order then wins over section order.
 
-- **`api/`** — talking to Spring: the client, the envelope, the typed errors, the session-aware
-  wrapper.
-- **`auth/`** — who the user is and how they stay signed in, split by what each part does:
-  - **`auth/signin/`** — one module per credential exchange. `login.ts` now; register, verify-email
-    and Google sign-in join it.
-  - **`auth/tokens/`** — the token pair's lifecycle: reading the access token's expiry, and the
-    single-flight refresh that rotates the pair.
-  - `session.ts` and `auth.types.ts` sit at the `auth/` root because both halves depend on them —
-    the cookie that stores the pair, and the wire shapes every auth endpoint returns.
-  - `safe-next.ts` guards the `next` redirect that Proxy sets, which only auth screens honour.
-- **`config/`** — environment and settings.
-- **`time/`** — conversion between API timestamps and `Date`.
-- **`validation/`** — form rules, shared by a form and its Server Action so the two cannot drift.
-  Deliberately **not** `server-only`: a client component imports the same functions the action does.
-
-**Depth follows need, not symmetry.** `signin/` is a directory because four endpoints are coming;
-`session.ts` is one file because it will stay one. A directory holding a single permanent module is
-noise, and a path like `session/session.ts` says nothing twice.
-
-Two rules that matter more than the grouping:
-
-- **A module that reads a server variable or holds a secret imports `server-only`.** `config/env.ts`
-  and `api/client.ts` both do, because a client import would otherwise throw at runtime about
-  missing configuration instead of failing the build.
-- **Tests sit beside the module** they cover, not in a parallel tree.
-
-### Where components live
-
-- **`src/components/common/`** — primitives with no feature knowledge: `text-field`,
-  `password-field`, `submit-button`.
-- **`src/components/<feature>/`** — components that know a feature. `auth/` covers login, register
-  and verify-email together, because the three screens share one shell and one set of fields;
-  splitting per route would duplicate all of it.
-- **Server Actions stay with their route** (`src/app/(auth)/login/actions.ts`), not in `components/`.
-  They are route behaviour, and colocating keeps the form's action next to the page that renders it.
-- A component used by exactly one feature starts in that feature's directory and only moves to
-  `common/` when a second feature needs it.
-
-### Page metadata
-
-Every `page.tsx` exports a `metadata` object, and it sits **directly after the imports** — above the
-component, never below it. Pages are found by their route, so the title and description should be
-the first thing a reader sees.
-
-- **Titles are the bare page name — never the brand.** The root layout sets
-  `template: "%s - TasKlean"`, so `title: "Login"` renders as `Login - TasKlean`. Writing the brand
-  into a page title doubles it.
-- **The homepage is the exception.** It sets no title at all: the root layout's `default` renders it
-  as `TasKlean`, whereas a title there would come out `Home - TasKlean`.
-- **A `metadata` export is impossible in a client component.** Next only reads it from Server
-  Components, and it fails silently rather than erroring — if a page needs `'use client'`, the
-  directive belongs on a child component, not the page.
-- **Descriptions are written for a human**, one sentence, specific to the page. Not keyword soup, and
-  not a copy of the root description.
-- **SEO proper is for public pages only, and `/` is not one of them.** The root route becomes the
-  task feed and stays behind the auth boundary; `/about` is the public page today. Anything a
-  crawler cannot reach gets a title and a description and nothing more. Note `/login`, `/register`
-  and `/verify-email` are public for *access* but should not be indexed. See the bible for what
-  "SEO proper" will mean when we build it.
-
-### File structure
-
-**Every file reads in the same order**, so finding a thing never depends on knowing the file:
-
-1. **Imports.**
-2. **Types** — only when a single one stays inline; two or more live in `<module>.types.ts`.
-3. **Metadata and module config** — `metadata` and `viewport` on a page or layout, and `config` on
-   `proxy.ts`. Next puts `config` at the bottom by habit; it is configuration, not logic, so here it
-   goes with the metadata.
-4. **Variables** — every module-level constant and every piece of module state. All of them, not
-   just the ones declared before the first function. A `let cached` sitting between two functions is
-   the exact thing this rule exists to stop.
-5. **Content** — classes, functions, components.
-
-The payoff is that configuration is always above the fold: you can read what a module needs and what
-it is wired to without scrolling past its implementation.
-
-**One blank line between sections, not two.** Prettier collapses consecutive blank lines to a single
-one and offers no option to change that, so a wider gap cannot survive `npm run format`. We
-considered banner comments (`// --- Variables ---`) to get the separation back and decided against
-them: our files are small enough that the banners would outweigh the code, and the fixed order above
-already tells you where to look. Don't add them to one file without changing this rule.
-
-**When a type derives from a variable, dependency order wins** and the two interleave. `env.ts`
-declares `REQUIRED` first, then `RequiredKey` from it, then `Env`, then the `cached` typed by `Env`
-— any other order makes the file read backwards. Say so in a comment where it happens, as that file
-does.
-
-### Where types live
-
-**A module with more than one `type` or `interface` moves them to a sibling `<module>.types.ts`** —
-same directory, named after the module that owns them. `client.ts` has `client.types.ts` next to it.
-One type stays inline; the second one triggers the split. The point is that a file's logic should
-not be something you scroll past declarations to reach.
-
-- **The types file is the single source.** Don't re-export its types from the module as well — two
-  valid import paths for one type is the mess this is meant to prevent. Import from
-  `@/lib/api/client.types`, not from `@/lib/api/client`.
-- **A type derived from a value in the module stays with it.** `env.ts` keeps `RequiredKey` because
-  it is computed from the `REQUIRED` array; moving it would mean either putting a runtime value in a
-  `.types.ts` or creating an import cycle. Both are worse than two types in one file.
-- **Splitting makes a private type importable**, which TypeScript cannot prevent. Where that matters
-  — `Envelope` must not escape `client.ts` — say so in the types file's header, and keep the rule in
-  this document doing the real work.
-- Feature types stay per-feature and hand-written, as [Consuming the API](#consuming-the-api) says.
-  This is about where they sit, not where they come from.
+**Every page exports `metadata`, directly after the imports.** Titles are the bare page name — the
+root layout owns `template: "%s - TasKlean"`. The homepage sets none (the `default` renders
+`TasKlean`). A `metadata` export is **impossible in a client component** and fails silently. Auth
+routes are `noindex` via the `(auth)` layout.
 
 ### Comments
 
-Meaningful, compact, contextual. A comment earns its place by saying something the code cannot.
+- **File header** — one to three lines on any non-obvious module: what it is _for_, plus the single
+  thing a reader must know. No history, no essays, no restating exports. Plain presentational
+  components get none.
+- **Functions** — TSDoc on **every function, exported or not**, including pages and layouts. One-line
+  imperative summary; `@param`/`@returns`/`@throws` only where not obvious from name and type. Skip a
+  tag rather than pad it. A trivial helper gets a one-liner and no tags.
+- **Types** — a `//` above a field only when the type cannot carry the meaning (units, which id
+  namespace, what `null` means). **Never one per field.**
+- **Inline** — `//` above the line, never trailing, explaining the _why_. Only when the code is
+  correct but looks wrong, encodes a backend quirk, or rejects an obvious alternative.
+- **No worked examples.** State what the code does, not a demonstration — that belongs in a test.
+- **Tests get no comments at all**, helpers included. The `it(...)` description is the comment. The
+  `// @vitest-environment jsdom` pragma is configuration, not a comment.
+- **Upkeep** — update or delete a comment in the same change as the code beneath it.
 
-**File header** — one to three lines at the top of any non-obvious module: what it is _for_, plus the
-single thing a reader must know before touching it. No history, no essays, no restating the exports.
-Plain presentational components and barrel files get none.
+## Session and auth
 
-**Functions** — TSDoc (`/** ... */`) on **every function, exported or not**, including page and
-layout components. This mirrors the backend Javadoc rule, so the two repos read the same way. There
-is no "obvious enough to skip" exemption: that judgement call is what left eight helpers
-uncommented the first time, and a rule with no exceptions is the only kind that can be checked.
+- **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a **JWE** (not
+  signed — a signed payload is readable base64url and ours carries the refresh token). Holds the
+  token pair, `userUid`, `activeGroupId`. `auth/session.ts` exports the name and options so
+  `proxy.ts` can't drift. **There is no server-side store**; the sealed tokens live in the browser.
+- **Proxy is the auth boundary and the only refresh site on the navigation path.** Default deny —
+  everything is protected unless in `PUBLIC_PATHS`. `/api` is excluded from the matcher so Route
+  Handlers answer `401` instead of redirecting to HTML.
+- **Never refresh where the rotated pair cannot be persisted.** Refresh tokens are single-use;
+  cookies can only be written in Proxy, a Route Handler or a Server Action — **never in a Server
+  Component render**.
+- **`serverApi()` is session-aware; `request()` is raw.** `serverApi` throws `SessionExpiredError` on
+  `401` and deliberately does not refresh. `403` passes through as `ApiError`.
+- **Mutations use Server Actions, not Route Handlers** — Next checks `Origin` against `Host`, so CSRF
+  is covered without a token of our own. A Route Handler would need one.
+- **Role checks in our code are UX, never authorization.** Spring is the authority: gate the UI
+  optimistically *and* handle the `403`. Not built yet.
+- **Password policy** lives in `validation/password.ts` and the **frontend is the spec** — the backend
+  is being changed to match. 8–64 characters, one each of upper/lower/digit/non-alphanumeric, and a
+  guessable password is rejected. Enforced at register, never at login.
 
-- A one-line summary, imperative mood: "Parses…", not "This function parses…".
-- `@param` for each parameter whose purpose is not obvious from its name and type.
-- `@returns` when the return value is not obvious from the name and type.
-- `@throws` for anything a caller must anticipate and handle.
+## Consuming the API
 
-Skip a tag rather than padding it — `@param token The token` is noise. A trivial helper may have a
-one-line TSDoc (`/** Returns the group's active members. */`) and no tags at all — but it has one.
+Consequences of the backend's design, not preferences. Breaking them produces bugs that look like
+backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 
-**Types** — a `//` above a field only when the type cannot carry the meaning: units, which id
-namespace it belongs to, or what `null` signifies. Never one per field.
+- **Every response is an envelope** — `{ success, message, data }`, on failure too, never HTML.
+  `api/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No field is
+  marked `required` in `openapi.json`, so narrow rather than trust.
+- **Never branch on the exact 2xx code** — POSTs return `201` while the spec says `200`.
+- **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` are addressed by string `uid`;
+  everything else by numeric `id`. Payloads are flat — foreign keys are ids, never nested objects.
+- **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
+  them `memberId`, never `userId`. Resolve yours from `GET /api/group-members?groupId=`.
+- **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
+  goes through `time/api-date.ts` — `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
+  (the backend parses `ISO_LOCAL_DATE_TIME`).
+- **`401` ends a session, `403` never does.** `401` → one silent refresh, then clear and `/login`.
+  `403` → show a permission message, never log out, never retry.
+- **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
+- **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
+  `400`, not an empty list.
+- **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping
+  the predicates in one place per resource.
+- **Types are hand-written per feature** from `openapi.json` — we do not generate a client.
 
-**Inline** — `//` above the line (never trailing), explaining the _why_. Reach for one when the code
-is correct but looks wrong, encodes a backend quirk, or deliberately rejects an obvious alternative.
-If it restates the mechanics, delete it.
+## Tests
 
-**Tests** — **no comments at all.** The `it(...)` description is the comment; if an assertion needs
-explaining, the description is wrong. This includes helpers inside a test file, which are exempt
-from the no-exemption function rule above. A header on a test file is not needed either. The one thing that is not a comment in this sense is
-the `// @vitest-environment jsdom` pragma, which is configuration the runner reads.
+`vitest.config.mts` + `vitest.setup.ts`. Tests sit beside their code as `*.test.ts(x)`.
 
-**No worked examples.** State what the code does or why, not a demonstration of it. "Rejects a
-protocol-relative path" earns its place; spelling out what a browser does with `//evil.test`, across
-three lines, does not — that belongs in a test, where it is executable.
-
-**Upkeep** — update or delete a comment in the same change as the code beneath it. A stale comment is
-worse than none.
+- **Default environment is `node`**; a component test opts in with `// @vitest-environment jsdom` on
+  line one.
+- **No globals** — import `describe`/`it`/`expect` from `vitest`. Turning them on would force
+  `tsconfig`'s `types` to list every `@types` package explicitly.
+- **`cleanup()` runs after each test** in `vitest.setup.ts`. Testing Library only registers it
+  automatically when globals are on, so without it every `render` stacks into one document.
+- **HTTP is mocked at the network boundary with MSW**, never by stubbing our own modules. Shared
+  server in `src/test/msw.ts`; handlers per test via `server.use()`. Unhandled requests **fail the
+  test** (`onUnhandledFrame: "error"`).
+- **`server-only` is aliased to a stub** — the package throws unless resolved under React's
+  `react-server` condition, which Vitest doesn't apply. The production guard is unaffected.
+- **The suite runs in a pinned non-UTC timezone** (`TZ = "Europe/Ljubljana"`). On a UTC machine a
+  naive `new Date(apiString)` is right by accident and the timestamp tests would pass against the bug
+  they exist to catch. `time/api-date.test.ts` asserts the pin.
+- New logic in `src/lib/` gets a colocated test.
 
 ## Environment
 
 `.env.local` is gitignored — never commit real values.
 
-| Variable                       | Scope   | Purpose                                                                                                                  |
-| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `API_BASE_URL`                 | server  | Spring API origin (local `http://localhost:8080`, or staging)                                                            |
-| `SESSION_SECRET`               | server  | Key for the encrypted httpOnly session cookie, unique per environment                                                    |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must exactly match** the backend's `GOOGLE_CLIENT_ID`, or token-audience verification fails |
+| Variable                       | Scope   | Purpose                                                                     |
+| ------------------------------ | ------- | --------------------------------------------------------------------------- |
+| `API_BASE_URL`                 | server  | Spring API origin                                                           |
+| `SESSION_SECRET`               | server  | Key for the encrypted session cookie, unique per environment, ≥32 chars     |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must match** the backend's `GOOGLE_CLIENT_ID`  |
 
-All three are required and validated by `src/lib/config/env.ts`; whitespace-only counts as missing.
-
-The frontend's origin must be listed in the backend's `CORS_ALLOWED_ORIGINS` and under **Authorized
-JavaScript origins** on the Google OAuth client. Because the browser never calls Spring directly
-(see the session architecture in the bible), CORS should never actually fire — if you see a CORS
-error, something is calling the API from the wrong side.
+All three are required and validated by `config/env.ts`; whitespace-only counts as missing. Our
+origin must be in the backend's `CORS_ALLOWED_ORIGINS` and the Google client's authorized origins —
+though the browser never calls Spring directly, so a CORS error means something is calling from the
+wrong side.
