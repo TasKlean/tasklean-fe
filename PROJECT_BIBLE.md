@@ -207,6 +207,35 @@ clock and mocked responses; a staging-targeted e2e run is the only real-world ch
 
 ---
 
+### The design system
+
+**[DESIGN.md](DESIGN.md) is the design authority; `src/app/globals.css` is its implementation.** The
+file is Stitch output — a Material 3 theme plus a written description of the brand, components and
+layout. A change starts there, not in the CSS.
+
+**The token names are Tailwind's, not DESIGN.md's.** Stitch emits Material roles (`on-surface`,
+`surface-container-low`, `primary-container`); the codebase uses the conventional `x` /
+`x-foreground` pairs instead, so a component reads like ordinary Tailwind. The cost is real and
+worth stating: every screen pasted from Stitch has to be translated by hand. That is why each value
+in `globals.css` carries a comment naming its Material origin — the mapping has to be walkable
+backwards or the translation becomes guesswork.
+
+**DESIGN.md contradicts itself, and the written description wins.** Its YAML block and its prose
+give different hex codes for the same roles: `primary` is `#1c415a` in the block and `#355872` in
+the prose, and `secondary` and `tertiary` disagree the same way. The prose is self-consistent —
+every elevation shadow is `rgb(53 88 114 / x)`, which is exactly `#355872` — so `#355872` is the
+brand colour. `secondary` and `accent` take the block's lighter *container* values, which land close
+to what the prose asks for. Whether they should be the prose's exact tones is still open; it is a
+"does this look right" question, settled by looking at a screen rather than by reasoning.
+
+**Dark mode is derived, not designed.** DESIGN.md is a light-only scheme. The derivation reuses what
+the Material block already implied rather than inventing — `primary` becomes its `inverse-primary`,
+`foreground` its `inverse-on-surface`, and the light `primary` demotes to `accent`. The canvas ramp
+and the sage/coral tones are genuinely new and marked as such, to be replaced when Stitch emits a
+dark scheme. One deliberate departure: **dark shadows are re-tinted near-black**, because a
+slate-tinted ambient glow is invisible on a dark canvas and the light values would silently flatten
+every card.
+
 ### Page metadata and SEO
 
 **Every page exports `metadata` directly after its imports.** The placement is a convention, not a
@@ -610,6 +639,17 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-09** — Adopted the DESIGN.md design system ("Domestic Serenity", from Stitch) as the
+  design authority, implemented as tokens in `globals.css`: colour, the type scale with per-step
+  line height and weight, radii, spacing and the tinted elevation shadows. Typeface changed from
+  Inter to **Plus Jakarta Sans**. Token names are Tailwind's rather than DESIGN.md's Material ones
+  — reasoning under _The design system_, including what that costs when pasting a Stitch screen.
+  Light and dark both exist; dark is derived. `/` now renders a throwaway design preview and is
+  **temporarily public** so it can be opened without a session — it must come out of
+  `PUBLIC_PATHS` when the task feed lands. Also fixed a real hole found while adding it: `isPublic`
+  matched prefixes, so `"/"` produced the prefix `"//"` and a request arriving as `//dashboard`
+  would have been treated as public and skipped the auth check while Next still routed it to the
+  protected page. `"/"` now matches exactly.
 - **2026-10-08** — Corrected this document's description of the session, which overstated three
   things. It said the Next server "is the only thing that ever holds a JWT"; in fact there is no
   server-side store at all — the sealed tokens live in the browser's cookie and transit it on every

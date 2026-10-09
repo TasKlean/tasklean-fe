@@ -19,12 +19,17 @@ go in the bible, not here.
 
 ## Status
 
-**Phase 1 complete — the API layer, the time module and the session all exist. There are no screens
-yet.** Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
-Prettier, Vitest + MSW. `src/lib` holds `env.ts`, `time.ts`, `session.ts`, the `api/` client and
-`auth/`; `src/proxy.ts` draws the auth boundary. `src/app` still holds placeholder routes only —
-**so the app currently redirects everything to `/login`, and that page does not exist yet.** Phase 2
-builds it. The phases and what each one is for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
+**Phase 1 complete — the API layer, the time module and the session all exist. No product screens
+yet.** Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint
+10, Prettier, Vitest + MSW. `src/lib` holds `env.ts`, `time.ts`, `session.ts`, the `api/` client and
+`auth/`; `src/proxy.ts` draws the auth boundary.
+
+`src/app` has one real thing in it: **`/` renders a design preview** of the DESIGN.md tokens and
+components, so the system can be eyeballed in light and dark before screens are built on it. It is
+throwaway — the real root route is the task feed — and `/` sits **temporarily in `PUBLIC_PATHS`** so
+it opens without a session. Every other route redirects to `/login`, which does not exist yet.
+Phase 2 builds it. The phases and what each one is for are in
+[the roadmap](PROJECT_BIBLE.md#roadmap).
 
 **Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
 2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
@@ -208,8 +213,13 @@ Only what we've actually decided. This grows as we make choices.
   except for genuinely dynamic values (a colour stored on a category). Extract a component, not an
   `@apply` class, when a pattern repeats.
 - **Every colour, radius and font comes from a token** in `src/app/globals.css`. Tokens are named by
-  role (`surface`, `muted-foreground`, `danger`), never by appearance — that is what makes a second
+  role (`card`, `muted-foreground`, `destructive`), never by appearance — that is what makes a second
   theme possible without touching a component. Never hard-code a hex or a rem outside that file.
+  **[DESIGN.md](DESIGN.md) is the design authority** and `globals.css` is its implementation, so a
+  change starts there. The token *names* are Tailwind's (`x` / `x-foreground`), not DESIGN.md's
+  Material ones (`on-surface`, `surface-container-low`) — each value carries a comment with its
+  Material name, because translating a pasted Stitch screen means walking that mapping backwards.
+  The typeface is **Plus Jakarta Sans**, self-hosted by `next/font`.
   Dark mode currently follows the OS setting; the cookie-driven toggle lands with the settings
   screen, at which point the dark variant moves to a data-attribute on `<html>`.
 - **Mobile-first.** People open this on a phone while standing in a kitchen. Design the narrow layout

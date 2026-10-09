@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,11 +25,12 @@ export const viewport: Viewport = {
 };
 
 // Self-hosted by next/font at build time: no runtime request to Google, and no
-// layout shift. latin-ext is required for Slovenian diacritics (c-caron, s-caron, z-caron).
-const inter = Inter({
+// layout shift. latin-ext is required for Slovenian diacritics (c-caron, s-caron,
+// z-caron). The variable font covers 400-700, which is every weight DESIGN.md uses.
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-plus-jakarta",
 });
 
 /**
@@ -38,7 +39,7 @@ const inter = Inter({
  */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={plusJakarta.variable}>
       <body>{children}</body>
     </html>
   );

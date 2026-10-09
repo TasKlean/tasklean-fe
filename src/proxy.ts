@@ -29,16 +29,22 @@ export const config = {
 };
 
 // Default deny: adding a route must not require remembering to protect it.
-const PUBLIC_PATHS = ["/login", "/register", "/verify-email", "/about"];
+//
+// TEMPORARY: "/" is here only so the design preview on the root route can be
+// viewed without a session. The real root route is the task feed and must be
+// protected — remove "/" when that lands, or the feed ships readable by anyone.
+const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/about"];
 
 /**
  * Reports whether a path is reachable without a session.
  *
  * Matches a prefix as well as the exact path, so `/login/callback` is public
- * because `/login` is.
+ * because `/login` is. `"/"` is the one exception and matches exactly.
  */
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  return PUBLIC_PATHS.some(
+    (path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)),
+  );
 }
 
 /**
