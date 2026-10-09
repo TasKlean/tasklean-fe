@@ -1,95 +1,268 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — the single source of truth for colour, radius and type.
- * Components reference these (bg-background, text-muted-foreground, rounded-card);
- * never hard-code a hex or a rem value in a component.
+ * Design tokens — the single source of truth for colour, type, radius, spacing
+ * and elevation. The values come from DESIGN.md ("Domestic Serenity"); that file
+ * is the design authority and this one is its implementation, so change it there
+ * first.
  *
- * Tokens are named by ROLE, not by appearance: "surface", not "white". That is what
- * makes a second theme possible without touching a single component.
+ * The NAMES are Tailwind's, not DESIGN.md's. Stitch emits a Material 3 theme
+ * (`on-surface`, `surface-container-low`), which reads nothing like Tailwind, so
+ * each role is renamed to the conventional `x` / `x-foreground` pair here. The
+ * mapping is recorded beside each value, because translating a pasted Stitch
+ * screen means walking it backwards.
  *
- * Dark mode currently follows the OS setting. The cookie-driven toggle — so the server
- * renders the chosen theme with no flash on first paint — lands with the settings screen;
- * at that point the dark variant moves to a data-attribute on <html>.
+ * Tokens are named by ROLE, never by appearance — `muted`, not `grey`. That is
+ * what lets light and dark share one set of component classes.
  */
 
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
 
+  /* Page canvas and the text on it. */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  --color-surface: var(--surface);
-  --color-surface-foreground: var(--surface-foreground);
+  /* Raised surfaces. `card` is a resting card, `popover` a sheet or menu. */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 
+  /* `muted` is a tonal fill one step off the canvas; its foreground is the
+   * standard colour for secondary text. */
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
 
-  --color-border: var(--border);
-  --color-ring: var(--ring);
+  /* `accent` is the sky-blue wash — selected cards, subtle highlights. */
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-danger: var(--danger);
-  --color-danger-foreground: var(--danger-foreground);
+  /* Status colours come in pairs: the solid tone for a filled control, and a
+   * `-subtle` tint for an alert background. DESIGN.md specifies the tints, so
+   * they are real tokens rather than an opacity modifier on the solid one. */
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-destructive-subtle-foreground: var(--destructive-subtle-foreground);
 
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-subtle-foreground: var(--success-subtle-foreground);
 
-  --radius-card: 0.75rem;
-  --radius-control: 0.5rem;
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-subtle-foreground: var(--warning-subtle-foreground);
+
+  /* `border` divides, `input` outlines a field, `ring` is the focus halo. */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Type scale. Each step carries its own line height, tracking and weight, so
+   * `text-headline-md` alone is the complete heading style. */
+  --text-display-lg: 2.5rem;
+  --text-display-lg--line-height: 3rem;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 700;
+
+  --text-display-lg-mobile: 2rem;
+  --text-display-lg-mobile--line-height: 2.5rem;
+  --text-display-lg-mobile--letter-spacing: -0.015em;
+  --text-display-lg-mobile--font-weight: 700;
+
+  --text-headline-lg: 1.875rem;
+  --text-headline-lg--line-height: 2.375rem;
+  --text-headline-lg--letter-spacing: -0.015em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-md: 1.5rem;
+  --text-headline-md--line-height: 2rem;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 1.25rem;
+  --text-headline-sm--line-height: 1.75rem;
+  --text-headline-sm--font-weight: 600;
+
+  --text-title-md: 1.125rem;
+  --text-title-md--line-height: 1.625rem;
+  --text-title-md--font-weight: 500;
+
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.625rem;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.375rem;
+  --text-body-md--font-weight: 400;
+
+  --text-label-lg: 0.875rem;
+  --text-label-lg--line-height: 1.25rem;
+  --text-label-lg--letter-spacing: 0.01em;
+  --text-label-lg--font-weight: 600;
+
+  --text-label-md: 0.75rem;
+  --text-label-md--line-height: 1rem;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm: 0.6875rem;
+  --text-label-sm--line-height: 0.875rem;
+  --text-label-sm--letter-spacing: 0.03em;
+  --text-label-sm--font-weight: 600;
+
+  /* Generous radii on purpose — DESIGN.md rejects mechanical corners. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  --spacing-gutter: 1.25rem;
+  --spacing-gutter-desktop: 1.75rem;
+  --spacing-margin: 1rem;
+  --spacing-margin-tablet: 2rem;
+  --spacing-margin-desktop: 3rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.25rem;
+
+  /* Tinted ambient glows, not neutral drop shadows: the tint is the primary
+   * slate, which is what makes a card read as warm rather than clinical. */
+  --shadow-level-1: var(--elevation-1);
+  --shadow-level-2: var(--elevation-2);
+  --shadow-level-3: var(--elevation-3);
+
+  /* Desktop caps the layout rather than filling the viewport, so a wide screen
+   * frames the app like a bulletin board instead of an admin tool. */
+  --container-app: 1200px;
 }
 
+/* Light. Values are DESIGN.md's; the comment gives its name for each. */
 :root {
   color-scheme: light;
 
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.21 0.02 250);
+  --background: #f9faf2; /* surface / background */
+  --foreground: #1a1c18; /* on-surface */
 
-  --surface: oklch(1 0 0);
-  --surface-foreground: oklch(0.21 0.02 250);
+  --card: #ffffff; /* surface-container-lowest */
+  --card-foreground: #1a1c18; /* on-surface */
+  --popover: #ffffff; /* surface-container-lowest */
+  --popover-foreground: #1a1c18; /* on-surface */
 
-  --primary: oklch(0.56 0.11 182);
-  --primary-foreground: oklch(0.99 0 0);
+  /* DESIGN.md's frontmatter calls #355872 `primary-container` and #1c415a
+   * `primary`, but its prose and every elevation shadow treat #355872 as the
+   * brand colour. The prose wins. */
+  --primary: #355872; /* prose "Slate Blue" */
+  --primary-foreground: #ffffff; /* on-primary */
 
-  --muted: oklch(0.96 0.005 250);
-  --muted-foreground: oklch(0.51 0.02 250);
+  --secondary: #a7d7fd; /* secondary-container */
+  --secondary-foreground: #2b5e7f; /* on-secondary-container */
 
-  --border: oklch(0.91 0.01 250);
-  --ring: oklch(0.56 0.11 182);
+  --muted: #edefe7; /* surface-container */
+  --muted-foreground: #42474d; /* on-surface-variant */
 
-  --danger: oklch(0.56 0.19 25);
-  --danger-foreground: oklch(0.99 0 0);
+  --accent: #cae6ff; /* primary-fixed, prose "Sky Blue" wash */
+  --accent-foreground: #001e30; /* on-primary-fixed */
 
-  --success: oklch(0.57 0.13 150);
-  --success-foreground: oklch(0.99 0 0);
+  --destructive: #ba1a1a; /* error */
+  --destructive-foreground: #ffffff; /* on-error */
+  --destructive-subtle: #ffdad6; /* error-container */
+  --destructive-subtle-foreground: #93000a; /* on-error-container */
+
+  /* Success and warning are in DESIGN.md's prose only, not its frontmatter:
+   * sage for completion, coral for urgency. The subtle tints are derived. */
+  --success: #6fa287; /* prose "Muted Sage Green" */
+  --success-foreground: #ffffff;
+  --success-subtle: #d4e8dd;
+  --success-subtle-foreground: #1f3d2f;
+
+  --warning: #e27d60; /* prose "Warm Coral Amber" */
+  --warning-foreground: #ffffff;
+  --warning-subtle: #fadbd1;
+  --warning-subtle-foreground: #7a2f18;
+
+  --border: #c2c7cd; /* outline-variant */
+  --input: #e1e6d8; /* prose "warm neutral border" */
+  --ring: #7aaace; /* prose "Soft Denim" focus */
+
+  --elevation-1: 0 4px 20px -2px rgb(53 88 114 / 0.06);
+  --elevation-2: 0 12px 32px -4px rgb(53 88 114 / 0.12);
+  --elevation-3: 0 24px 48px -12px rgb(53 88 114 / 0.18);
 }
 
+/*
+ * Dark follows the OS setting. DESIGN.md is a light-only scheme, so these are
+ * derived rather than given. Where its frontmatter already implied a dark
+ * counterpart the derivation reuses it instead of inventing: primary becomes
+ * `inverse-primary`, foreground becomes `inverse-on-surface`, and the light
+ * primary demotes to `accent` — all standard Material behaviour. The canvas
+ * ramp and the sage/coral tones are genuinely new; replace them when Stitch
+ * emits a dark scheme.
+ *
+ * Shadows are re-tinted to near-black: a slate-tinted glow is invisible on a
+ * dark canvas, so the light values would silently flatten every card.
+ *
+ * The cookie-driven toggle lands with the settings screen, at which point this
+ * moves to a data-attribute on <html> so the server renders the chosen theme
+ * with no flash on first paint.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
 
-    --background: oklch(0.17 0.015 250);
-    --foreground: oklch(0.96 0.005 250);
+    --background: #111410;
+    --foreground: #f0f1e9; /* inverse-on-surface */
 
-    --surface: oklch(0.21 0.02 250);
-    --surface-foreground: oklch(0.96 0.005 250);
+    --card: #1a1c18;
+    --card-foreground: #f0f1e9;
+    --popover: #1e201b;
+    --popover-foreground: #f0f1e9;
 
-    --primary: oklch(0.72 0.12 182);
-    --primary-foreground: oklch(0.17 0.015 250);
+    --primary: #a7cbe9; /* inverse-primary */
+    --primary-foreground: #002f4a;
 
-    --muted: oklch(0.26 0.02 250);
-    --muted-foreground: oklch(0.69 0.02 250);
+    --secondary: #124b6b; /* on-secondary-fixed-variant */
+    --secondary-foreground: #c9e6ff; /* secondary-fixed */
 
-    --border: oklch(0.31 0.02 250);
-    --ring: oklch(0.72 0.12 182);
+    --muted: #292b25;
+    --muted-foreground: #c2c7cd; /* light's outline-variant */
 
-    --danger: oklch(0.66 0.18 25);
-    --danger-foreground: oklch(0.17 0.015 250);
+    --accent: #355872; /* light's primary, demoted */
+    --accent-foreground: #cae6ff;
 
-    --success: oklch(0.71 0.13 150);
-    --success-foreground: oklch(0.17 0.015 250);
+    --destructive: #ffb4ab;
+    --destructive-foreground: #690005;
+    --destructive-subtle: #93000a; /* light's on-error-container */
+    --destructive-subtle-foreground: #ffdad6; /* light's error-container */
+
+    --success: #8fc4a8;
+    --success-foreground: #0b2419;
+    --success-subtle: #2b4f3d;
+    --success-subtle-foreground: #d4e8dd;
+
+    --warning: #f0a68c;
+    --warning-foreground: #4a1708;
+    --warning-subtle: #6d2714;
+    --warning-subtle-foreground: #fadbd1;
+
+    --border: #42474d; /* light's on-surface-variant */
+    --input: #42474d;
+    --ring: #9cccf2; /* secondary-fixed-dim */
+
+    --elevation-1: 0 4px 20px -2px rgb(0 0 0 / 0.4);
+    --elevation-2: 0 12px 32px -4px rgb(0 0 0 / 0.5);
+    --elevation-3: 0 24px 48px -12px rgb(0 0 0 / 0.6);
   }
 }
 
