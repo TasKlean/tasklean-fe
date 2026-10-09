@@ -8,6 +8,7 @@
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { register } from "@/lib/auth/signin/register";
+import { readRaw, readTrimmed } from "@/lib/validation/form-data";
 import { type RegisterErrors, validateRegister } from "@/lib/validation/register";
 
 export type RegisterState = {
@@ -35,14 +36,8 @@ export async function registerAction(
   _previous: RegisterState,
   formData: FormData,
 ): Promise<RegisterState> {
-  const values = {
-    name: String(formData.get("name") ?? "").trim(),
-    lastName: String(formData.get("lastName") ?? "").trim(),
-    middleName: String(formData.get("middleName") ?? "").trim(),
-    email: String(formData.get("email") ?? "").trim(),
-  };
-  const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const values = readTrimmed(formData, ["name", "lastName", "middleName", "email"]);
+  const { password, confirmPassword } = readRaw(formData, ["password", "confirmPassword"]);
 
   const fieldErrors = validateRegister({ ...values, password, confirmPassword });
   if (Object.keys(fieldErrors).length > 0) {

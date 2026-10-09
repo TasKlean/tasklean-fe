@@ -1,12 +1,10 @@
 # TasKlean Frontend Bible
 
-Why this app is built the way it is. Decisions, the reasoning behind them, and what we know about
-the API we're consuming. Operational rules live in [CLAUDE.md](CLAUDE.md).
+Why this app is built the way it is, and what we know about the API we consume. Operational rules
+live in [CLAUDE.md](CLAUDE.md); what changed when lives in git.
 
-**This document grows as we build.** It is not a plan for the whole app. A section appears when we
-actually decide something, and says _why_ — so the reasoning survives even when the decision is
-later reversed. Things we haven't decided live under _Open questions_, unanswered, rather than being
-guessed at and written down as if settled.
+A section appears when we decide something and says *why*, so the reasoning survives a reversal.
+Undecided things stay under _Open questions_ rather than being guessed at.
 
 **Companion documents** — not restated here:
 
@@ -62,63 +60,41 @@ is already right.
 
 ---
 
-## Decisions so far
+## Architecture and patterns
 
-| Decision                                                   | Reasoning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Next.js, App Router**                                    | Server Components keep tokens and API calls off the client, and Route Handlers give us the session layer in the same deployment.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **TypeScript, strict**                                     | The whole job is consuming someone else's contract. Types are the cheapest correctness available.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **TailwindCSS**                                            | Settled with the backend. Utility-first suits a mobile-first component set we're writing ourselves.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| **Hand-written types, per feature**                        | We are _not_ generating a client from `openapi.json`. Generating gives a correct client instantly and teaches nothing; writing the types for an endpoint when you build against it means reading the contract and understanding it. Cost: drift is possible, caught by reading the spec when a feature touches it.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Node 26**                                                | We track LTS. Node 26 is the _Current_ line until **2026-10-28**, when it becomes Active LTS (supported to 2029-04); Node 24 is Active LTS today. Adopting 26 a few weeks early means the project sits on one release line for its whole life instead of migrating a month in. Next.js declares `node >=20.9.0` with no upper bound, so nothing blocks it. Cost: a short window on a Current line, which is low risk with no native dependencies.                                                                                                                                                                                                                                                                                                                      |
-| **No Node version manager**                                | Installed from the official MSI via winget rather than through nvm-windows / fnm / Volta. With one JS project there's nothing to switch between, so a manager is pure added attack surface: it fetches executables at runtime, and reading nvm-windows' `src/web/web.go` shows **no checksum or signature verification** of downloaded Node binaries, an inverted `InsecureSkipVerify` flag on its proxy path, and an `http://` fallback for scheme-less mirror settings. The MSI route gets an Authenticode-signed installer (verified: `CN=OpenJS Foundation`) plus winget's pinned-SHA256 check, and fetches nothing afterwards. Fallback to another version is still one winget command. Revisit fnm or Volta only if we genuinely need per-project Node versions. |
-| **npm is whatever Node bundles**                           | No globally installed npm. Node's `npm` shim prefers a global npm over the bundled one, so a stale `npm install -g npm` silently pins npm while Node moves on — which is exactly what we found on this machine (npm 10.9.1 shadowing Node 26's 11.19.0). One fewer independently-versioned thing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| **React Query when we need it, not before**                | See below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Vitest + Testing Library + MSW for unit tests**          | See below. The end-to-end tool is deliberately deferred.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Server Components fetch first, React Query after**       | See _Data fetching_ below.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **No global state library**                                | React Query holds server data, the URL holds filters and sort, a cookie holds the active group and theme. That covers everything we have. Adding Zustand later is cheap; unwinding a store full of server data is not.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Design tokens before components**                        | Colour, spacing, typography and radius defined as Tailwind theme tokens in one place, with the dark-mode mechanism chosen up front. Both are miserable to retrofit across a built-out UI — the tokens because every hard-coded value has to be hunted down, dark mode because it changes how every colour is declared.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **One API client, one error type** | See _API client_ below. |
-| **Session cookie encrypted with `jose`** | See _Session cookie implementation_. Encrypted (JWE), not signed — a signed payload is readable, and ours holds the refresh token. |
-| **Refresh happens in Proxy** | See _Refresh lives in Proxy_. A Server Component render cannot write cookies, so refreshing anywhere else loses the rotated token and kills the session. |
-| **Client-side role checks are UX, never authorization** | See _Roles and access_. Spring stays the authority; the UI gates optimistically and still handles the 403. |
-| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/config/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
-| **LF line endings pinned in the repo** | `.gitattributes` with `* text=auto eol=lf`. A fresh Windows clone with `core.autocrlf=true` checks the tree out as CRLF, which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure that reads as a formatting problem and isn't. Pinning it in the repo makes the rule travel to every machine rather than depending on local git config. |
-| **Session in an httpOnly cookie, tokens server-side only** | Forced by the backend's design. See _Session and auth_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+Decisions that have no section of their own. Everything below gets one.
 
-### React Query
-
-TanStack Query is the choice for client-side server state, and it works with the App Router — but
-it's **not installed at scaffold time**, deliberately.
-
-With Server Components, the first render of a page fetches on the server and ships HTML. React Query
-adds nothing there; it would be ceremony around a fetch that already happened. It starts genuinely
-paying when a view is _interactive against the server_: the task list where filters re-query,
-optimistic completion toggles that need rollback on failure, a polled unread-notification badge,
-cache invalidation after a mutation so three other views update.
-
-So: build the first screens with Server Components and Server Actions, feel where that gets awkward,
-then add React Query at that point. That way its concepts (query keys, staleness, invalidation) land
-on a problem we've already met, rather than being scaffolding we adopted on faith.
+| Decision | Reasoning |
+| --- | --- |
+| **Next.js, App Router** | Server Components keep tokens and API calls off the client; Route Handlers give us the session layer in the same deployment. |
+| **TypeScript, strict** | The whole job is consuming someone else's contract. Types are the cheapest correctness available. |
+| **TailwindCSS** | Settled with the backend. Utility-first suits a mobile-first component set we write ourselves. |
+| **Hand-written types, per feature** | Generating a client from `openapi.json` is instant and teaches nothing; writing an endpoint's types when you build against it means reading the contract. Cost: drift, caught when a feature touches the spec. |
+| **No global state library** | React Query holds server data, the URL holds filters and sort, a cookie holds active group and theme. Adding Zustand later is cheap; unwinding a store full of server data is not. |
+| **Design tokens before components** | Both tokens and the dark-mode mechanism are miserable to retrofit — every hard-coded value has to be hunted down, and dark mode changes how every colour is declared. |
+| **Env validated by hand, not Zod** | Fifteen lines for three variables, reporting every missing one at once. Keeps Zod a genuinely open choice for forms rather than smuggling it in here. Revisit if the set needs coercion or defaults. |
+| **Node 26** | Becomes Active LTS 2026-10-28 (supported to 2029-04), so the project sits on one line for its whole life instead of migrating a month in. Next declares `node >=20.9.0` with no upper bound. |
+| **No Node version manager** | Installed from the signed MSI via winget. With one JS project there is nothing to switch between, so a manager is added attack surface — nvm-windows' `src/web/web.go` verifies **no checksum or signature** on downloaded Node binaries, inverts `InsecureSkipVerify` on its proxy path, and falls back to `http://` for scheme-less mirrors. Revisit only if we need per-project versions. |
+| **npm is whatever Node bundles** | Node's `npm` shim prefers a global npm over the bundled one, so a stale `install -g npm` silently pins it while Node moves on — which is what we found here (10.9.1 shadowing 11.19.0). |
+| **LF line endings pinned in the repo** | `.gitattributes`, so the rule travels to every machine. A CRLF checkout fails `format:check` on every file and reads as a formatting problem. |
 
 ### Data fetching
 
-**Server Components fetch on first load; React Query owns everything after that.** They hand off
-rather than compete — the Server Component fetches, seeds React Query with the result, and React
-Query holds the data from then on.
+**Server Components fetch on first load; React Query owns everything after.** They hand off rather
+than compete: the Server Component fetches, seeds React Query, and React Query holds it from then on.
 
-Why the server for first load, given that SEO is irrelevant behind a login: **the BFF makes a
-browser-initiated fetch cost two hops** (browser → Next → Spring) and that extra hop can't be
-removed, because removing it means putting a JWT in the browser. A Server Component pays one hop,
-server-to-server, before the page is even sent — so the page arrives with data in it instead of
-showing a spinner while JS loads, hydrates and then fetches. For "two taps from a cold start on a
-phone", client-first fetching buys a guaranteed spinner.
+Why the server for first load, given SEO is irrelevant behind a login: **the BFF makes a
+browser-initiated fetch cost two hops** (browser → Next → Spring), and that hop cannot be removed
+without putting a JWT in the browser. A Server Component pays one hop, server-to-server, before the
+page is even sent. For "two taps from a cold start on a phone", client-first fetching buys a
+guaranteed spinner. Tokens do *not* decide this — they stay server-side either way. The argument is
+latency, not security.
 
-React Query then covers what the server can't: filter changes, optimistic completion with rollback,
-invalidation after a mutation, and polling the unread-notification badge.
-
-Note that tokens do _not_ decide this — they stay server-side either way, so the BFF requirement is
-neutral between client and server fetching. The argument is latency, not security.
+**React Query is not installed yet, deliberately.** It adds nothing to a first render that already
+happened on the server; it starts paying when a view is interactive against the server — filters
+re-querying, optimistic completion with rollback, invalidation after a mutation, a polled unread
+badge. Adding it when we meet that problem means its concepts land on something real rather than
+being scaffolding adopted on faith.
 
 **One hard rule**: never put per-user data in a shared server cache. Per-session caching on the
 client is fine; a group's task list in a shared cache leaks between households.
@@ -343,6 +319,13 @@ unverified each have their own wording, so the UI can act on them. We act on one
 available, since the envelope carries no error code — a reworded message degrades the redirect to
 simply showing the message.
 
+**Verification links must not verify on a GET.** The code arrives by email, and the link may carry
+it as `?code=`. Mail scanners prefetch links to check them, so a page that auto-submitted would
+spend the single-use code before the recipient clicked and leave them with the generic failure. The
+link prefills and still requires a click; our verification is a POST from a Server Action, so a
+prefetch changes nothing. `?code=` is stripped from the URL once read, and no countdown is shown
+when a code arrives prefilled — the backend never says when it was sent.
+
 **Google** — the _browser_ runs Google Identity Services and gets an **ID token**, posts it to our
 server, which forwards it to `POST /api/auth/google`. Three config preconditions, all easy to get
 wrong: our `NEXT_PUBLIC_GOOGLE_CLIENT_ID` must exactly equal the backend's `GOOGLE_CLIENT_ID`; our
@@ -559,7 +542,15 @@ workaround **before** the feature depending on it gets built.
     Route Handler or Server Action. This is what forces refresh into Proxy.
 14. **No response headers are documented at all**, including the `Retry-After` the rate limiter
     actually sends on `429`. Read it defensively and tolerate its absence.
-15. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
+15. **Stitch screens ship their own Tailwind scale.** Each pasted page carries a `tailwind.config`
+    whose radii differ from ours — its `rounded-xl` is 0.75rem against our 1.5rem, so a copied class
+    doubles every corner. Its `rounded-xl` maps to our `rounded-md`. Check the pasted config before
+    trusting any class name.
+16. **An MSW major can silently disarm the test network guard.** MSW 3 renamed
+    `onUnhandledRequest` to `onUnhandledFrame` *and* defaults to warning, so the old option name
+    became a no-op and unhandled requests started reaching the real network while the suite stayed
+    green. `typecheck` caught it; nothing else would have.
+17. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
     `ErrorResponse` schema is the same envelope with `success: false`, and is referenced by zero
     responses. Narrow at the boundary rather than trusting the shape.
 
@@ -632,116 +623,19 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   `~6.0.3` pin.
 - **UI primitives** — hand-rolled or headless (Radix / shadcn-style)? Learning focus management
   ourselves against accessible dialogs and menus for free.
-- **Forms and validation** — React Hook Form + Zod, or stay plain. Currently plain, and the shared
-  `validation/` modules have not yet hurt.
+- **Forms and validation** — React Hook Form + Zod, or stay plain. Still plain, and the duplicated
+  `FormData` parsing that was the strongest argument for Zod is now a fifteen-line helper
+  (`validation/form-data.ts`) with no dependency and nothing in the client bundle. What Zod would
+  still buy: one schema as the source of truth with `z.infer` for the field type, so adding a field
+  cannot drift between the type, the validator and the action. What it would not: `isGuessable` and
+  the leet/stem checks are custom either way, the strength meter is not validation, and its issue
+  objects would need mapping to the `string | null` the UI consumes — so the 146-line password
+  module barely benefits. The cost is real: `validation/` is deliberately client-importable, so Zod
+  would ship to the browser of a phone in a kitchen. **Revisit when a form needs nested data, arrays
+  or coercion** — task recurrence rules are the likely trigger.
 - **Canonical URL for `metadataBase`** — needs an absolute origin we do not have. Until then pages
   carry titles and descriptions but no link-preview metadata, since a relative OG image resolves
   against nothing and Next warns at build.
 - **Offline behaviour** — read caching is straightforward; queuing mutations is a real
   distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be waved
   at.
-
----
-
-## Log
-
-Newest first, one entry per change. The reasoning lives in the sections above — this is the dated
-index of what moved and the surprises worth not rediscovering.
-
-- **2026-10-09** — `/verify-email`, completing the three auth screens. Verifying is where a new
-  account's session starts, since the backend withholds the token pair at register. Three decisions:
-  the email link **prefills and still requires a click**, because mail scanners prefetch links with
-  a GET and would spend the single-use code before the recipient clicked; `?code=` is stripped from
-  the URL once read; and when a code arrives prefilled there is **no countdown**, because the
-  backend never says when it was sent and a 5:00 timer on an hour-old link is a lie.
-
-  An unverified login now sends a fresh code and redirects here. That required correcting a claim
-  in both documents: login failures are **not** all one message — only unknown-email and wrong
-  password share one. Matching `/not verified/` on the message is the only signal, since the
-  envelope has no error code.
-
-  Three bugs the tests found in `CodeInput`, all mine: handlers read `value` from a stale closure so
-  `123456` became `246`; the first fix was a ref written during render, which lint correctly refused;
-  and the `onFocus` gap-guard then fought the programmatic focus move, so it became `onClick`.
-
-- **2026-10-09** — Comment rule made countable after a third correction: inline comments are one
-  line, two at most, three is a violation. A script that counts `//` runs found **23 violations**
-  across the tree, most predating the recent work. All fixed; tests carry no comments at all.
-
-- **2026-10-09** — Compacted these two documents. CLAUDE.md became a reference (what exists, where,
-  the rules) and this file took the reasoning, mirroring the backend's split. CLAUDE.md 437 → ~250
-  lines; the Log alone had grown to 187 and was mostly restating the sections above it. Two stale
-  claims surfaced while doing it: the auth screens' `robots` was written as future work when the
-  `(auth)` layout already sets it, and Cache Components still said "decide at scaffold time".
-- **2026-10-09** — `/register`, the shared form machinery and the password policy — see _The
-  password policy_. Two things tests caught that thinking had not: a first scorer rated **`P@ssw0rd`
-  "good"**, the exact failure it was written to avoid, and letting length alone reach "strong"
-  produced a meter praising a password the form rejected. Also fixed: Testing Library registers
-  `cleanup()` only when Vitest globals are on, so renders were stacking — one test saw a password
-  field holding four copies of its input.
-- **2026-10-09** — `/login` from the Stitch screens. `lucide-react` over the Material Symbols
-  webfont; filled borderless inputs, overriding DESIGN.md's prose; the brand panel reduced to brand
-  only, since a signed-out visitor cannot be shown real household data. **Three designed features
-  have no backend**: password reset (no endpoint), "remember this device for 30 days" (the session
-  is a fixed 14 days) and "log out" on the verify screen (there is no session until verification).
-  The first is inert by request; the others are gone. **Stitch ships its own radius scale** — its
-  `rounded-xl` is 0.75rem against our 1.5rem, so a copied class doubles every corner; it maps to our
-  `rounded-md`. Added `safe-next.ts` because `?next=` is attacker-controlled.
-- **2026-10-09** — Reorganised the tree: `src/lib` defined as non-UI logic with nothing directly in
-  it, components split into `common/` and per-feature. Found while auditing: **`config/env.ts` and
-  `api/client.ts` had no `server-only` guard**. Consolidated two copies of `AuthResponse` — the
-  duplicate declared `uid: string`, which typecheck exposed as a lie the callers already worked
-  around.
-- **2026-10-09** — DESIGN.md adopted as the design authority, implemented as tokens — see _The
-  design system_. Inter → Plus Jakarta Sans. `/` became a design preview and is temporarily public.
-  Fixed a real hole found while adding it: `isPublic` matched prefixes, so `"/"` produced the prefix
-  `"//"` and a request arriving as `//dashboard` would have been treated as public and skipped the
-  auth check while Next still routed it to the protected page.
-- **2026-10-08** — Corrected this document, which overstated three things: that the Next server "is
-  the only thing that ever holds a JWT" (there is no server-side store at all), that a **CSRF token
-  was part of the architecture** when none is implemented, and that the session is "rolling"
-  unqualified. Added the absolute session cap as an open question.
-- **2026-10-08** — File order fixed (imports, types, config, variables, content) and **types move out
-  at two**. Wider gaps between sections were **rejected, not forgotten**: Prettier collapses
-  consecutive blank lines with no option to disable it, verified by probe. Every function now takes
-  TSDoc, exported or not — the old "obvious enough to skip" exemption had left eight uncommented.
-- **2026-10-08** — Page metadata convention — see _Page metadata and SEO_. Separator `·` → `-`.
-  Dropped `'use client'` from the about page: the directive **silently makes a `metadata` export
-  dead**, which is the trap the convention records.
-- **2026-10-08** — Dependencies current: Next 16.4.0, React 19.3, ESLint 10, jsdom 30, MSW 3.
-  **MSW 3 renamed `onUnhandledRequest` to `onUnhandledFrame` and defaults to warning**, silently
-  downgrading our "fail the test" guard to a pass-through; typecheck caught it. ESLint 10's invalid
-  peer ranges were verified harmless by probe. TypeScript 5.9.3 → **6.0.3, not 7**: typescript-eslint
-  throws on `versionMajor >= 7`. Pinned `~6.0.3`, since `^` would admit 6.1.0 and break lint.
-- **2026-10-08** — Commenting standard adopted and applied. Moved this machine to **Node 26.8.1**: it
-  had been on 22.19 against `engines.node: >=26`, with a global npm shadowing the bundled copy — the
-  exact trap CLAUDE.md documents, caught by its own test. Denied `msw`'s postinstall.
-- **2026-10-07** — Session, refresh and the auth boundary — see _Session cookie implementation_ and
-  _Refresh lives in Proxy_. **Next 16 renamed Middleware to Proxy**; a `middleware.ts` written from
-  memory would simply never run (gotcha 12). Dropped `userId` from the session: the access token
-  already carries it. Role access designed but not built. Added the `/pre-commit` skill.
-- **2026-10-07** — The UTC time module — see _Time_. The write format came from reading the backend,
-  not guessing: `LocalDateTime` DTOs with no Jackson config mean `ISO_LOCAL_DATE_TIME`, so **no
-  `Z`** — and `TaskRequest.nextDueDate` is the only writable date-time field in the API. The
-  `Europe/Ljubljana` test pin was verified by flipping it to `America/New_York`. Display formatting
-  deliberately deferred to the first screen that renders a date.
-- **2026-10-07** — The API client — see _API client_. MSW arrived with it. Reading `openapi.json`
-  directly turned up three things the summary docs didn't say, now gotchas 11–13: the documented
-  status set omits `404`/`409` although both occur, no response headers are documented including
-  `Retry-After`, and no envelope field is marked `required`.
-- **2026-10-07** — Test harness and env validation. `node` as the default environment, jsdom per
-  file, no globals (enabling them forces `tsconfig`'s `types` to enumerate every `@types` package).
-  `config/env.ts` hand-rolled rather than Zod. `@types/node` `^20` → `^26`. Added `.gitattributes`
-  pinning LF after a fresh Windows clone failed `format:check` repo-wide. The harness came before the
-  code it guards, so everything later got tests alongside it.
-- **2026-10-03** — Phase 0: Next 16.3.8 scaffolded with `--empty`, plus Prettier, the Node pin,
-  `.env.example` and the token layer. React Compiler and Cache Components left off — both can be
-  enabled later without rewriting code. Kept the generated `AGENTS.md`: reading `writeAgentFiles`
-  showed that deleting it makes `next dev` inject its block into CLAUDE.md instead.
-- **2026-10-03** — Data fetching settled (Server Components first load, React Query after), unit
-  testing settled (Vitest + Testing Library + MSW), end-to-end left open. Node 26.7.0 from the signed
-  MSI, no version manager; removed a global npm shadowing the bundled one.
-- **2026-09-28** — Node 26 chosen over Active LTS 24, which goes LTS 2026-10-28 and would otherwise
-  mean migrating a month in. Read the backend's bible and OpenAPI spec end to end: recorded the API
-  consumption rules, the session architecture the backend forced, and six API gaps blocking MVP
-  features. Decided against generating API types. Laid out the roadmap.

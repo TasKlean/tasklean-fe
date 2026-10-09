@@ -12,6 +12,7 @@ import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
 import { safeNext } from "@/lib/auth/safe-next";
 import { validateEmail } from "@/lib/validation/email";
+import { readRaw, readTrimmed } from "@/lib/validation/form-data";
 import { setSession } from "@/lib/auth/session";
 
 export type LoginState = {
@@ -29,9 +30,9 @@ const GENERIC_FAILURE = "Something went wrong signing you in. Please try again."
  * @returns The error to display, or nothing because it redirected on success.
  */
 export async function loginAction(_previous: LoginState, formData: FormData): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const next = safeNext(formData.get("next")?.toString());
+  const { email, next: requested } = readTrimmed(formData, ["email", "next"]);
+  const { password } = readRaw(formData, ["password"]);
+  const next = safeNext(requested);
 
   // Presence only: a strength rule here would publish the policy, and belongs
   // on register.

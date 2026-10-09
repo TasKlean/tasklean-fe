@@ -11,6 +11,7 @@ import { setSession } from "@/lib/auth/session";
 import { resendVerification, verifyEmail } from "@/lib/auth/signin/verify-email";
 import { validateCode } from "@/lib/validation/code";
 import { validateEmail } from "@/lib/validation/email";
+import { readTrimmed } from "@/lib/validation/form-data";
 
 export type VerifyState = {
   error: string | null;
@@ -36,8 +37,7 @@ export async function verifyAction(
   _previous: VerifyState,
   formData: FormData,
 ): Promise<VerifyState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const code = String(formData.get("code") ?? "").trim();
+  const { email, code } = readTrimmed(formData, ["email", "code"]);
 
   const fieldErrors = {
     email: validateEmail(email) ?? undefined,
@@ -75,7 +75,7 @@ export async function resendAction(
   _previous: VerifyState,
   formData: FormData,
 ): Promise<VerifyState> {
-  const email = String(formData.get("email") ?? "").trim();
+  const { email } = readTrimmed(formData, ["email"]);
 
   const emailError = validateEmail(email);
   if (emailError) return { error: null, fieldErrors: { email: emailError } };

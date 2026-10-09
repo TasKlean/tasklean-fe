@@ -86,7 +86,7 @@ src/
       safe-next.ts     blocks open redirect via Proxy's ?next=
     config/env.ts      validated environment
     time/api-date.ts   API timestamps ↔ Date
-    validation/        form rules, shared by a form and its action
+    validation/        form rules and FormData reading, shared by a form and its action
   test/                msw.ts, server-only-stub.ts
 ```
 
@@ -121,6 +121,9 @@ the code** they cover.
 - **Forms validate in one place, twice.** Rules live in `validation/`; the client component and the
   Server Action call the same function, and the action is the authority (it runs without JS). Inputs
   are **controlled** — React resets an uncontrolled form after its action returns.
+- **Read `FormData` through `readTrimmed` / `readRaw`**, never `formData.get` by hand. Trimming is a
+  separate call because a password must reach the backend exactly as typed, and a `File` entry comes
+  back as `""` rather than `"[object File]"`.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
