@@ -13,7 +13,7 @@ import "server-only";
 import { request } from "@/lib/api/client";
 import type { RequestOptions } from "@/lib/api/client.types";
 import { isApiError } from "@/lib/api/errors";
-import { getSession } from "@/lib/session";
+import { getSession } from "@/lib/auth/session";
 
 export class SessionExpiredError extends Error {
   constructor(message = "No valid session. Sign in again.") {

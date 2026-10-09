@@ -10,7 +10,7 @@ import "server-only";
 
 import { EncryptJWT, jwtDecrypt } from "jose";
 import { cookies } from "next/headers";
-import { getEnv } from "@/lib/env";
+import { getEnv } from "@/lib/config/env";
 
 export type Session = {
   accessToken: string;

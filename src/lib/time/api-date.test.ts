@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { InvalidApiDateError, parseApiDate, parseApiDateOrNull, toApiDate } from "@/lib/time";
+import {
+  InvalidApiDateError,
+  parseApiDate,
+  parseApiDateOrNull,
+  toApiDate,
+} from "@/lib/time/api-date";
 
 describe("test timezone pin", () => {
   // Without this pin, a UTC machine makes a naive parse correct by accident and

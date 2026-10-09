@@ -82,7 +82,7 @@ is already right.
 | **Session cookie encrypted with `jose`** | See _Session cookie implementation_. Encrypted (JWE), not signed — a signed payload is readable, and ours holds the refresh token. |
 | **Refresh happens in Proxy** | See _Refresh lives in Proxy_. A Server Component render cannot write cookies, so refreshing anywhere else loses the rotated token and kills the session. |
 | **Client-side role checks are UX, never authorization** | See _Roles and access_. Spring stays the authority; the UI gates optimistically and still handles the 403. |
-| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
+| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/config/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
 | **LF line endings pinned in the repo** | `.gitattributes` with `* text=auto eol=lf`. A fresh Windows clone with `core.autocrlf=true` checks the tree out as CRLF, which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure that reads as a formatting problem and isn't. Pinning it in the repo makes the rule travel to every machine rather than depending on local git config. |
 | **Session in an httpOnly cookie, tokens server-side only** | Forced by the backend's design. See _Session and auth_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
@@ -150,7 +150,7 @@ one-sided: absence is plausible, malformed presence is not.
 
 ### Time
 
-`src/lib/time.ts` is the only crossing point between API timestamps and `Date`.
+`src/lib/time/api-date.ts` is the only crossing point between API timestamps and `Date`.
 
 **Reading** is the known problem: unmarked UTC strings parse as local, so `parseApiDate` appends `Z`
 unless a zone marker is already there.
@@ -521,7 +521,7 @@ workaround **before** the feature depending on it gets built.
 1. **API timestamps have no `Z`.** They're UTC, but `new Date("2026-09-28T10:00:00")` parses as
    _local_. Every date bug in this app will be this bug. The write direction is the mirror: the
    DTOs are `LocalDateTime` with no Jackson config, so `ISO_LOCAL_DATE_TIME` applies and a trailing
-   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time.ts`.
+   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date.ts`.
 2. **Three id namespaces in one payload** — `uid` (string, external), numeric `id` (per entity), and
    GroupMember ids masquerading as person references.
 3. **Local dev issues year-long access tokens**, so refresh, rotation and the `401` path are
@@ -639,6 +639,36 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-09** — Built `/login` on the new `feat/auth-screens` branch, from the Stitch screens
+  rather than my own preview. Decisions: **`lucide-react`** for icons over the Material Symbols
+  webfont the designs use (a font request that flashes is wrong for a PWA); **filled, borderless
+  inputs** as the screens show, overriding DESIGN.md's prose, which describes a bordered field; the
+  login panel reduced to **brand only**, since a signed-out visitor cannot be shown real household
+  data. Three features in the designs have **no backend** — password reset (no endpoint at all),
+  "remember this device for 30 days" (the session is a fixed 14 days) and "log out" on the verify
+  screen (there is no session until verification). The first is rendered inert at the user's
+  request; the other two are gone.
+
+  Two things the screens settled that DESIGN.md could not: `#355872` is the brand fill and `#1c415a`
+  its hover and emphasis tone, now `primary` and `primary-strong`; `#316384` is link text, now
+  `link`. **Stitch ships its own radius scale** — its `rounded-xl` is 0.75rem against our 1.5rem —
+  so copying a class verbatim doubles every corner. Its `rounded-xl` maps to our `rounded-md`.
+
+  A Server Action, not a Route Handler: Next checks `Origin` against `Host`, so the CSRF token the
+  session architecture calls for is unnecessary on this path. Added `safe-next.ts` with 16 tests
+  because `?next=` is attacker-controlled and would otherwise make our own login form an open
+  redirect.
+
+- **2026-10-09** — Reorganised the codebase, since `lib` and a flat `components` folder were both
+  becoming dumping grounds. `src/lib` is now defined as the app's non-UI logic with **no module
+  sitting directly in it**: `api/`, `auth/` (with `signin/` and `tokens/` beneath it), `config/`
+  and `time/`. Components split into `common/` and per-feature directories. Depth follows need
+  rather than symmetry — `signin/` is a directory because four endpoints are coming, while
+  `session.ts` stays a single file. Found while auditing: **`config/env.ts` and `api/client.ts` had
+  no `server-only` guard**, so a client import would have thrown about missing configuration at
+  runtime instead of failing the build. Also consolidated two copies of `AuthResponse`; the
+  duplicate declared `uid: string`, which typecheck immediately exposed as a lie the callers had
+  always worked around.
 - **2026-10-09** — Adopted the DESIGN.md design system ("Domestic Serenity", from Stitch) as the
   design authority, implemented as tokens in `globals.css`: colour, the type scale with per-step
   line height and weight, radii, spacing and the tinted elevation shadows. Typeface changed from
@@ -722,7 +752,7 @@ Newest first. What we decided and when, so the reasoning is recoverable later.
   access token already carries `userId` and `uid` claims, so storing it was speculative. Role
   access is designed but **not built** — see _Roles and access_; it needs an active group, so it
   belongs with phase 3. Added a `/pre-commit` skill mirroring the backend own.
-- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time.ts` exposes
+- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time/api-date.ts` exposes
   `parseApiDate`, `parseApiDateOrNull` and `toApiDate`; reasoning is under _Time_ above. The write
   format was settled by reading the backend rather than guessing: `LocalDateTime` DTOs and no
   Jackson configuration mean `ISO_LOCAL_DATE_TIME`, so we send **no** `Z` — and
@@ -743,7 +773,7 @@ Newest first. What we decided and when, so the reasoning is recoverable later.
 - **2026-10-07** — Phase 1 step 1 done: the test harness and env validation. Vitest + Testing
   Library + jsdom, with `node` as the default environment and jsdom opted into per file, and no
   globals (enabling them would force `tsconfig`'s `types` to enumerate every `@types` package).
-  `src/lib/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
+  `src/lib/config/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
   hand-rolled rather than with Zod, treating whitespace-only as missing and naming every missing
   variable in one error — this closes the _Env validation at boot_ open question. `@types/node`
   bumped `^20` → `^26`, since Vitest requires `>=22` and it should track the Node major anyway.

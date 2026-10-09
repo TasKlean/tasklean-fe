@@ -1,21 +1,14 @@
 /**
- * Design preview, not product. Renders the DESIGN.md tokens and the components
- * it specifies so the system can be eyeballed in light and dark before any real
- * screen is built on it.
- *
- * This is throwaway: the real root route is "today" (tasks due now), and these
- * blocks get extracted into proper components once the design is signed off.
- * Everything here is deliberately inline rather than componentised for that
- * reason.
+ * Design preview, not product: the DESIGN.md tokens and components, so the
+ * system can be checked in light and dark. Throwaway — the real root route is
+ * the task feed, and these blocks become components once signed off.
  */
 
-// No `metadata` export on purpose: the root layout's title `default` already
-// renders this page as "TasKlean", and setting a title here would run through
-// the template and give "Home - TasKlean". This route is protected and becomes
-// the task feed, so a tab title is all it ever needs — no SEO is coming.
+// No `metadata` export on purpose: the root layout's `default` renders this as
+// "TasKlean", where a title here would give "Home - TasKlean".
 
-// Full class strings, never built by concatenation: Tailwind scans source text,
-// so an interpolated class name would not be generated.
+// Full class strings: Tailwind scans source text, so an interpolated class name
+// would never be generated.
 const TYPE_SCALE = [
   { cls: "text-display-lg", label: "display-lg", note: "40/48 · 700" },
   { cls: "text-headline-lg", label: "headline-lg", note: "30/38 · 600" },
@@ -95,7 +88,6 @@ export default function Home() {
       <section className="gap-space-md flex flex-col">
         <h2 className="text-label-md text-muted-foreground uppercase">Buttons</h2>
         <div className="bg-card shadow-level-1 p-space-lg gap-space-md flex flex-wrap items-center rounded-lg">
-          {/* min-h-11 is the 44px touch target our conventions require. */}
           <button
             type="button"
             className="bg-primary text-primary-foreground text-label-lg min-h-11 rounded-full px-6 transition-transform active:scale-95"
@@ -164,7 +156,6 @@ export default function Home() {
         <h2 className="text-label-md text-muted-foreground uppercase">Task card</h2>
         <div className="gap-space-md flex flex-col">
           <article className="bg-card shadow-level-1 p-space-md gap-space-md flex items-center rounded-xl">
-            {/* 24px circle, not a square micro-checkbox. */}
             <span aria-hidden className="border-ring size-6 shrink-0 rounded-full border-2" />
             <div className="min-w-0 flex-1">
               <p className="text-title-md truncate">Empty the dishwasher</p>
@@ -217,7 +208,6 @@ export default function Home() {
             <span>Today</span>
             <span className="text-muted-foreground">7 of 10</span>
           </div>
-          {/* Collective, not competitive — one bar for the whole household. */}
           <div
             role="progressbar"
             aria-valuenow={70}

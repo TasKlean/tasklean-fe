@@ -10,15 +10,15 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { accessTokenExpiresWithin } from "@/lib/auth/access-token";
-import { refreshTokens } from "@/lib/auth/refresh";
+import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
+import { refreshTokens } from "@/lib/auth/tokens/refresh";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
   type Session,
   sealSession,
   unsealSession,
-} from "@/lib/session";
+} from "@/lib/auth/session";
 
 export const config = {
   // `/api` is excluded deliberately: Route Handlers must answer 401 rather than

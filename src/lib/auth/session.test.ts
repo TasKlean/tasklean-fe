@@ -7,7 +7,7 @@ import {
   sealSession,
   setSession,
   unsealSession,
-} from "@/lib/session";
+} from "@/lib/auth/session";
 
 const { cookieStore } = vi.hoisted(() => ({
   cookieStore: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
