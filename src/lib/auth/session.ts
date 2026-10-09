@@ -1,9 +1,6 @@
 /**
  * The encrypted session cookie — the only place tokens are stored or read.
- *
- * The contents are encrypted (JWE), not merely signed: a signed payload is
- * plain base64url and readable by anyone holding the cookie, which for a
- * payload carrying the refresh token would publish it.
+ * Encrypted (JWE), not signed: a signed payload would publish the refresh token.
  */
 
 import "server-only";
@@ -39,10 +36,7 @@ export const SESSION_COOKIE_OPTIONS = {
 
 let keyPromise: Promise<Uint8Array> | undefined;
 
-// WebCrypto rather than node:crypto so this module also works in the Edge
-// runtime, where Proxy runs. SHA-256 yields the 32 bytes A256GCM needs from a
-// secret of any length — which is why a short secret is rejected rather than
-// silently expanded.
+// WebCrypto, not node:crypto, so this runs in the Edge runtime where Proxy does.
 function getKey(): Promise<Uint8Array> {
   keyPromise ??= (async () => {
     const secret = getEnv().SESSION_SECRET;

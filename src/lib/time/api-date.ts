@@ -1,10 +1,7 @@
 /**
- * The single crossing point between API timestamps and `Date`.
- *
- * API `date-time` strings are UTC but carry no zone marker, so `new Date()`
- * reads them as local time — wrong by the viewer's offset. Writing back is the
- * mirror: the backend's DTOs are `LocalDateTime`, parsed with
- * ISO_LOCAL_DATE_TIME, which rejects a zone marker outright.
+ * The single crossing point between API timestamps and `Date`. They are UTC with
+ * no zone marker, so `new Date()` reads them as local; writing back must send no
+ * marker either, since ISO_LOCAL_DATE_TIME rejects one.
  */
 
 /** A trailing "Z", or a "+01:00" / "+0100" offset. */

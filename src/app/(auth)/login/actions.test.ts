@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { http, HttpResponse } from "msw";
+import { beforeAll, describe, expect, it } from "vitest";
+import { server } from "@/test/msw";
 import { loginAction, type LoginState } from "@/app/(auth)/login/actions";
 
+const BASE = "http://api.test";
 const EMPTY: LoginState = { error: null };
+
+beforeAll(() => {
+  process.env.API_BASE_URL = BASE;
+  process.env.SESSION_SECRET = "0123456789abcdef0123456789abcdef";
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "test-client-id";
+});
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -42,5 +51,78 @@ describe("loginAction validation", () => {
     const state = await loginAction(EMPTY, form({ email: "nope", password: "secret-value" }));
 
     expect(JSON.stringify(state)).not.toContain("secret-value");
+  });
+});
+
+describe("loginAction unverified handling", () => {
+  it("redirects to verify-email and sends a new code", async () => {
+    let resent = false;
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: "Email not verified. Check your inbox for a verification code",
+            data: null,
+          },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${BASE}/api/auth/resend-verification`, () => {
+        resent = true;
+        return HttpResponse.json({ success: true, message: null, data: null });
+      }),
+    );
+
+    await expect(
+      loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" })),
+    ).rejects.toThrow();
+    expect(resent).toBe(true);
+  });
+
+  it("still redirects when the resend is rate limited", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Email not verified.", data: null },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${BASE}/api/auth/resend-verification`, () =>
+        HttpResponse.json({ success: false, message: "Slow down.", data: null }, { status: 429 }),
+      ),
+    );
+
+    await expect(
+      loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" })),
+    ).rejects.toThrow();
+  });
+
+  it("shows a wrong password rather than redirecting", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Invalid email or password", data: null },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+    expect(state.error).toBe("Invalid email or password");
+  });
+
+  it("shows a deactivated account rather than redirecting", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Account is deactivated", data: null },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+    expect(state.error).toBe("Account is deactivated");
   });
 });

@@ -1,10 +1,7 @@
 /**
- * Exchanges a refresh token for a new pair, de-duplicated.
- *
- * Refresh tokens are single-use with rotation: a successful refresh revokes the
- * token presented. So concurrent refreshes would revoke each other's token and
- * kill the session, and persisting the new pair is the caller's job — only
- * Proxy, a Route Handler or a Server Action can write a cookie.
+ * Exchanges a refresh token for a new pair, de-duplicated because rotation is
+ * single-use and concurrent refreshes would revoke each other. Persisting the
+ * new pair is the caller's job.
  */
 
 import "server-only";
@@ -13,14 +10,11 @@ import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 import type { AuthResponse } from "@/lib/auth/auth.types";
 
-// Our shape, not the backend's: `accessToken` and `userUid` rather than its
-// `token` and `uid`. One type, so it stays in the module it belongs to.
+// Our field names, not the backend's `token` and `uid`.
 export type RefreshedTokens = {
   accessToken: string;
   refreshToken: string;
-  // Optional because the backend does not mark it required and refresh is not
-  // guaranteed to echo it. The caller keeps the uid already in the session when
-  // it is absent, which is what `proxy.ts` does.
+  // Not guaranteed to be echoed; the caller keeps the uid it already has.
   userUid?: string;
 };
 

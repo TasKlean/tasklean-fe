@@ -336,10 +336,12 @@ That's deliberate anti-enumeration. Never infer account existence from it, and n
 if we knew — "we sent a code" is right, "that email isn't registered" is a leak we're not allowed to
 produce.
 
-**Login** failures — unknown email, wrong password, deactivated, unverified, Google-only account —
-all come back as `401` with one message. The backend won't distinguish them, so the UI mustn't
-pretend to. One message, with a "resend verification code" affordance next to it, since unverified
-is the most recoverable case.
+**Login** failures are all `401`, but **not all one message**. Unknown email and wrong password
+share `"Invalid email or password"` — deliberate anti-enumeration. Deactivated, Google-only and
+unverified each have their own wording, so the UI can act on them. We act on one: a message matching
+`/not verified/` sends a fresh code and redirects to `/verify-email`. That match is the only signal
+available, since the envelope carries no error code — a reworded message degrades the redirect to
+simply showing the message.
 
 **Google** — the _browser_ runs Google Identity Services and gets an **ID token**, posts it to our
 server, which forwards it to `POST /api/auth/google`. Three config preconditions, all easy to get
@@ -536,9 +538,10 @@ workaround **before** the feature depending on it gets built.
 5. **`403` is invisible until it happens.** The spec models _that_ a token is needed, never _which
    role_. Each new screen needs its permissions checked against a running backend.
 6. **POST returns 201 while the spec says 200.**
-7. **The auth endpoints deliberately refuse to tell you anything.** Unverified, unknown, deactivated
-   and wrong-password are all `401` with one message; resend-verification is always `200`. Copy must
-   not imply knowledge the API withheld.
+7. **Only unknown-email and wrong-password share a message.** Both are `401` with
+   `"Invalid email or password"` — anti-enumeration. Deactivated, Google-only and unverified each
+   have their own, matched on text because the envelope has no error code. Verify-email's failures
+   *are* all one message, and resend is always `200`. Copy must not imply knowledge the API withheld.
 8. **`docs/openapi.json` is regenerated on every backend dev start.** A noisy diff there is normal; a
    _shape_ change in it is an API change we need to follow.
 9. **`priority`, `status` and `recurrenceType` are plain strings with no enum in the schema** —
@@ -644,6 +647,26 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first, one entry per change. The reasoning lives in the sections above — this is the dated
 index of what moved and the surprises worth not rediscovering.
+
+- **2026-10-09** — `/verify-email`, completing the three auth screens. Verifying is where a new
+  account's session starts, since the backend withholds the token pair at register. Three decisions:
+  the email link **prefills and still requires a click**, because mail scanners prefetch links with
+  a GET and would spend the single-use code before the recipient clicked; `?code=` is stripped from
+  the URL once read; and when a code arrives prefilled there is **no countdown**, because the
+  backend never says when it was sent and a 5:00 timer on an hour-old link is a lie.
+
+  An unverified login now sends a fresh code and redirects here. That required correcting a claim
+  in both documents: login failures are **not** all one message — only unknown-email and wrong
+  password share one. Matching `/not verified/` on the message is the only signal, since the
+  envelope has no error code.
+
+  Three bugs the tests found in `CodeInput`, all mine: handlers read `value` from a stale closure so
+  `123456` became `246`; the first fix was a ref written during render, which lint correctly refused;
+  and the `onFocus` gap-guard then fought the programmatic focus move, so it became `onClick`.
+
+- **2026-10-09** — Comment rule made countable after a third correction: inline comments are one
+  line, two at most, three is a violation. A script that counts `//` runs found **23 violations**
+  across the tree, most predating the recent work. All fixed; tests carry no comments at all.
 
 - **2026-10-09** — Compacted these two documents. CLAUDE.md became a reference (what exists, where,
   the rules) and this file took the reasoning, mirroring the backend's split. CLAUDE.md 437 → ~250

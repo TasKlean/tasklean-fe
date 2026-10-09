@@ -1,19 +1,11 @@
 /**
- * Validates the environment variables the app requires, so a missing one fails
- * loudly rather than surfacing later as a confusing fetch or session bug.
- * Hand-rolled rather than schema-based while the set is this small.
- *
- * Server-only: the set includes SESSION_SECRET, and server variables are simply
- * absent in the browser, so a client import would throw about missing config
- * instead of failing the build. A client component that needs the public Google
- * client id takes it as a prop from a Server Component.
+ * Validates the required environment variables so a missing one fails loudly at
+ * startup. Server-only: it reads SESSION_SECRET, which the browser never has.
  */
 
 import "server-only";
 
-// Declared before the types rather than after, against the usual file order:
-// RequiredKey is derived from this array, and Env from RequiredKey, so the chain
-// only reads in one direction.
+// Before the types, against the usual file order: they derive from it.
 const REQUIRED = ["API_BASE_URL", "SESSION_SECRET", "NEXT_PUBLIC_GOOGLE_CLIENT_ID"] as const;
 
 type RequiredKey = (typeof REQUIRED)[number];

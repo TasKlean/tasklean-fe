@@ -6,9 +6,7 @@
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 64;
 
-// Anything that is not a letter or a digit, rather than a list of accepted
-// symbols. A list is what leaves gaps, and a rejected symbol is invisible to
-// the person typing it.
+// Not a list of symbols: a list is what leaves gaps.
 export const PASSWORD_SPECIAL = /[^A-Za-z0-9]/;
 
 export type PasswordRequirement = "length" | "uppercase" | "lowercase" | "digit" | "special";

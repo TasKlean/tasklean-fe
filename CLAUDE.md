@@ -11,9 +11,9 @@ is the reference: what exists, where it lives, and the rules.
 `PROJECT_BIBLE.md` is authoritative on **API behaviour**, its `docs/openapi.json` on **API shapes**.
 Never restate backend internals here — link to them.
 
-**State**: API layer, session, `/login` and `/register` exist. Verify-email does not. Nothing has
-ever reached a real backend — all tests are MSW. `/` is a throwaway design preview, temporarily in
-`PUBLIC_PATHS`.
+**State**: API layer, session, `/login`, `/register` and `/verify-email` exist. Google sign-in and
+logout do not. Nothing has ever reached a real backend — all tests are MSW. `/` is a throwaway
+design preview, temporarily in `PUBLIC_PATHS`.
 
 ## Quick reference
 
@@ -73,13 +73,14 @@ src/
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
     common/            primitives, no feature knowledge: text-field, password-field,
+                       code-input, password-strength-meter,
                        submit-button, password-strength-meter
     auth/              login-form, register-form
   lib/                 all non-UI logic; nothing sits directly in src/lib
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts
     auth/
-      signin/          one module per credential exchange: login.ts, register.ts
+      signin/          one per credential exchange: login, register, verify-email
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
       safe-next.ts     blocks open redirect via Proxy's ?next=
@@ -160,7 +161,9 @@ routes are `noindex` via the `(auth)` layout.
 - **Types** — a `//` above a field only when the type cannot carry the meaning (units, which id
   namespace, what `null` means). **Never one per field.**
 - **Inline** — `//` above the line, never trailing, explaining the _why_. Only when the code is
-  correct but looks wrong, encodes a backend quirk, or rejects an obvious alternative.
+  correct but looks wrong, encodes a backend quirk, or rejects an obvious alternative. **One line.
+  Two at the absolute most.** Three is a violation, not a judgement call — if the explanation needs
+  more, it belongs in the bible and the comment belongs deleted. Default to none.
 - **No worked examples.** State what the code does, not a demonstration — that belongs in a test.
 - **Tests get no comments at all**, helpers included. The `it(...)` description is the comment. The
   `// @vitest-environment jsdom` pragma is configuration, not a comment.

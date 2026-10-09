@@ -7,9 +7,8 @@ import { isGuessable, passwordRulesMet } from "@/lib/validation/password";
 
 export type PasswordStrength = "weak" | "good" | "strong";
 
-// At or above this, a password meeting every rule is strong rather than good.
-// Nothing below the full policy can reach strong: the form would reject it, and
-// a meter calling an unsubmittable password strong contradicts itself.
+// Nothing below the full policy reaches strong: a meter cannot praise what the
+// form rejects.
 const COMFORTABLE = 12;
 
 /**

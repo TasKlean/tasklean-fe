@@ -1,9 +1,6 @@
 /**
- * Types for the API client.
- *
- * `Envelope` belongs to `client.ts` alone. Splitting it into this file makes it
- * importable, which the language cannot prevent — but the envelope must not
- * escape the client, so treat it as private to that module.
+ * Types for the API client. `Envelope` is private to `client.ts` by convention —
+ * splitting it here makes it importable, which TypeScript cannot prevent.
  */
 
 // No field is marked `required` in openapi.json, so none may be assumed

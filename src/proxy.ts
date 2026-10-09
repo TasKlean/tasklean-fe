@@ -1,12 +1,7 @@
 /**
- * The auth boundary, and the only place a rotated token pair can be persisted
- * on the navigation path. Next 16 renamed Middleware to Proxy, so this file is
- * `proxy.ts` — a `middleware.ts` would never run.
- *
- * Next advises keeping Proxy free of network calls. We make one, but only when
- * the access token is near expiry: roughly once per 15 minutes per session. The
- * alternative caps every session at the access-token lifetime, since a Server
- * Component render cannot set cookies.
+ * The auth boundary, and the only place a rotated token pair can be persisted on
+ * the navigation path. Named `proxy.ts` because Next 16 renamed Middleware; a
+ * `middleware.ts` would never run.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
@@ -21,18 +16,14 @@ import {
 } from "@/lib/auth/session";
 
 export const config = {
-  // `/api` is excluded deliberately: Route Handlers must answer 401 rather than
-  // redirect to an HTML page, so they handle sessions themselves via serverApi().
+  // `/api` excluded: Route Handlers must answer 401, not redirect to HTML.
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
   ],
 };
 
 // Default deny: adding a route must not require remembering to protect it.
-//
-// TEMPORARY: "/" is here only so the design preview on the root route can be
-// viewed without a session. The real root route is the task feed and must be
-// protected — remove "/" when that lands, or the feed ships readable by anyone.
+// TEMPORARY: "/" is public only for the design preview — remove with it.
 const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/about"];
 
 /**

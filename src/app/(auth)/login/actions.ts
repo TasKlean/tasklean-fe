@@ -8,7 +8,8 @@
 
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
-import { loginWithPassword } from "@/lib/auth/signin/login";
+import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
+import { resendVerification } from "@/lib/auth/signin/verify-email";
 import { safeNext } from "@/lib/auth/safe-next";
 import { validateEmail } from "@/lib/validation/email";
 import { setSession } from "@/lib/auth/session";
@@ -43,14 +44,26 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     return { error: null, fieldErrors, email };
   }
 
+  let unverified = false;
+
   try {
     const tokens = await loginWithPassword(email, password);
     await setSession({ ...tokens, activeGroupId: null });
   } catch (error) {
-    // One 401 covers every credential failure, so its message is all there is.
-    if (isApiError(error)) return { error: error.message || GENERIC_FAILURE, email };
-    return { error: GENERIC_FAILURE, email };
+    // Not a failure but a step: send a fresh code and move them on.
+    if (isEmailUnverified(error)) {
+      // A rate-limited resend must not block the redirect.
+      await resendVerification(email).catch(() => {});
+      unverified = true;
+    } else if (isApiError(error)) {
+      return { error: error.message || GENERIC_FAILURE, email };
+    } else {
+      return { error: GENERIC_FAILURE, email };
+    }
   }
+
+  // Outside the try for the same reason as the redirect below.
+  if (unverified) redirect(`/verify-email?email=${encodeURIComponent(email)}`);
 
   // Outside the try: redirect() signals by throwing.
   redirect(next);
