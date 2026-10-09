@@ -30,7 +30,6 @@ beforeEach(() => {
 describe("serverApi", () => {
   it("throws SessionExpiredError when there is no session, without calling the API", async () => {
     getSession.mockResolvedValue(null);
-    // No MSW handler registered: a request here would fail the test outright.
     await expect(serverApi("/api/users/me")).rejects.toBeInstanceOf(SessionExpiredError);
   });
 

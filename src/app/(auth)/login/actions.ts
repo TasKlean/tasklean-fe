@@ -10,9 +10,15 @@ import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { loginWithPassword } from "@/lib/auth/signin/login";
 import { safeNext } from "@/lib/auth/safe-next";
+import { validateEmail } from "@/lib/validation/email";
 import { setSession } from "@/lib/auth/session";
 
-export type LoginState = { error: string | null };
+export type LoginState = {
+  error: string | null;
+  fieldErrors?: { email?: string; password?: string };
+  // Echoed so a rejected submit does not clear the field. Never the password.
+  email?: string;
+};
 
 const GENERIC_FAILURE = "Something went wrong signing you in. Please try again.";
 
@@ -26,8 +32,15 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
   const password = String(formData.get("password") ?? "");
   const next = safeNext(formData.get("next")?.toString());
 
-  if (!email || !password) {
-    return { error: "Enter your email and password." };
+  // Presence only: a strength rule here would publish the policy, and belongs
+  // on register.
+  const fieldErrors = {
+    email: validateEmail(email) ?? undefined,
+    password: password ? undefined : "Enter your password.",
+  };
+
+  if (fieldErrors.email || fieldErrors.password) {
+    return { error: null, fieldErrors, email };
   }
 
   try {
@@ -35,11 +48,10 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     await setSession({ ...tokens, activeGroupId: null });
   } catch (error) {
     // One 401 covers every credential failure, so its message is all there is.
-    if (isApiError(error)) return { error: error.message || GENERIC_FAILURE };
-    return { error: GENERIC_FAILURE };
+    if (isApiError(error)) return { error: error.message || GENERIC_FAILURE, email };
+    return { error: GENERIC_FAILURE, email };
   }
 
-  // Outside the try: redirect() signals by throwing, and catching it would
-  // render an error after a successful login.
+  // Outside the try: redirect() signals by throwing.
   redirect(next);
 }

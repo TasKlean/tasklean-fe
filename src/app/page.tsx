@@ -159,7 +159,7 @@ export default function Home() {
             <span aria-hidden className="border-ring size-6 shrink-0 rounded-full border-2" />
             <div className="min-w-0 flex-1">
               <p className="text-title-md truncate">Empty the dishwasher</p>
-              <p className="text-body-md text-muted-foreground">Assigned to Maja</p>
+              <p className="text-body-md text-muted-foreground">Assigned to you</p>
             </div>
             <span className="bg-warning-subtle text-warning-subtle-foreground text-label-sm rounded-full px-3 py-1">
               Today
@@ -175,7 +175,7 @@ export default function Home() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-title-md text-ring truncate line-through">Water the plants</p>
-              <p className="text-body-md text-muted-foreground">Completed by Luka</p>
+              <p className="text-body-md text-muted-foreground">Completed by a housemate</p>
             </div>
             <span className="bg-success-subtle text-success-subtle-foreground text-label-sm rounded-full px-3 py-1">
               Done
@@ -239,7 +239,7 @@ export default function Home() {
         <h2 className="text-label-md text-muted-foreground uppercase">Feedback</h2>
         <div className="gap-space-sm flex flex-col">
           <p className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md">
-            Chore added. Maja will see it on her list.
+            Chore added. Your household can see it now.
           </p>
           <p className="bg-destructive-subtle text-destructive-subtle-foreground text-body-md p-space-md rounded-md">
             That invite code has already been used.

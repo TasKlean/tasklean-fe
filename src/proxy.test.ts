@@ -98,8 +98,6 @@ describe("proxy", () => {
     const written = response.cookies.get(SESSION_COOKIE_NAME)?.value;
     expect(written).toBeTruthy();
 
-    // The rotated refresh token must reach the cookie — losing it kills the
-    // session, since the backend has already revoked the old one.
     const rotated = await unsealSession(written);
     expect(rotated?.refreshToken).toBe("rt-rotated");
     expect(rotated?.activeGroupId).toBe(3);

@@ -64,7 +64,6 @@ describe("loginWithPassword", () => {
     );
   });
 
-  // Half a pair would produce a session that cannot survive its first expiry.
   it.each([
     ["no refreshToken", { token: "t", uid: "u" }],
     ["no token", { refreshToken: "r", uid: "u" }],

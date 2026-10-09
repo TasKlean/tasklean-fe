@@ -7,8 +7,6 @@ import {
 } from "@/lib/time/api-date";
 
 describe("test timezone pin", () => {
-  // Without this pin, a UTC machine makes a naive parse correct by accident and
-  // every test below passes against the bug this module exists to prevent.
   it("runs in the pinned non-UTC zone, so UTC bugs cannot hide", () => {
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("Europe/Ljubljana");
     expect(new Date("2026-07-01T12:00:00Z").getTimezoneOffset()).not.toBe(0);
@@ -26,7 +24,6 @@ describe("parseApiDate", () => {
   });
 
   it.each([
-    // Ljubljana is +02:00 in July and +01:00 in January; neither may leak in.
     ["2026-07-01T12:00:00", "2026-07-01T12:00:00.000Z"],
     ["2026-01-01T12:00:00", "2026-01-01T12:00:00.000Z"],
   ])("is unaffected by DST for %s", (input, expected) => {
@@ -76,7 +73,6 @@ describe("toApiDate", () => {
   });
 
   it("converts a local-time Date to UTC wall time rather than echoing local", () => {
-    // 12:00 local in Ljubljana in July (+02:00) is 10:00 UTC.
     expect(toApiDate(new Date(2026, 6, 1, 12, 0, 0))).toBe("2026-07-01T10:00:00");
   });
 

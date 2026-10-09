@@ -236,6 +236,41 @@ dark scheme. One deliberate departure: **dark shadows are re-tinted near-black**
 slate-tinted ambient glow is invisible on a dark canvas and the light values would silently flatten
 every card.
 
+### The password policy
+
+**The frontend is the spec here, not the mirror.** `src/lib/validation/password.ts` holds the policy
+and the backend is being changed to match it, which is the reverse of the usual direction — so that
+file is the thing to read, and any disagreement is a backend bug.
+
+The rules: **8–64 characters**, with an uppercase letter, a lowercase letter, a number and a
+special character. All four classes are required, and **a password rated weak is rejected** — the
+form's minimum is "good".
+
+Three decisions inside that are worth the reasoning:
+
+- **Special characters are "anything that is not a letter or a digit"**, not a list. The original
+  policy listed about twenty symbols and omitted `+ % & ( ) < > "` and backslash, so a
+  password-manager string could be refused while the person stared at the symbol they had typed. A
+  list is how gaps appear; the negated class cannot develop one. (The written policy also showed a
+  curly `’` rather than a straight apostrophe, which no keyboard types.)
+- **The maximum is 64, not 20.** A 20-character cap forbids `Correct-Horse-Battery-Staple-2026`
+  while permitting `Password1!` — it rules out the strongest password a person actually remembers.
+  BCrypt accepts 72 bytes, so nothing technical required the lower cap.
+- **Character rules alone are not enough.** `Password1!` satisfies every one of them and sits near
+  the top of every breach list, so `isGuessable` rejects a short common-password list, leet
+  substitutions (`P@ssw0rd`) and a stripped trailing tail (`Password123!` → `password`). **That
+  list is 24 entries, which is enough for the obvious cases and nothing more.** A real check wants
+  the Pwned Passwords k-anonymity API or a local top-10k list; see _Open questions_.
+
+**Strength is advisory and reads as progress**: fewer than four rules met is weak, four is good, all
+five is good below twelve characters and strong at or above. Nothing short of the full policy can
+read "strong", because a meter calling a password strong while the form refuses it contradicts
+itself.
+
+**Strength is enforced at register, never at login.** A rule applied at sign-in locks people out of
+their own accounts with no way to fix it, and publishes the policy to anyone probing. Login checks
+only that a password was typed.
+
 ### Page metadata and SEO
 
 **Every page exports `metadata` directly after its imports.** The placement is a convention, not a
@@ -620,6 +655,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   `typescript-eslint` throws on `versionMajor >= 7`, so linting dies outright. Its own tracking
   issue (typescript-eslint#10940) targets TS >=7.1, so revisit when that lands — and only together
   with raising the `~6.0.3` pin.
+- **A real breached-password check** — `isGuessable` carries 24 common passwords, which stops the
+  obvious ones and nothing else. The Pwned Passwords range API (k-anonymity, so no password or full
+  hash leaves our server) is the normal answer, at the cost of a network call inside register. A
+  bundled top-10k list avoids the call and the dependency on someone else's uptime. Undecided, and
+  worth settling before launch rather than after.
 - **Absolute session cap** — the session is rolling: every refresh restarts the 14 days, so an
   active session never ends on its own. An absolute cap (a hard maximum age regardless of activity,
   forcing a real re-login) is normal hardening and we have none. It needs a decision on the limit
@@ -639,6 +679,26 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 
 Newest first. What we decided and when, so the reasoning is recoverable later.
 
+- **2026-10-09** — Built `/register` and the shared form machinery. The password policy was
+  rewritten twice in the process: it started as the backend's bare `@Size(min=8)`, became a
+  four-class rule with a 20-character cap, and ended at 8–64 with any non-alphanumeric accepted and
+  guessable passwords rejected — reasoning under _The password policy_. The frontend is now the
+  spec and the backend is being changed to match.
+
+  Two things caught by writing tests rather than by thinking: a first scorer rated **`P@ssw0rd` as
+  "good"**, the exact failure mode it was meant to avoid, which is why leet-normalisation and the
+  length gate on variety exist; and letting length alone reach "strong" produced a meter that
+  praised a password the form rejected, so nothing below the full policy can read strong now.
+
+  Form conventions adopted across both screens: rules live in `src/lib/validation/` and are called
+  by the client and the action alike, inputs are controlled because React resets an uncontrolled
+  form after its action returns, and a field complains on blur only once it has content — an empty
+  one waits for submit. First names reject internal spaces; **last names allow them**, because
+  "Van Der Berg" is an ordinary surname where a two-word first name rarely is.
+
+  Also fixed in `vitest.setup.ts`: Testing Library registers `cleanup()` automatically only when
+  Vitest globals are on, and ours are off, so renders were stacking across tests — one test read a
+  password field holding four concatenated copies of its input.
 - **2026-10-09** — Built `/login` on the new `feat/auth-screens` branch, from the Stitch screens
   rather than my own preview. Decisions: **`lucide-react`** for icons over the Material Symbols
   webfont the designs use (a font request that flashes is wrong for a PWA); **filled, borderless

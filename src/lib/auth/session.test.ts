@@ -24,8 +24,6 @@ const session: Session = {
   activeGroupId: 3,
 };
 
-// Mirrors the module's own derivation, so a test can forge a token that is
-// correctly encrypted but carries the wrong payload.
 async function realKey(): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(SECRET));
   return new Uint8Array(digest);
@@ -50,8 +48,6 @@ describe("sealSession / unsealSession", () => {
   it("encrypts rather than signs — the tokens are not readable in the cookie", async () => {
     const sealed = await sealSession(session);
 
-    // A signed JWT would carry these in plain base64url. This is the whole
-    // reason we use EncryptJWT instead of copying Next's SignJWT example.
     expect(sealed).not.toContain(session.accessToken);
     expect(sealed).not.toContain(session.refreshToken);
     expect(sealed).not.toContain(btoa(session.accessToken).replace(/=+$/, ""));

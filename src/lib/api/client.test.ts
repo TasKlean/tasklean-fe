@@ -4,8 +4,6 @@ import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { request } from "@/lib/api/client";
 import { server } from "@/test/msw";
 
-// The trailing slash is deliberate: every request MSW matches below also proves
-// the base and path join without doubling the slash.
 const BASE = "http://api.test";
 
 beforeAll(() => {
@@ -95,7 +93,6 @@ describe("request", () => {
       ),
     );
 
-    // 409 is absent from openapi.json entirely, yet the backend returns it.
     await expect(request("/api/categories", { method: "POST", body: {} })).rejects.toMatchObject({
       name: "ApiError",
       status: 409,

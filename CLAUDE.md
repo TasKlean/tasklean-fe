@@ -19,17 +19,17 @@ go in the bible, not here.
 
 ## Status
 
-**The API layer, the session and the login screen exist. Register and verify-email do not yet.**
+**The API layer, the session, login and register exist. Verify-email does not yet.**
 Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
-Prettier, Vitest + MSW, lucide-react for icons. `src/lib` holds `api/`, `auth/`, `config/` and
-`time/`; `src/proxy.ts` draws the auth boundary.
+Prettier, Vitest + MSW, lucide-react for icons. `src/lib` holds `api/`, `auth/`, `config/`, `time/`
+and `validation/`; `src/proxy.ts` draws the auth boundary.
 
-`src/app` holds **`/login`**, working end to end but **unverifiable against a real backend** — no
-seeded account can authenticate, so it is covered by MSW tests only. The `(auth)` route group gives
-it the shell that register and verify-email will share. **`/` renders a throwaway design preview**
-of the DESIGN.md tokens and components and sits **temporarily in `PUBLIC_PATHS`**; the real root
-route is the task feed. The phases and what each one is for are in
-[the roadmap](PROJECT_BIBLE.md#roadmap).
+`src/app` holds **`/login`** and **`/register`**, both **unverified against a real backend** — no
+seeded account can authenticate and nothing has ever reached Spring, so they are covered by MSW
+tests only. The `(auth)` route group gives them a shared shell that verify-email will reuse.
+**`/` renders a throwaway design preview** of the DESIGN.md tokens and components and sits
+**temporarily in `PUBLIC_PATHS`**; the real root route is the task feed. The phases and what each
+one is for are in [the roadmap](PROJECT_BIBLE.md#roadmap).
 
 **Node 26** (`.nvmrc`, and `engines.node` in `package.json`). Node 26 becomes Active LTS on
 2026-10-28; we adopted it a few weeks early so the project sits on one release line for its whole
@@ -74,7 +74,9 @@ Config is `vitest.config.mts` with `vitest.setup.ts`. Tests sit next to the code
   packages" to "only these", so it has to list everything else too. Explicit imports avoid that.
 - The `@/*` → `src/*` alias is mirrored in the Vitest config, so test imports match app imports.
 - `vitest.setup.ts` registers jest-dom matchers on `expect` — harmless under `node`, needed once
-  component tests run in jsdom.
+  component tests run in jsdom. It also calls Testing Library's **`cleanup()` after each test**:
+  that is automatic only when Vitest globals are on, and ours are off, so without it every `render`
+  stacks into the same document and the second test in a file sees the first one's markup.
 - **HTTP is mocked at the network boundary with MSW**, not by stubbing our own modules, so the API
   client is exercised against real envelope payloads. The shared server is `src/test/msw.ts`, its
   lifecycle is wired in `vitest.setup.ts`, and handlers are registered per test with `server.use()`.
@@ -226,6 +228,13 @@ Only what we've actually decided. This grows as we make choices.
   Symbols, but a webfont costs a request and flashes before it loads, which is wrong for a PWA on a
   kitchen tablet. Pick the nearest lucide equivalent rather than chasing an exact match. Mark one
   `aria-hidden` when a text label already says the same thing.
+- **Forms validate in one place and twice.** The rules live in `src/lib/validation/`, and both the
+  client component and its Server Action call the same function — the action is the authority and
+  the only one that runs without JavaScript. Inputs are **controlled**, because React resets an
+  uncontrolled form once its action returns, which silently wipes what was typed.
+- **A field complains on blur, but only once it has content.** An empty field stays quiet until
+  submit is attempted, so tabbing through a form does not light it up in red. A password is never
+  echoed back through server state; everything else is, so a rejected submit keeps its values.
 - **Mobile-first.** People open this on a phone while standing in a kitchen. Design the narrow layout
   first, then widen. Touch targets at least 44px, keyboard-reachable, labelled for screen readers.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never show
@@ -275,6 +284,8 @@ one of these, the right move is a new directory with a name that says what it is
   - `safe-next.ts` guards the `next` redirect that Proxy sets, which only auth screens honour.
 - **`config/`** — environment and settings.
 - **`time/`** — conversion between API timestamps and `Date`.
+- **`validation/`** — form rules, shared by a form and its Server Action so the two cannot drift.
+  Deliberately **not** `server-only`: a client component imports the same functions the action does.
 
 **Depth follows need, not symmetry.** `signin/` is a directory because four endpoints are coming;
 `session.ts` is one file because it will stay one. A directory holding a single permanent module is
@@ -396,8 +407,10 @@ namespace it belongs to, or what `null` signifies. Never one per field.
 is correct but looks wrong, encodes a backend quirk, or deliberately rejects an obvious alternative.
 If it restates the mechanics, delete it.
 
-**Tests** — normally none: the `it(...)` description is the comment. Comment only a non-obvious
-assertion, or one that exists to catch a specific trap.
+**Tests** — **no comments at all.** The `it(...)` description is the comment; if an assertion needs
+explaining, the description is wrong. This includes helpers inside a test file, which are exempt
+from the no-exemption function rule above. A header on a test file is not needed either. The one thing that is not a comment in this sense is
+the `// @vitest-environment jsdom` pragma, which is configuration the runner reads.
 
 **No worked examples.** State what the code does or why, not a demonstration of it. "Rejects a
 protocol-relative path" earns its place; spelling out what a browser does with `//evil.test`, across

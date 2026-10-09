@@ -14,6 +14,12 @@ type TextFieldProps = {
   trailing?: ReactNode;
   // Setting this also marks the field invalid.
   error?: string;
+  // Shown under the field until an error replaces it.
+  hint?: string;
+  // Confirmation under the field, outranked by an error.
+  success?: string;
+  // Extra content under the field, such as a strength meter.
+  below?: ReactNode;
   // Sits opposite the label, for a "Forgot password?" style affordance.
   labelAction?: ReactNode;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "className">;
@@ -25,10 +31,15 @@ export function TextField({
   icon,
   trailing,
   error,
+  hint,
+  success,
+  below,
   labelAction,
   ...input
 }: TextFieldProps) {
   const errorId = `${name}-error`;
+  const hintId = `${name}-hint`;
+  const describedBy = error ? errorId : success || hint ? hintId : undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -54,7 +65,7 @@ export function TextField({
           id={name}
           name={name}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy}
           className={[
             "bg-muted text-foreground placeholder:text-muted-foreground text-body-md w-full",
             "rounded-md py-3.5 transition-all duration-200 outline-none",
@@ -73,7 +84,17 @@ export function TextField({
         <p id={errorId} className="text-label-md text-destructive">
           {error}
         </p>
+      ) : success ? (
+        <p id={hintId} className="text-label-md text-success-subtle-foreground">
+          {success}
+        </p>
+      ) : hint ? (
+        <p id={hintId} className="text-label-md text-muted-foreground">
+          {hint}
+        </p>
       ) : null}
+
+      {below}
     </div>
   );
 }
