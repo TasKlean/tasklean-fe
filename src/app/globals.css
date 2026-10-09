@@ -31,6 +31,15 @@
 
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+
+  /* The deep navy the screens use for a primary button's hover and for brand
+   * and emphasis text. DESIGN.md's frontmatter calls this `primary`; we keep
+   * that name for the lighter fill, so this is the "strong" step. */
+  --color-primary-strong: var(--primary-strong);
+
+  /* Link and accent text. This is DESIGN.md's `secondary`; our `secondary`
+   * token is its lighter `secondary-container`, which is a fill, not text. */
+  --color-link: var(--link);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
 
@@ -121,6 +130,9 @@
 
   /* Generous radii on purpose — DESIGN.md rejects mechanical corners. */
   --radius-sm: 0.25rem;
+  /* DESIGN.md's `DEFAULT`. Named `base` because `rounded` with no suffix is a
+   * Tailwind built-in we would be shadowing. */
+  --radius-base: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
@@ -163,8 +175,11 @@
   /* DESIGN.md's frontmatter calls #355872 `primary-container` and #1c415a
    * `primary`, but its prose and every elevation shadow treat #355872 as the
    * brand colour. The prose wins. */
-  --primary: #355872; /* prose "Slate Blue" */
+  --primary: #355872; /* prose "Slate Blue"; the screens' `primary-container` */
   --primary-foreground: #ffffff; /* on-primary */
+  --primary-strong: #1c415a; /* the screens' `primary` — CTA hover, brand text */
+
+  --link: #316384; /* the screens' `secondary` — links and accent text */
 
   --secondary: #a7d7fd; /* secondary-container */
   --secondary-foreground: #2b5e7f; /* on-secondary-container */
@@ -231,6 +246,9 @@
 
     --primary: #a7cbe9; /* inverse-primary */
     --primary-foreground: #002f4a;
+    --primary-strong: #cae6ff; /* primary-fixed — lighter, not darker, in dark */
+
+    --link: #9cccf2; /* secondary-fixed-dim */
 
     --secondary: #124b6b; /* on-secondary-fixed-variant */
     --secondary-foreground: #c9e6ff; /* secondary-fixed */

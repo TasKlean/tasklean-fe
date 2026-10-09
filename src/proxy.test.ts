@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
-import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/session";
+import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";

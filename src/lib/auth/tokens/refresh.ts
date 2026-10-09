@@ -11,7 +11,18 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
-import type { AuthResponse, RefreshedTokens } from "@/lib/auth/refresh.types";
+import type { AuthResponse } from "@/lib/auth/auth.types";
+
+// Our shape, not the backend's: `accessToken` and `userUid` rather than its
+// `token` and `uid`. One type, so it stays in the module it belongs to.
+export type RefreshedTokens = {
+  accessToken: string;
+  refreshToken: string;
+  // Optional because the backend does not mark it required and refresh is not
+  // guaranteed to echo it. The caller keeps the uid already in the session when
+  // it is absent, which is what `proxy.ts` does.
+  userUid?: string;
+};
 
 // Keyed by the token being spent, so callers holding the same one converge.
 const inFlight = new Map<string, Promise<RefreshedTokens>>();

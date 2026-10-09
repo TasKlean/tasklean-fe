@@ -21,8 +21,8 @@ go in the bible, not here.
 
 **Phase 1 complete — the API layer, the time module and the session all exist. No product screens
 yet.** Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint
-10, Prettier, Vitest + MSW. `src/lib` holds `env.ts`, `time.ts`, `session.ts`, the `api/` client and
-`auth/`; `src/proxy.ts` draws the auth boundary.
+10, Prettier, Vitest + MSW. `src/lib` holds `api/`, `auth/`, `config/` and `time/`; `src/proxy.ts`
+draws the auth boundary.
 
 `src/app` has one real thing in it: **`/` renders a design preview** of the DESIGN.md tokens and
 components, so the system can be eyeballed in light and dark before screens are built on it. It is
@@ -128,7 +128,7 @@ http://localhost:8080/swagger-ui.html
 
 - **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a JWE and
   holding the token pair, `userUid` and `activeGroupId`. Encrypted, not signed: a signed payload is
-  plain base64url and ours carries the refresh token. `src/lib/session.ts` owns it; the cookie name
+  plain base64url and ours carries the refresh token. `src/lib/auth/session.ts` owns it; the cookie name
   and options are exported so `proxy.ts` cannot drift from them.
 - **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`. A `middleware.ts` never runs
   — silently, with no error.
@@ -176,7 +176,7 @@ the first line of fetching code we write.
   (`memberId`, never `userId`, when it's a membership).
 - **All timestamps are UTC with no zone marker.** The API returns `date-time` strings from
   `TIMESTAMP WITHOUT TIME ZONE` columns the backend guarantees are UTC. They parse as _local_ time if
-  handled naively. Every conversion goes through `src/lib/time.ts` — `parseApiDate` /
+  handled naively. Every conversion goes through `src/lib/time/api-date.ts` — `parseApiDate` /
   `parseApiDateOrNull` on the way in, `toApiDate` on the way out. Never `new Date(apiString)`
   directly; never send a local time back. **Writing back takes no `Z` either**: the backend's DTOs
   are `LocalDateTime` with no Jackson config, so it parses with `ISO_LOCAL_DATE_TIME`, which accepts
@@ -239,7 +239,7 @@ Only what we've actually decided. This grows as we make choices.
   tokens themselves do travel to the browser, sealed inside the session cookie, so "server-only"
   describes the secret and the base URL, not them. The Google _client id_ is public by design — the
   one exception.
-- **Environment variables are read through `src/lib/env.ts`**, never `process.env` directly.
+- **Environment variables are read through `src/lib/config/env.ts`**, never `process.env` directly.
   `getEnv()` validates the required set on first call and throws naming every missing variable, so a
   bad config fails loudly at startup instead of surfacing later as a confusing fetch or session bug.
 - **Line endings are LF**, pinned by `.gitattributes` (`* text=auto eol=lf`) for the repo and every
@@ -251,6 +251,49 @@ Only what we've actually decided. This grows as we make choices.
   commits.
 - **Commit message prefixes** match the backend: `fix:` → patch, `feat:` → minor,
   `BREAKING CHANGE:` → major. No prefix defaults to patch.
+
+### Where logic lives
+
+**`src/lib` is the app's non-UI logic** — everything that is neither a React component nor a route.
+That phrasing is deliberately the only definition, because "lib" means nothing on its own, which is
+how loose files accumulate in it. **No module sits directly in `src/lib`**: if it does not belong to
+one of these, the right move is a new directory with a name that says what it is for.
+
+- **`api/`** — talking to Spring: the client, the envelope, the typed errors, the session-aware
+  wrapper.
+- **`auth/`** — who the user is and how they stay signed in, split by what each part does:
+  - **`auth/signin/`** — one module per credential exchange. `login.ts` now; register, verify-email
+    and Google sign-in join it.
+  - **`auth/tokens/`** — the token pair's lifecycle: reading the access token's expiry, and the
+    single-flight refresh that rotates the pair.
+  - `session.ts` and `auth.types.ts` sit at the `auth/` root because both halves depend on them —
+    the cookie that stores the pair, and the wire shapes every auth endpoint returns.
+  - `safe-next.ts` guards the `next` redirect that Proxy sets, which only auth screens honour.
+- **`config/`** — environment and settings.
+- **`time/`** — conversion between API timestamps and `Date`.
+
+**Depth follows need, not symmetry.** `signin/` is a directory because four endpoints are coming;
+`session.ts` is one file because it will stay one. A directory holding a single permanent module is
+noise, and a path like `session/session.ts` says nothing twice.
+
+Two rules that matter more than the grouping:
+
+- **A module that reads a server variable or holds a secret imports `server-only`.** `config/env.ts`
+  and `api/client.ts` both do, because a client import would otherwise throw at runtime about
+  missing configuration instead of failing the build.
+- **Tests sit beside the module** they cover, not in a parallel tree.
+
+### Where components live
+
+- **`src/components/common/`** — primitives with no feature knowledge: `text-field`,
+  `password-field`, `submit-button`.
+- **`src/components/<feature>/`** — components that know a feature. `auth/` covers login, register
+  and verify-email together, because the three screens share one shell and one set of fields;
+  splitting per route would duplicate all of it.
+- **Server Actions stay with their route** (`src/app/(auth)/login/actions.ts`), not in `components/`.
+  They are route behaviour, and colocating keeps the form's action next to the page that renders it.
+- A component used by exactly one feature starts in that feature's directory and only moves to
+  `common/` when a second feature needs it.
 
 ### Page metadata
 
@@ -352,6 +395,10 @@ If it restates the mechanics, delete it.
 **Tests** — normally none: the `it(...)` description is the comment. Comment only a non-obvious
 assertion, or one that exists to catch a specific trap.
 
+**No worked examples.** State what the code does or why, not a demonstration of it. "Rejects a
+protocol-relative path" earns its place; spelling out what a browser does with `//evil.test`, across
+three lines, does not — that belongs in a test, where it is executable.
+
 **Upkeep** — update or delete a comment in the same change as the code beneath it. A stale comment is
 worse than none.
 
@@ -365,7 +412,7 @@ worse than none.
 | `SESSION_SECRET`               | server  | Key for the encrypted httpOnly session cookie, unique per environment                                                    |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must exactly match** the backend's `GOOGLE_CLIENT_ID`, or token-audience verification fails |
 
-All three are required and validated by `src/lib/env.ts`; whitespace-only counts as missing.
+All three are required and validated by `src/lib/config/env.ts`; whitespace-only counts as missing.
 
 The frontend's origin must be listed in the backend's `CORS_ALLOWED_ORIGINS` and under **Authorized
 JavaScript origins** on the Google OAuth client. Because the browser never calls Spring directly

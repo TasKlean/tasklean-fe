@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readEnv } from "@/lib/env";
+import { readEnv } from "@/lib/config/env";
 
 const good = {
   API_BASE_URL: "http://localhost:8080",

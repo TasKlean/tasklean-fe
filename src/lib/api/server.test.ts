@@ -2,11 +2,11 @@ import { HttpResponse, http } from "msw";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import { SessionExpiredError, serverApi } from "@/lib/api/server";
-import type { Session } from "@/lib/session";
+import type { Session } from "@/lib/auth/session";
 import { server } from "@/test/msw";
 
 const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
-vi.mock("@/lib/session", () => ({ getSession }));
+vi.mock("@/lib/auth/session", () => ({ getSession }));
 
 const BASE = "http://api.test";
 

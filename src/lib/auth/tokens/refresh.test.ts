@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { beforeAll, describe, expect, it } from "vitest";
-import { RefreshFailedError, refreshTokens } from "@/lib/auth/refresh";
+import { RefreshFailedError, refreshTokens } from "@/lib/auth/tokens/refresh";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";

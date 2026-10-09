@@ -6,9 +6,11 @@
  * session and refresh wrap this module instead of living inside it.
  */
 
+import "server-only";
+
 import type { Envelope, QueryValue, RequestOptions } from "@/lib/api/client.types";
 import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
-import { getEnv } from "@/lib/env";
+import { getEnv } from "@/lib/config/env";
 
 /**
  * Joins the configured base URL, a path and a query object into a request URL.

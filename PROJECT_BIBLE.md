@@ -82,7 +82,7 @@ is already right.
 | **Session cookie encrypted with `jose`** | See _Session cookie implementation_. Encrypted (JWE), not signed — a signed payload is readable, and ours holds the refresh token. |
 | **Refresh happens in Proxy** | See _Refresh lives in Proxy_. A Server Component render cannot write cookies, so refreshing anywhere else loses the rotated token and kills the session. |
 | **Client-side role checks are UX, never authorization** | See _Roles and access_. Spring stays the authority; the UI gates optimistically and still handles the 403. |
-| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
+| **Env validated by hand, not with Zod** | Fifteen lines in `src/lib/config/env.ts` for three variables, reporting every missing one at once. Keeps Zod a genuinely open decision for forms later instead of smuggling it in as a dependency here, and an explicit loop is clearer than a schema while learning. Revisit if the set grows, or needs coercion, defaults or per-variable rules. |
 | **LF line endings pinned in the repo** | `.gitattributes` with `* text=auto eol=lf`. A fresh Windows clone with `core.autocrlf=true` checks the tree out as CRLF, which Prettier (`endOfLine: lf`) then rejects for every file — a repo-wide `format:check` failure that reads as a formatting problem and isn't. Pinning it in the repo makes the rule travel to every machine rather than depending on local git config. |
 | **Session in an httpOnly cookie, tokens server-side only** | Forced by the backend's design. See _Session and auth_.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
@@ -150,7 +150,7 @@ one-sided: absence is plausible, malformed presence is not.
 
 ### Time
 
-`src/lib/time.ts` is the only crossing point between API timestamps and `Date`.
+`src/lib/time/api-date.ts` is the only crossing point between API timestamps and `Date`.
 
 **Reading** is the known problem: unmarked UTC strings parse as local, so `parseApiDate` appends `Z`
 unless a zone marker is already there.
@@ -521,7 +521,7 @@ workaround **before** the feature depending on it gets built.
 1. **API timestamps have no `Z`.** They're UTC, but `new Date("2026-09-28T10:00:00")` parses as
    _local_. Every date bug in this app will be this bug. The write direction is the mirror: the
    DTOs are `LocalDateTime` with no Jackson config, so `ISO_LOCAL_DATE_TIME` applies and a trailing
-   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time.ts`.
+   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date.ts`.
 2. **Three id namespaces in one payload** — `uid` (string, external), numeric `id` (per entity), and
    GroupMember ids masquerading as person references.
 3. **Local dev issues year-long access tokens**, so refresh, rotation and the `401` path are
@@ -722,7 +722,7 @@ Newest first. What we decided and when, so the reasoning is recoverable later.
   access token already carries `userId` and `uid` claims, so storing it was speculative. Role
   access is designed but **not built** — see _Roles and access_; it needs an active group, so it
   belongs with phase 3. Added a `/pre-commit` skill mirroring the backend own.
-- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time.ts` exposes
+- **2026-10-07** — Phase 1 step 3 done: the UTC time module. `src/lib/time/api-date.ts` exposes
   `parseApiDate`, `parseApiDateOrNull` and `toApiDate`; reasoning is under _Time_ above. The write
   format was settled by reading the backend rather than guessing: `LocalDateTime` DTOs and no
   Jackson configuration mean `ISO_LOCAL_DATE_TIME`, so we send **no** `Z` — and
@@ -743,7 +743,7 @@ Newest first. What we decided and when, so the reasoning is recoverable later.
 - **2026-10-07** — Phase 1 step 1 done: the test harness and env validation. Vitest + Testing
   Library + jsdom, with `node` as the default environment and jsdom opted into per file, and no
   globals (enabling them would force `tsconfig`'s `types` to enumerate every `@types` package).
-  `src/lib/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
+  `src/lib/config/env.ts` validates `API_BASE_URL`, `SESSION_SECRET` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`,
   hand-rolled rather than with Zod, treating whitespace-only as missing and naming every missing
   variable in one error — this closes the _Env validation at boot_ open question. `@types/node`
   bumped `^20` → `^26`, since Vitest requires `>=22` and it should track the Node major anyway.

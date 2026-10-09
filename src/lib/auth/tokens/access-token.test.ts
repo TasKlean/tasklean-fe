@@ -1,6 +1,6 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import { accessTokenExpiresWithin } from "@/lib/auth/access-token";
+import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
 
 const key = new Uint8Array(32);
 
