@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scorePassword } from "@/lib/validation/password-strength";
+import { scorePassword } from "@/lib/validation/password/strength";
 
 describe("scorePassword", () => {
   it.each(["", "chores", "chores12", "CHORES12", "aaaaaaaaaaaa", "abcdefghij", "9876543210"])(

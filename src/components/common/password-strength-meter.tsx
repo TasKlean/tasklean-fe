@@ -3,7 +3,7 @@
  * accepts any password the backend accepts.
  */
 
-import { scorePassword, type PasswordStrength } from "@/lib/validation/password-strength";
+import { scorePassword, type PasswordStrength } from "@/lib/validation/password/strength";
 
 type PasswordStrengthMeterProps = {
   password: string;

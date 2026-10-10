@@ -70,6 +70,20 @@ describe("VerifyEmailForm", () => {
     expect(screen.getByText("Codes expire 5 minutes after they are sent.")).toBeInTheDocument();
   });
 
+  it("warns that an earlier code is dead when login resent one", () => {
+    render(<VerifyEmailForm initialEmail="a@b.test" codeResent />);
+
+    expect(
+      screen.getByText("We sent you a new code. Any earlier code no longer works."),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing about a new code when arriving from register", () => {
+    render(<VerifyEmailForm initialEmail="a@b.test" />);
+
+    expect(screen.queryByText(/new code/)).toBeNull();
+  });
+
   it("starts the resend cooldown disabled", () => {
     render(<VerifyEmailForm initialEmail="a@b.test" />);
 

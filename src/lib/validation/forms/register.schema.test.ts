@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateRegister, type RegisterFields } from "@/lib/validation/register";
+import { validateRegister, type RegisterFields } from "@/lib/validation/forms/register.schema";
 
 const VALID: RegisterFields = {
   name: "Maja",

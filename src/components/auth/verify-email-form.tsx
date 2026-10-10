@@ -13,8 +13,7 @@ import { resendAction, verifyAction, type VerifyState } from "@/app/(auth)/verif
 import { CodeInput } from "@/components/common/code-input";
 import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field";
-import { validateCode } from "@/lib/validation/code";
-import { validateEmail } from "@/lib/validation/email";
+import { validateVerifyEmail } from "@/lib/validation/forms/verify-email.schema";
 
 const INITIAL: VerifyState = { error: null };
 
@@ -29,6 +28,8 @@ type VerifyEmailFormProps = {
   // From the email link. Prefilled, never auto-submitted: mail scanners
   // prefetch links and would spend the code.
   initialCode?: string;
+  // Set when login just sent a fresh code, which invalidated the earlier one.
+  codeResent?: boolean;
 };
 
 /** Formats a count of seconds as m:ss. */
@@ -38,7 +39,7 @@ function clock(seconds: number): string {
 }
 
 /** Renders the code entry, countdown and resend controls. */
-export function VerifyEmailForm({ initialEmail, initialCode }: VerifyEmailFormProps) {
+export function VerifyEmailForm({ initialEmail, initialCode, codeResent }: VerifyEmailFormProps) {
   const [state, formAction] = useActionState(verifyAction, INITIAL);
   const [resendState, resendFormAction] = useActionState(resendAction, INITIAL);
 
@@ -53,8 +54,9 @@ export function VerifyEmailForm({ initialEmail, initialCode }: VerifyEmailFormPr
   const [expiresIn, setExpiresIn] = useState<number | null>(initialCode ? null : CODE_TTL_SECONDS);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
 
-  const emailError = validateEmail(email) ?? undefined;
-  const codeError = validateCode(code) ?? undefined;
+  const errors = validateVerifyEmail({ email, code });
+  const emailError = errors.email;
+  const codeError = errors.code;
 
   const showEmailError = submitted || (emailTouched && email !== "");
   const expired = expiresIn === 0;
@@ -93,6 +95,9 @@ export function VerifyEmailForm({ initialEmail, initialCode }: VerifyEmailFormPr
   }
 
   const banner = state.error ?? resendState.error;
+  const notice =
+    resendState.notice ??
+    (codeResent ? "We sent you a new code. Any earlier code no longer works." : null);
 
   return (
     <div className="gap-space-md flex flex-col">
@@ -105,12 +110,12 @@ export function VerifyEmailForm({ initialEmail, initialCode }: VerifyEmailFormPr
         </p>
       ) : null}
 
-      {resendState.notice && !banner ? (
+      {notice && !banner ? (
         <p
           role="status"
           className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
         >
-          {resendState.notice}
+          {notice}
         </p>
       ) : null}
 

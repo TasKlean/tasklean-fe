@@ -8,8 +8,11 @@
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { register } from "@/lib/auth/signin/register";
-import { readRaw, readTrimmed } from "@/lib/validation/form-data";
-import { type RegisterErrors, validateRegister } from "@/lib/validation/register";
+import {
+  echoRegister,
+  type RegisterErrors,
+  parseRegister,
+} from "@/lib/validation/forms/register.schema";
 
 export type RegisterState = {
   error: string | null;
@@ -36,13 +39,14 @@ export async function registerAction(
   _previous: RegisterState,
   formData: FormData,
 ): Promise<RegisterState> {
-  const values = readTrimmed(formData, ["name", "lastName", "middleName", "email"]);
-  const { password, confirmPassword } = readRaw(formData, ["password", "confirmPassword"]);
-
-  const fieldErrors = validateRegister({ ...values, password, confirmPassword });
-  if (Object.keys(fieldErrors).length > 0) {
-    return { error: null, fieldErrors, values };
+  const submitted = Object.fromEntries(formData);
+  const parsed = parseRegister(submitted);
+  if (!parsed.ok) {
+    return { error: null, fieldErrors: parsed.errors, values: echoRegister(submitted) };
   }
+
+  const { name, lastName, middleName, email, password } = parsed.values;
+  const values = { name, lastName, middleName, email };
 
   try {
     await register({

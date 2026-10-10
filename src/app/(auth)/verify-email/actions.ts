@@ -9,9 +9,7 @@ import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { setSession } from "@/lib/auth/session";
 import { resendVerification, verifyEmail } from "@/lib/auth/signin/verify-email";
-import { validateCode } from "@/lib/validation/code";
-import { validateEmail } from "@/lib/validation/email";
-import { readTrimmed } from "@/lib/validation/form-data";
+import { parseResend, parseVerifyEmail } from "@/lib/validation/forms/verify-email.schema";
 
 export type VerifyState = {
   error: string | null;
@@ -37,15 +35,10 @@ export async function verifyAction(
   _previous: VerifyState,
   formData: FormData,
 ): Promise<VerifyState> {
-  const { email, code } = readTrimmed(formData, ["email", "code"]);
+  const parsed = parseVerifyEmail(Object.fromEntries(formData));
+  if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
 
-  const fieldErrors = {
-    email: validateEmail(email) ?? undefined,
-    code: validateCode(code) ?? undefined,
-  };
-  if (fieldErrors.email || fieldErrors.code) {
-    return { error: null, fieldErrors };
-  }
+  const { email, code } = parsed.values;
 
   try {
     const tokens = await verifyEmail(email, code);
@@ -75,10 +68,10 @@ export async function resendAction(
   _previous: VerifyState,
   formData: FormData,
 ): Promise<VerifyState> {
-  const { email } = readTrimmed(formData, ["email"]);
+  const parsed = parseResend(Object.fromEntries(formData));
+  if (!parsed.ok) return { error: null, fieldErrors: { email: parsed.error } };
 
-  const emailError = validateEmail(email);
-  if (emailError) return { error: null, fieldErrors: { email: emailError } };
+  const { email } = parsed;
 
   try {
     await resendVerification(email);

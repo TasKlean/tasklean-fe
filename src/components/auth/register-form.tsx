@@ -13,8 +13,8 @@ import { PasswordField } from "@/components/common/password-field";
 import { PasswordStrengthMeter } from "@/components/common/password-strength-meter";
 import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field";
-import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password";
-import { validateRegister } from "@/lib/validation/register";
+import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password/policy";
+import { validateRegister } from "@/lib/validation/forms/register.schema";
 
 const INITIAL: RegisterState = { error: null };
 

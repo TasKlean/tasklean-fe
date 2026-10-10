@@ -72,7 +72,7 @@ Decisions that have no section of their own. Everything below gets one.
 | **Hand-written types, per feature** | Generating a client from `openapi.json` is instant and teaches nothing; writing an endpoint's types when you build against it means reading the contract. Cost: drift, caught when a feature touches the spec. |
 | **No global state library** | React Query holds server data, the URL holds filters and sort, a cookie holds active group and theme. Adding Zustand later is cheap; unwinding a store full of server data is not. |
 | **Design tokens before components** | Both tokens and the dark-mode mechanism are miserable to retrofit — every hard-coded value has to be hunted down, and dark mode changes how every colour is declared. |
-| **Env validated by hand, not Zod** | Fifteen lines for three variables, reporting every missing one at once. Keeps Zod a genuinely open choice for forms rather than smuggling it in here. Revisit if the set needs coercion or defaults. |
+| **Env validated by hand, not Zod** | Fifteen lines for three variables, reporting every missing one at once — a schema would be no shorter and would report the first. Still true now that Zod validates every form. Revisit if the set needs coercion or defaults. |
 | **Node 26** | Becomes Active LTS 2026-10-28 (supported to 2029-04), so the project sits on one line for its whole life instead of migrating a month in. Next declares `node >=20.9.0` with no upper bound. |
 | **No Node version manager** | Installed from the signed MSI via winget. With one JS project there is nothing to switch between, so a manager is added attack surface — nvm-windows' `src/web/web.go` verifies **no checksum or signature** on downloaded Node binaries, inverts `InsecureSkipVerify` on its proxy path, and falls back to `http://` for scheme-less mirrors. Revisit only if we need per-project versions. |
 | **npm is whatever Node bundles** | Node's `npm` shim prefers a global npm over the bundled one, so a stale `install -g npm` silently pins it while Node moves on — which is what we found here (10.9.1 shadowing 11.19.0). |
@@ -201,10 +201,48 @@ dark scheme. One deliberate departure: **dark shadows are re-tinted near-black**
 slate-tinted ambient glow is invisible on a dark canvas and the light values would silently flatten
 every card.
 
+### Validation
+
+**Every form is a `zod/mini` schema, the three auth validators included.** The first decision here
+was the opposite — Zod for new forms only, because retrofitting a working validator saves few lines.
+It was reversed for uniformity: two validation styles in one directory means every new form opens
+with a choice that has no right answer, and the second style wins by accident of what was built
+first. Both the cost and the consequences were measured rather than argued.
+
+**It costs 8 KB gzipped** — 198,670 bytes against a 190,411 baseline. An isolated probe predicted
+15 KB, and full `zod` measured +30 KB, so the figure quoted online is the mini one and even that
+over-states what real usage pays. The weight lands on the first *client* import, because
+`validation/` is deliberately client-importable. An unimported dependency reaches no bundle at all.
+
+**A field shows only its first unmet rule.** Zod emits one issue per failed check, so `"choresaaa"`
+yields three messages where the hand-written validator returned the single sentence "Add an
+uppercase letter, a number and a special character." Keeping that sentence needs custom aggregation,
+which cancels the saving; showing the first message needs none and asks for one fix at a time. The
+order of the checks in `rules.ts` is therefore the order a user is asked to fix things.
+
+**The schema parses `FormData`, so no reading helper survives.** An action hands
+`Object.fromEntries(formData)` to its schema, which trims field by field — the password is the one
+field never trimmed, because it must reach the backend exactly as typed. `readTrimmed`/`readRaw`
+existed to make that distinction by hand and are gone.
+
+**Modules are grouped by the question they answer**, not by symmetry: `rules.ts` holds the field
+pieces, `parse.ts` runs a schema and keeps one message per field, `forms/<form>.schema.ts` is one
+per screen, `password/` is the policy and its meter. Echoing back a rejected submission is a second,
+lenient schema per form with every field optional — never the password.
+
+**What stays custom**: `isGuessable`, the leet and stem checks, and `passwordRequirements` — the
+strength meter needs per-rule booleans a schema does not expose.
+
+**Where it pays next**: nested objects, arrays and coercion, and `z.infer` so a field cannot drift
+between the type, the validator and the action. Task recurrence is the expected first case —
+`recurrencePattern` is free-form JSON and `priority`/`status`/`recurrenceType` are plain strings
+with no enum in the spec, which is what `z.enum` is for.
+
 ### The password policy
 
-**The frontend is the spec here, not the mirror.** `validation/password.ts` holds it and the backend
-is being changed to match, so that file is the thing to read and any disagreement is a backend bug.
+**The frontend is the spec here, not the mirror.** `validation/password/policy.ts` holds it and the
+backend is being changed to match, so that file is the thing to read and any disagreement is a
+backend bug.
 
 **8–64 characters**, one each of uppercase, lowercase, digit and non-alphanumeric, and **a password
 rated weak is rejected** — the form's minimum is "good". Three decisions worth the reasoning:
@@ -318,6 +356,10 @@ unverified each have their own wording, so the UI can act on them. We act on one
 `/not verified/` sends a fresh code and redirects to `/verify-email`. That match is the only signal
 available, since the envelope carries no error code — a reworded message degrades the redirect to
 simply showing the message.
+
+**A resend invalidates the earlier code.** The backend deletes a user's existing code before
+issuing one, so the redirect from an unverified login carries `?resent=1` and the screen says so —
+otherwise someone holding the first email would type a code that silently no longer works.
 
 **Verification links must not verify on a GET.** The code arrives by email, and the link may carry
 it as `?code=`. Mail scanners prefetch links to check them, so a page that auto-submitted would
@@ -623,16 +665,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   `~6.0.3` pin.
 - **UI primitives** — hand-rolled or headless (Radix / shadcn-style)? Learning focus management
   ourselves against accessible dialogs and menus for free.
-- **Forms and validation** — React Hook Form + Zod, or stay plain. Still plain, and the duplicated
-  `FormData` parsing that was the strongest argument for Zod is now a fifteen-line helper
-  (`validation/form-data.ts`) with no dependency and nothing in the client bundle. What Zod would
-  still buy: one schema as the source of truth with `z.infer` for the field type, so adding a field
-  cannot drift between the type, the validator and the action. What it would not: `isGuessable` and
-  the leet/stem checks are custom either way, the strength meter is not validation, and its issue
-  objects would need mapping to the `string | null` the UI consumes — so the 146-line password
-  module barely benefits. The cost is real: `validation/` is deliberately client-importable, so Zod
-  would ship to the browser of a phone in a kitchen. **Revisit when a form needs nested data, arrays
-  or coercion** — task recurrence rules are the likely trigger.
 - **Canonical URL for `metadataBase`** — needs an absolute origin we do not have. Until then pages
   carry titles and descriptions but no link-preview metadata, since a relative OG image resolves
   against nothing and Next warns at build.

@@ -80,6 +80,29 @@ describe("loginAction unverified handling", () => {
     expect(resent).toBe(true);
   });
 
+  it("marks the redirect so the screen can warn the earlier code is dead", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Email not verified.", data: null },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${BASE}/api/auth/resend-verification`, () =>
+        HttpResponse.json({ success: true, message: null, data: null }),
+      ),
+    );
+
+    const redirect = await loginAction(
+      EMPTY,
+      form({ email: "a@b.test", password: "Chores12!" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((redirect as { digest?: string }).digest)).toContain(
+      "/verify-email?email=a%40b.test&resent=1",
+    );
+  });
+
   it("still redirects when the resend is rate limited", async () => {
     server.use(
       http.post(`${BASE}/api/auth/login`, () =>

@@ -30,8 +30,9 @@ npm run format:check   # Prettier, check only
 ```
 
 Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
-Prettier, Vitest + MSW, `jose`, `lucide-react`. **Node 26** (`.nvmrc` + `engines.node`); npm comes
-from Node's bundled copy, so a global npm install would silently shadow it.
+Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`. **Node 26** (`.nvmrc` +
+`engines.node`); npm comes from Node's bundled copy, so a global npm install would silently shadow
+it.
 
 `typecheck` runs `next typegen` first because Next 16 generates `LayoutProps`/`PageProps` into
 `.next/types` — a bare `tsc` fails on a clean checkout. Prettier skips `*.md` (`.prettierignore`).
@@ -86,7 +87,12 @@ src/
       safe-next.ts     blocks open redirect via Proxy's ?next=
     config/env.ts      validated environment
     time/api-date.ts   API timestamps ↔ Date
-    validation/        form rules and FormData reading, shared by a form and its action
+    validation/        every form rule, shared by a form and its action
+      rules.ts         the field-level Zod pieces (email, name, password, code)
+      parse.ts         runs a schema, reshapes issues to one message per field
+      forms/           one <form>.schema.ts per form: login, register, verify-email
+      password/        policy.ts (the rules) and strength.ts (the advisory meter)
+      code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts
 ```
 
@@ -121,9 +127,14 @@ the code** they cover.
 - **Forms validate in one place, twice.** Rules live in `validation/`; the client component and the
   Server Action call the same function, and the action is the authority (it runs without JS). Inputs
   are **controlled** — React resets an uncontrolled form after its action returns.
-- **Read `FormData` through `readTrimmed` / `readRaw`**, never `formData.get` by hand. Trimming is a
-  separate call because a password must reach the backend exactly as typed, and a `File` entry comes
-  back as `""` rather than `"[object File]"`.
+- **Every form is a `zod/mini` schema** in `validation/forms/<form>.schema.ts`, named `<form>Schema`
+  and exported. A new form composes `rules.ts`, parses through `parseWith`, and exposes `parseX` for
+  its action and `validateX` for the component. `zod/mini` not `zod`. Nothing in `password/policy.ts` becomes a
+  schema: the strength meter needs per-rule booleans. Reasoning in the bible.
+- **An action parses `Object.fromEntries(formData)`**, never `formData.get` by hand — the schema owns
+  trimming, so a password reaches the backend exactly as typed while text fields do not.
+- **A field shows only its first unmet rule.** Zod reports every failed check; the order in
+  `rules.ts` is therefore the order a user is asked to fix things.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
@@ -190,9 +201,10 @@ routes are `noindex` via the `(auth)` layout.
   is covered without a token of our own. A Route Handler would need one.
 - **Role checks in our code are UX, never authorization.** Spring is the authority: gate the UI
   optimistically *and* handle the `403`. Not built yet.
-- **Password policy** lives in `validation/password.ts` and the **frontend is the spec** — the backend
-  is being changed to match. 8–64 characters, one each of upper/lower/digit/non-alphanumeric, and a
-  guessable password is rejected. Enforced at register, never at login.
+- **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec** —
+  the backend is being changed to match. 8–64 characters, one each of
+  upper/lower/digit/non-alphanumeric, and a guessable password is rejected. Enforced at register,
+  never at login.
 
 ## Consuming the API
 

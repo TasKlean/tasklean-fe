@@ -13,7 +13,7 @@ import { loginAction, type LoginState } from "@/app/(auth)/login/actions";
 import { PasswordField } from "@/components/common/password-field";
 import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field";
-import { validateEmail } from "@/lib/validation/email";
+import { validateLogin } from "@/lib/validation/forms/login.schema";
 
 const INITIAL: LoginState = { error: null };
 
@@ -30,8 +30,9 @@ export function LoginForm({ next }: LoginFormProps) {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [submitted, setSubmitted] = useState(false);
 
-  const emailError = validateEmail(email) ?? undefined;
-  const passwordError = password ? undefined : "Enter your password.";
+  const errors = validateLogin({ email, password });
+  const emailError = errors.email;
+  const passwordError = errors.password;
 
   // Leaving a field untouched-but-empty is not a mistake worth flagging, so an
   // empty field only complains once submit has been attempted.

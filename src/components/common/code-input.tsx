@@ -8,7 +8,7 @@
 
 import type { ClipboardEvent, Dispatch, KeyboardEvent, SetStateAction } from "react";
 import { useRef } from "react";
-import { CODE_LENGTH } from "@/lib/validation/code";
+import { CODE_LENGTH } from "@/lib/validation/code-length";
 
 type CodeInputProps = {
   name: string;

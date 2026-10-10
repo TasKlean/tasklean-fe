@@ -3,7 +3,7 @@
  * reads as progress towards submitting. `good` is the minimum the form accepts.
  */
 
-import { isGuessable, passwordRulesMet } from "@/lib/validation/password";
+import { isGuessable, passwordRulesMet } from "@/lib/validation/password/policy";
 
 export type PasswordStrength = "weak" | "good" | "strong";
 
