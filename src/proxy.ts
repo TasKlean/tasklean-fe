@@ -23,8 +23,7 @@ export const config = {
 };
 
 // Default deny: adding a route must not require remembering to protect it.
-// TEMPORARY: "/" is public only for the design preview — remove with it.
-const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/about"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
 
 /**
  * Reports whether a path is reachable without a session.

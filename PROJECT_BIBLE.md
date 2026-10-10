@@ -352,17 +352,17 @@ that a file found by its route rather than its filename announces which page it 
 of `TasKlean`, so changing the separator or the brand is a one-line edit. The homepage is the
 deliberate exception, setting none — the template would make it `Home - TasKlean`.
 
-**Real SEO applies to one page today: `/about`.** The root route is *not* in that set — `/` becomes
-the task feed and sits behind the auth boundary, where Proxy redirects before a crawler sees HTML. A
-marketing landing page would need its own route or a split on auth state; it is not something `/`
-grows into.
+**Real SEO applies to one page today: `/`.** It is the only indexable route left. The throwaway
+`/about` is deleted rather than kept as a stub: an empty page in the sitemap is worse than no page,
+and the home page already says what the product is. It comes back when there is something to say
+about who builds this.
 
 **Public and indexable are different things.** `/login`, `/register` and `/verify-email` are in
 `PUBLIC_PATHS` because they must be reachable, but have no business in search results — the
 `(auth)` layout sets `robots: { index: false }` for all of them.
 
-So protected routes get a title and description for the tab and nothing more. When `/about` and any
-marketing routes get built, "SEO proper" means `metadataBase` and a canonical URL, Open Graph and
+So protected routes get a title and description for the tab and nothing more. When more public
+routes get built, "SEO proper" means `metadataBase` and a canonical URL, Open Graph and
 Twitter cards, and a `sitemap.ts` listing only the indexable set.
 
 ---
