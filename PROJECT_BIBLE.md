@@ -201,6 +201,12 @@ dark scheme. One deliberate departure: **dark shadows are re-tinted near-black**
 slate-tinted ambient glow is invisible on a dark canvas and the light values would silently flatten
 every card.
 
+**The spacing scale gained two steps above DESIGN.md's.** Its scale stops at `space-xl` (2.25rem),
+which its own prose describes as the gap *between category sections inside a screen*, meaning a task
+list and not a landing page. Marketing bands at 36px read as cramped, so `space-2xl` (3.5rem) and
+`space-3xl` (5rem) continue the scale's roughly 1.5× ratio. Marked derived in `globals.css` like the
+sage and coral tones; nothing inside the app uses them.
+
 ### Validation
 
 **Every form is a `zod/mini` schema, the three auth validators included.** The first decision here
@@ -264,6 +270,78 @@ strong, because a meter praising a password the form rejects contradicts itself.
 
 **Enforced at register, never at login.** A rule at sign-in locks people out of their own accounts
 with no way to fix it, and publishes the policy to anyone probing.
+
+### The public home page
+
+**Nothing on it is invented.** The Stitch design shipped with "trusted by over 12,000 peaceful
+households", a named testimonial and a "100% free" badge. There are no users, no testimonial and no
+pricing decision, so all three are gone. A launch page that lies is a liability, and the numbers
+would have to be removed later anyway.
+
+**It only claims what the MVP scope covers.** The design's "automatic fair distribution" is the
+rotation and fairness work explicitly out of MVP scope, so the feature card became clear ownership
+instead. The nine cards are all MVP features: invite code, assignment, recurrence, the nudge, photo
+proof, priority and categories and tags, time estimates, multiple groups, list and calendar.
+
+**Two of those nine run ahead of the API, and the page must not ship before they land.** There is no
+endpoint that sends a nudge: `/api/notifications` is read-only, so notifications exist as records
+but nobody can create one. And tags exist as group-scoped entities with their own CRUD, yet no task
+field references them, so a tag cannot currently be put on a task. Both are in the backend's MVP
+list, so the copy is a promise with a date rather than an invention, but it is still a promise.
+
+**The copy uses the product's nouns: group and task, not household and chore.** The warmer words
+read better on a landing page and worse everywhere after it, because the app says "group" and the
+API says `Group`. "Household" and "home" survive only as human description, never as the name of a
+thing you create or join.
+
+**The product mock is built from tokens, not a screenshot.** A screenshot of a UI that does not
+exist yet is a promise, and it goes stale the day the real screen changes. The mock is
+`aria-hidden`, so it is decoration, and a screen reader reading a fake task list would be nonsense.
+The photo it floats over is the opposite case: it shows a home rather than the product, so it claims
+nothing and carries real `alt` text. No text sits on the photo, so it needs no scrim and no contrast
+compromise.
+
+**Images go through `next/image` from `src/assets/`, not `public/`.** A static import gives the
+optimizer the intrinsic size, so no hand-written `width`/`height` can drift from the file, and it is
+the only way to get a build-time `placeholder="blur"`. The hero is `priority` because it is the
+largest paint on every screen; it is 1376×768 and serves at 37 KB on a phone, 55 KB on a laptop.
+
+**The logo ships as two files, not one recoloured by CSS.** The mark is slate `#38576c`, which reads
+as near-black on the dark canvas, so dark mode swaps in a variant drawn in `--primary`'s dark value
+(`#a7cbe9`), which is the scheme's own answer to what the brand colour becomes. Both
+are generated from the 1024px source by trimming its padding and lifting the white background to
+alpha; the source was opaque white, which would have shown as a white box in dark mode. The favicon
+at `app/icon.png` keeps a light tile instead, since browser chrome can be any colour.
+
+**The header carries no JavaScript.** Section links are hidden on phones rather than folded into a
+drawer, because a drawer makes the header a client component for two anchors that scrolling already
+reaches. Revisit when the public site has more than two sections.
+
+**`/` is public for real now, and the signed-in app will not live there.** The route was temporarily
+public for the token preview, which is deleted. `DESIGN.md` and `globals.css` are the authority,
+and a preview page only drifts from them. Once there is an app behind the session, an authenticated
+visitor to `/` should be sent to it, and login's default redirect target changes with it. Today it
+still lands on the marketing page.
+
+**The page answers "what is it" before "how do I start".** Hero, then the three steps, then the
+feature cards, then the comparison. The steps sit that high because "how do I get my flatmates in"
+is the first real question after the promise, and all three map to endpoints that exist: register,
+the invite code, task creation with an assignee and a recurrence. Nothing in them is aspirational.
+
+**The hero watches the cursor, by five degrees.** The photo and the task card rotate together as
+one 3D stage, with the card drifting ten pixels against the rotation so it reads as floating rather
+than printed on. Five degrees is the whole budget: more turns a calm page into a toy. The transforms
+are written straight to refs inside one `requestAnimationFrame`, never through state, because a
+pointer move that re-rendered React sixty times a second would be the most expensive thing on the
+page. It is off for touch (no hover to key off) and off under `prefers-reduced-motion`.
+
+**Cards lift four pixels and gain one elevation step on hover.** The lift is `motion-safe:`, the
+shadow is not: someone who asked for less motion still benefits from the surface responding, and a
+shadow change is not motion. Both are inside Tailwind's `@media (hover: hover)`, so a phone tap
+leaves nothing stuck in a hover state.
+
+**No Privacy or Terms links.** Neither page exists; a dead legal link reads worse than a missing one.
+They go in the footer when they are written.
 
 ### Page metadata and SEO
 

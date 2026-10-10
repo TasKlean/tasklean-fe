@@ -149,6 +149,11 @@
   --spacing-space-lg: 1.5rem;
   --spacing-space-xl: 2.25rem;
 
+  /* Above DESIGN.md's scale, which stops at space-xl: that scale measures
+   * content inside a screen, not the bands of a marketing page. */
+  --spacing-space-2xl: 3.5rem;
+  --spacing-space-3xl: 5rem;
+
   /* Tinted ambient glows, not neutral drop shadows: the tint is the primary
    * slate, which is what makes a card read as warm rather than clinical. */
   --shadow-level-1: var(--elevation-1);

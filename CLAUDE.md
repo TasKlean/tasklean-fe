@@ -11,9 +11,9 @@ is the reference: what exists, where it lives, and the rules.
 `PROJECT_BIBLE.md` is authoritative on **API behaviour**, its `docs/openapi.json` on **API shapes**.
 Never restate backend internals here — link to them.
 
-**State**: API layer, session, `/login`, `/register` and `/verify-email` exist. Google sign-in and
-logout do not. Nothing has ever reached a real backend — all tests are MSW. `/` is a throwaway
-design preview, temporarily in `PUBLIC_PATHS`.
+**State**: API layer, session, the public home page, `/login`, `/register` and `/verify-email`
+exist. Google sign-in, logout and everything behind the session do not. Nothing has ever reached a
+real backend, and all tests are MSW.
 
 ## Quick reference
 
@@ -68,15 +68,18 @@ src/
     (auth)/            shared shell (brand panel + form), robots noindex
       login/           page.tsx, actions.ts
       register/        page.tsx, actions.ts
-    about/             the one public, indexable page
-    page.tsx           throwaway design preview
+    (public)/          site header + footer shell, the one indexable route
+      page.tsx         the home page
     globals.css        design tokens — the only place colours/radii/fonts are defined
+    icon.png           the favicon, by Next's file convention
+  assets/              images components import; next/image reads their size from the file
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
-    common/            primitives, no feature knowledge: text-field, password-field,
-                       code-input, password-strength-meter,
-                       submit-button, password-strength-meter
-    auth/              login-form, register-form
+    common/            primitives, no feature knowledge: brand-mark, text-field,
+                       password-field, code-input, password-strength-meter, submit-button
+    auth/              login-form, register-form, verify-email-form
+    marketing/         public-page sections: site-header, site-footer, hero,
+                       hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts
@@ -120,10 +123,17 @@ the code** they cover.
   **[DESIGN.md](DESIGN.md) is the design authority**; `globals.css` implements it. Token names are
   Tailwind's, not DESIGN.md's Material ones — each value carries a comment naming its origin.
   Typeface **Plus Jakarta Sans** via `next/font`. Dark mode follows the OS.
+- **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare
+  `<img>` and never `public/`, which costs the intrinsic size and the build-time blur
+  placeholder. The logo has a dark-mode twin, so render `BrandMark` rather than either file.
 - **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
   design's Material Symbols. `aria-hidden` when a text label says the same thing.
 - **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
   labelled. Check phone, tablet and desktop — tablet is the one that gets skipped.
+- **Motion is opt-out.** Anything that moves sits behind `motion-safe:` or a
+  `prefers-reduced-motion` check, and anything cursor-driven ignores a `pointerType` other than
+  `mouse`. Tailwind wraps `hover:` in `@media (hover: hover)` already, so a tap never sticks. A
+  hover shadow may stay under reduced motion; the movement may not.
 - **Forms validate in one place, twice.** Rules live in `validation/`; the client component and the
   Server Action call the same function, and the action is the authority (it runs without JS). Inputs
   are **controlled** — React resets an uncontrolled form after its action returns.
@@ -140,6 +150,8 @@ the code** they cover.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
   surname where a two-word first name rarely is. Both trim surrounding whitespace rather than
   rejecting it.
+- **No em or en dashes.** Not in UI copy, not in comments, not in docs. A full stop, a comma or a
+  colon says the same thing. Older files still carry them and get swept as they are touched.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never a
   bare "Something went wrong" when the envelope carried a `message`.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
