@@ -39,11 +39,14 @@ export async function loginWithPassword(
   };
 }
 
-// Every login failure is a 401 with no error code, so the message is the only
-// signal. Loose on purpose: a reworded message degrades, not breaks.
-const UNVERIFIED = /not verified/i;
+const UNVERIFIED_CODE = "EMAIL_NOT_VERIFIED";
+
+// Fallback for a backend build older than the error code; a reworded message
+// then degrades the redirect to simply showing the message.
+const UNVERIFIED_MESSAGE = /not verified/i;
 
 /** Reports whether a login failure was an unverified account. */
 export function isEmailUnverified(error: unknown): boolean {
-  return isApiError(error) && error.status === 401 && UNVERIFIED.test(error.message);
+  if (!isApiError(error) || error.status !== 401) return false;
+  return error.code === UNVERIFIED_CODE || (!error.code && UNVERIFIED_MESSAGE.test(error.message));
 }

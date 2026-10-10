@@ -129,6 +129,41 @@ describe("request", () => {
     expect((error as ApiError).retryAfterSeconds).toBe(42);
   });
 
+  it("carries the envelope's error code on the ApiError", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: "Email not verified.",
+            code: "EMAIL_NOT_VERIFIED",
+            data: null,
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const error = await request("/api/auth/login", { method: "POST", body: {} }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe("EMAIL_NOT_VERIFIED");
+  });
+
+  it("leaves the code null when the envelope omits it", async () => {
+    server.use(
+      http.get(`${BASE}/api/tasks`, () =>
+        HttpResponse.json({ success: false, message: "Nope.", data: null }, { status: 400 }),
+      ),
+    );
+
+    const error = await request("/api/tasks").catch((caught: unknown) => caught);
+
+    expect((error as ApiError).code).toBeNull();
+  });
+
   it("leaves retryAfterSeconds null when the header is absent", async () => {
     server.use(
       http.get(`${BASE}/api/thing`, () =>

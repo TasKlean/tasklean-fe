@@ -353,9 +353,9 @@ produce.
 **Login** failures are all `401`, but **not all one message**. Unknown email and wrong password
 share `"Invalid email or password"` — deliberate anti-enumeration. Deactivated, Google-only and
 unverified each have their own wording, so the UI can act on them. We act on one: a message matching
-`/not verified/` sends a fresh code and redirects to `/verify-email`. That match is the only signal
-available, since the envelope carries no error code — a reworded message degrades the redirect to
-simply showing the message.
+unverified login carries **`code: "EMAIL_NOT_VERIFIED"`** in the envelope, which is what we branch
+on: it sends a fresh code and redirects to `/verify-email`. The message match is kept only as a
+fallback for a backend build without the code, and a code that *is* present wins over the text.
 
 **A resend invalidates the earlier code.** The backend deletes a user's existing code before
 issuing one, so the redirect from an unverified login carries `?resent=1` and the screen says so —
@@ -565,8 +565,9 @@ workaround **before** the feature depending on it gets built.
 6. **POST returns 201 while the spec says 200.**
 7. **Only unknown-email and wrong-password share a message.** Both are `401` with
    `"Invalid email or password"` — anti-enumeration. Deactivated, Google-only and unverified each
-   have their own, matched on text because the envelope has no error code. Verify-email's failures
-   *are* all one message, and resend is always `200`. Copy must not imply knowledge the API withheld.
+   have their own. Only the unverified one carries a `code`; the rest are told apart by text or not
+   at all. Verify-email's failures *are* all one message, and resend is always `200`. Copy must not
+   imply knowledge the API withheld.
 8. **`docs/openapi.json` is regenerated on every backend dev start.** A noisy diff there is normal; a
    _shape_ change in it is an API change we need to follow.
 9. **`priority`, `status` and `recurrenceType` are plain strings with no enum in the schema** —

@@ -109,6 +109,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const envelope = isEnvelope(parsed) ? parsed : undefined;
   const message = typeof envelope?.message === "string" ? envelope.message : null;
+  const code = typeof envelope?.code === "string" ? envelope.code : null;
 
   // Any 2xx is success: POSTs return 201 though the spec says 200, and 404/409
   // are absent from the spec entirely despite both occurring.
@@ -117,6 +118,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       response.status,
       message ?? `Request failed with status ${response.status}.`,
       parseRetryAfter(response.headers.get("Retry-After")),
+      code,
     );
   }
 

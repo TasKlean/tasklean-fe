@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api/errors";
-import { loginWithPassword } from "@/lib/auth/signin/login";
+import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";
@@ -94,5 +94,31 @@ describe("loginWithPassword", () => {
     await expect(loginWithPassword("a@b.test", "password123")).resolves.toMatchObject({
       userUid: "",
     });
+  });
+});
+
+describe("isEmailUnverified", () => {
+  it("reads the error code", () => {
+    expect(isEmailUnverified(new ApiError(401, "Anything.", null, "EMAIL_NOT_VERIFIED"))).toBe(
+      true,
+    );
+  });
+
+  it("falls back to the message when the backend sent no code", () => {
+    expect(isEmailUnverified(new ApiError(401, "Email not verified. Check your inbox"))).toBe(true);
+  });
+
+  it("trusts a code over the message", () => {
+    expect(
+      isEmailUnverified(new ApiError(401, "Email not verified.", null, "BAD_CREDENTIALS")),
+    ).toBe(false);
+  });
+
+  it("ignores a status other than 401", () => {
+    expect(isEmailUnverified(new ApiError(403, "Email not verified."))).toBe(false);
+  });
+
+  it("ignores anything that is not an ApiError", () => {
+    expect(isEmailUnverified(new Error("Email not verified."))).toBe(false);
   });
 });

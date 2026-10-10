@@ -8,6 +8,9 @@
 export type Envelope = {
   success?: boolean;
   message?: string | null;
+  // A stable error code on selected failures only, omitted from the JSON
+  // otherwise. Branch on this rather than on the human message.
+  code?: string | null;
   data?: unknown;
 };
 

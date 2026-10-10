@@ -63,6 +63,7 @@ describe("loginAction unverified handling", () => {
           {
             success: false,
             message: "Email not verified. Check your inbox for a verification code",
+            code: "EMAIL_NOT_VERIFIED",
             data: null,
           },
           { status: 401 },

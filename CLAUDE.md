@@ -211,9 +211,12 @@ routes are `noindex` via the `(auth)` layout.
 Consequences of the backend's design, not preferences. Breaking them produces bugs that look like
 backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 
-- **Every response is an envelope** — `{ success, message, data }`, on failure too, never HTML.
-  `api/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No field is
-  marked `required` in `openapi.json`, so narrow rather than trust.
+- **Every response is an envelope**: `{ success, message, code?, data }`, on failure too, never
+  HTML. `api/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No
+  field is marked `required` in `openapi.json`, so narrow rather than trust.
+- **Branch on `ApiError.code`, never on the message.** Only some failures carry one
+  (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
+  where an older backend build is plausible.
 - **Never branch on the exact 2xx code** — POSTs return `201` while the spec says `200`.
 - **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` are addressed by string `uid`;
   everything else by numeric `id`. Payloads are flat — foreign keys are ids, never nested objects.
