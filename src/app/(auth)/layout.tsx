@@ -5,7 +5,9 @@
  */
 
 import type { Metadata } from "next";
-import { Leaf, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
+
+import { BrandMark } from "@/components/common/brand-mark";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -33,11 +35,8 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
               className="bg-secondary/20 pointer-events-none absolute -top-24 -right-24 size-96 rounded-full blur-2xl"
             />
 
-            <div className="gap-space-sm relative z-10 flex items-center">
-              <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-full">
-                <Leaf className="size-5" aria-hidden />
-              </span>
-              <span className="text-headline-sm text-primary-strong">TasKlean</span>
+            <div className="relative z-10">
+              <BrandMark />
             </div>
 
             <div className="gap-space-md relative z-10 flex flex-col">
