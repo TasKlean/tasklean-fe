@@ -7,7 +7,7 @@
 import "server-only";
 
 import { request } from "@/lib/api/client";
-import type { AuthResponse } from "@/lib/auth/auth.types";
+import type { AuthResponse, SignedInTokens } from "@/lib/auth/auth.types";
 
 /**
  * Verifies an emailed code.
@@ -17,10 +17,7 @@ import type { AuthResponse } from "@/lib/auth/auth.types";
  * and expired code are one indistinguishable message, by design.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function verifyEmail(
-  email: string,
-  code: string,
-): Promise<{ accessToken: string; refreshToken: string; userUid: string }> {
+export async function verifyEmail(email: string, code: string): Promise<SignedInTokens> {
   const response = await request<AuthResponse>("/api/auth/verify-email", {
     method: "POST",
     body: { email, code },
@@ -34,6 +31,7 @@ export async function verifyEmail(
     accessToken: response.token,
     refreshToken: response.refreshToken,
     userUid: response.uid ?? "",
+    name: response.name,
   };
 }
 

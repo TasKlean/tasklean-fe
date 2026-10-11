@@ -7,7 +7,7 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
-import type { AuthResponse } from "@/lib/auth/auth.types";
+import type { AuthResponse, SignedInTokens } from "@/lib/auth/auth.types";
 
 /**
  * Logs in with a password.
@@ -18,10 +18,7 @@ import type { AuthResponse } from "@/lib/auth/auth.types";
  * each have their own.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function loginWithPassword(
-  email: string,
-  password: string,
-): Promise<{ accessToken: string; refreshToken: string; userUid: string }> {
+export async function loginWithPassword(email: string, password: string): Promise<SignedInTokens> {
   const response = await request<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: { email, password },
@@ -36,6 +33,7 @@ export async function loginWithPassword(
     accessToken: response.token,
     refreshToken: response.refreshToken,
     userUid: response.uid ?? "",
+    name: response.name,
   };
 }
 

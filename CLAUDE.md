@@ -220,6 +220,9 @@ routes are `noindex` via the `(auth)` layout.
   signed — a signed payload is readable base64url and ours carries the refresh token). Holds the
   token pair, `userUid`, `activeGroupId`. `auth/session.ts` exports the name and options so
   `proxy.ts` can't drift. **There is no server-side store**; the sealed tokens live in the browser.
+- **The display name rides in the session cookie.** Every auth response carries it, including
+  refresh, so the chrome can greet by name without an API call on every page. It is display only
+  and may be stale; anything that matters reads the backend.
 - **Proxy is the auth boundary and the only refresh site on the navigation path.** Default deny —
   everything is protected unless in `PUBLIC_PATHS`. `/api` is excluded from the matcher so Route
   Handlers answer `401` instead of redirecting to HTML.

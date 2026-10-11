@@ -124,6 +124,7 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken,
       userUid: refreshed.userUid || session.userUid,
+      name: refreshed.name || session.name,
     };
 
     const response = NextResponse.next();

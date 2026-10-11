@@ -6,7 +6,7 @@
 import "server-only";
 
 import { request } from "@/lib/api/client";
-import type { AuthResponse, GoogleAuthRequest } from "@/lib/auth/auth.types";
+import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth/auth.types";
 
 /**
  * Signs in with a Google ID token.
@@ -23,10 +23,7 @@ import type { AuthResponse, GoogleAuthRequest } from "@/lib/auth/auth.types";
  * 401; a missing nonce is a 400.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function signInWithGoogle(
-  idToken: string,
-  nonce: string,
-): Promise<{ accessToken: string; refreshToken: string; userUid: string }> {
+export async function signInWithGoogle(idToken: string, nonce: string): Promise<SignedInTokens> {
   const body: GoogleAuthRequest = { idToken, nonce };
   const response = await request<AuthResponse>("/api/auth/google", { method: "POST", body });
 
@@ -39,5 +36,6 @@ export async function signInWithGoogle(
     accessToken: response.token,
     refreshToken: response.refreshToken,
     userUid: response.uid ?? "",
+    name: response.name,
   };
 }

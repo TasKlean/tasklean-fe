@@ -14,6 +14,8 @@ export type Session = {
   refreshToken: string;
   userUid: string;
   activeGroupId: number | null;
+  // Display only, for the chrome. Absent on a session sealed before it existed.
+  name?: string;
 };
 
 export const SESSION_COOKIE_NAME = "tasklean_session";
@@ -77,6 +79,8 @@ function toSession(payload: unknown): Session | null {
     refreshToken: value.refreshToken,
     userUid: value.userUid,
     activeGroupId: value.activeGroupId,
+    // Spread so the key stays absent rather than present-and-undefined.
+    ...(typeof value.name === "string" ? { name: value.name } : {}),
   };
 }
 

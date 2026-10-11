@@ -174,3 +174,23 @@ describe("cookie handling", () => {
     expect(cookieStore.delete).toHaveBeenCalledWith("tasklean_session");
   });
 });
+
+describe("session display name", () => {
+  it("round-trips the name", async () => {
+    const named = { ...session, name: "Bob" };
+
+    await expect(unsealSession(await sealSession(named))).resolves.toEqual(named);
+  });
+
+  it("leaves the key absent when there is no name", async () => {
+    const sealed = await sealSession(session);
+
+    expect(Object.keys((await unsealSession(sealed)) ?? {})).not.toContain("name");
+  });
+
+  it("drops a name that is not a string", async () => {
+    const sealed = await sealSession({ ...session, name: 7 } as unknown as typeof session);
+
+    expect(Object.keys((await unsealSession(sealed)) ?? {})).not.toContain("name");
+  });
+});

@@ -14,8 +14,9 @@ import type { AuthResponse } from "@/lib/auth/auth.types";
 export type RefreshedTokens = {
   accessToken: string;
   refreshToken: string;
-  // Not guaranteed to be echoed; the caller keeps the uid it already has.
+  // Neither is guaranteed to be echoed; the caller keeps what it already has.
   userUid?: string;
+  name?: string;
 };
 
 // Keyed by the token being spent, so callers holding the same one converge.
@@ -96,5 +97,6 @@ async function performRefresh(refreshToken: string): Promise<RefreshedTokens> {
     accessToken: response.token,
     refreshToken: response.refreshToken,
     userUid: response.uid,
+    name: response.name,
   };
 }

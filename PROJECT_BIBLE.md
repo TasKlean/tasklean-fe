@@ -324,6 +324,13 @@ and a preview page only drifts from them. Once there is an app behind the sessio
 visitor to `/` should be sent to it, and login's default redirect target changes with it. Today it
 still lands on the marketing page.
 
+**The greeting comes from the cookie, not from the API.** Every auth response already carries the
+user's name, refresh included, so sealing it into the session costs nothing and spares a request on
+every page just to render "Hello, Bob". It is display only and may be stale after a profile edit,
+which is the right trade for chrome; anything that matters asks the backend. The field is optional
+and tolerated as absent, so a session sealed before it existed keeps working rather than being
+rejected as malformed.
+
 **Proxy bounces a signed-in visitor off the auth screens only, not off every public path.** The two
 lists are separate for a reason: `PUBLIC_PATHS` is "reachable without a session" and `AUTH_PATHS` is
 "pointless with one". Folding them together sent a signed-in visitor at `/` to `/`, which the

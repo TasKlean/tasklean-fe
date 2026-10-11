@@ -14,6 +14,15 @@ export type AuthResponse = {
   message?: string;
 };
 
+// What a credential exchange yields, whichever endpoint produced it. `name` is
+// the display name for the chrome, absent on a backend build that omits it.
+export type SignedInTokens = {
+  accessToken: string;
+  refreshToken: string;
+  userUid: string;
+  name?: string;
+};
+
 export type LoginRequest = {
   email: string;
   password: string;
