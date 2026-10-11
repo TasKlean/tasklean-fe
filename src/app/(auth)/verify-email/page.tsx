@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 /** Renders the email verification page. */
 export default async function VerifyEmailPage({ searchParams }: PageProps<"/verify-email">) {
-  const { email, code, resent } = await searchParams;
+  const { email, code, resent, next } = await searchParams;
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -26,6 +26,7 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
         initialEmail={typeof email === "string" ? email : undefined}
         initialCode={typeof code === "string" ? code : undefined}
         codeResent={resent === "1"}
+        next={typeof next === "string" ? next : undefined}
       />
 
       <p className="text-body-md text-muted-foreground text-center">

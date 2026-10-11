@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
-import { safeNext } from "@/lib/auth/safe-next";
+import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
 import { echoLogin, parseLogin } from "@/lib/validation/forms/login.schema";
 import { setSession } from "@/lib/auth/session";
 
@@ -57,7 +57,10 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
   }
 
   // `resent` warns the screen that the earlier code is now dead.
-  if (unverified) redirect(`/verify-email?email=${encodeURIComponent(email)}&resent=1`);
+  if (unverified) {
+    const carried = next === SIGNED_IN_HOME ? "" : `&next=${encodeURIComponent(next)}`;
+    redirect(`/verify-email?email=${encodeURIComponent(email)}&resent=1${carried}`);
+  }
 
   // Outside the try: redirect() signals by throwing.
   redirect(next);

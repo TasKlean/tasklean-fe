@@ -1,7 +1,14 @@
 import { http, HttpResponse } from "msw";
-import { beforeAll, describe, expect, it } from "vitest";
-import { resendAction, verifyAction, type VerifyState } from "@/app/(auth)/verify-email/actions";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
+
+const setSession = vi.fn(async () => {});
+
+vi.mock("@/lib/auth/session", () => ({
+  setSession: (...args: unknown[]) => setSession(...(args as [])),
+}));
+
+import { resendAction, verifyAction, type VerifyState } from "@/app/(auth)/verify-email/actions";
 
 const BASE = "http://api.test";
 const EMPTY: VerifyState = { error: null };
@@ -17,6 +24,57 @@ function form(fields: Record<string, string>): FormData {
   for (const [key, value] of Object.entries(fields)) data.set(key, value);
   return data;
 }
+
+function verified(): void {
+  server.use(
+    http.post(`${BASE}/api/auth/verify-email`, () =>
+      HttpResponse.json({
+        success: true,
+        message: null,
+        data: { token: "access-1", refreshToken: "refresh-1", uid: "u1", name: "Bob" },
+      }),
+    ),
+  );
+}
+
+describe("verifyAction success", () => {
+  it("starts the session and lands on the app, not the marketing page", async () => {
+    verified();
+
+    const thrown = await verifyAction(EMPTY, form({ email: "a@b.test", code: "123456" })).catch(
+      (error: unknown) => error,
+    );
+
+    expect(String((thrown as { digest?: string }).digest).split(";")[2]).toBe("/app");
+    expect(setSession).toHaveBeenCalledWith(
+      expect.objectContaining({ accessToken: "access-1", name: "Bob" }),
+    );
+  });
+});
+
+describe("verifyAction next path", () => {
+  it("returns the visitor where they were headed", async () => {
+    verified();
+
+    const thrown = await verifyAction(
+      EMPTY,
+      form({ email: "a@b.test", code: "123456", next: "/groups/5" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((thrown as { digest?: string }).digest).split(";")[2]).toBe("/groups/5");
+  });
+
+  it("refuses an off-site next path", async () => {
+    verified();
+
+    const thrown = await verifyAction(
+      EMPTY,
+      form({ email: "a@b.test", code: "123456", next: "//evil.test" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((thrown as { digest?: string }).digest).split(";")[2]).toBe("/app");
+  });
+});
 
 describe("verifyAction", () => {
   it("rejects a short code without calling the API", async () => {

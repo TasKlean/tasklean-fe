@@ -6,6 +6,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { safeNext } from "@/lib/auth/safe-next";
 import { isApiError } from "@/lib/api/errors";
 import { setSession } from "@/lib/auth/session";
 import { resendVerification, verifyEmail } from "@/lib/auth/signin/verify-email";
@@ -39,6 +40,7 @@ export async function verifyAction(
   if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
 
   const { email, code } = parsed.values;
+  const next = safeNext(parsed.values.next);
 
   try {
     const tokens = await verifyEmail(email, code);
@@ -55,7 +57,7 @@ export async function verifyAction(
     return { error: GENERIC_FAILURE };
   }
 
-  redirect("/");
+  redirect(next);
 }
 
 /**

@@ -5,18 +5,19 @@
 
 import * as z from "zod/mini";
 import { firstErrors, parseWith, type Parsed } from "@/lib/validation/parse";
-import { codeRule, emailRule } from "@/lib/validation/rules";
+import { codeRule, emailRule, optionalTextRule } from "@/lib/validation/rules";
 
 export const verifyEmailSchema = z.object({
   email: emailRule,
   code: codeRule,
+  next: optionalTextRule,
 });
 
 export const resendSchema = z.object({ email: emailRule });
 
 export type VerifyEmailFields = z.infer<typeof verifyEmailSchema>;
 
-export type VerifyEmailErrors = Partial<Record<keyof VerifyEmailFields, string>>;
+export type VerifyEmailErrors = Partial<Record<"email" | "code", string>>;
 
 /** Parses and validates verification input. */
 export function parseVerifyEmail(input: unknown): Parsed<VerifyEmailFields> {
@@ -24,7 +25,7 @@ export function parseVerifyEmail(input: unknown): Parsed<VerifyEmailFields> {
 }
 
 /** Returns a message per invalid field, for live feedback in the form. */
-export function validateVerifyEmail(fields: VerifyEmailFields): VerifyEmailErrors {
+export function validateVerifyEmail(fields: { email: string; code: string }): VerifyEmailErrors {
   const result = parseVerifyEmail(fields);
   return result.ok ? {} : result.errors;
 }

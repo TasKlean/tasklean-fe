@@ -30,6 +30,8 @@ type VerifyEmailFormProps = {
   initialCode?: string;
   // Set when login just sent a fresh code, which invalidated the earlier one.
   codeResent?: boolean;
+  // Where the visitor was headed before login found them unverified.
+  next?: string;
 };
 
 /** Formats a count of seconds as m:ss. */
@@ -39,7 +41,12 @@ function clock(seconds: number): string {
 }
 
 /** Renders the code entry, countdown and resend controls. */
-export function VerifyEmailForm({ initialEmail, initialCode, codeResent }: VerifyEmailFormProps) {
+export function VerifyEmailForm({
+  initialEmail,
+  initialCode,
+  codeResent,
+  next,
+}: VerifyEmailFormProps) {
   const [state, formAction] = useActionState(verifyAction, INITIAL);
   const [resendState, resendFormAction] = useActionState(resendAction, INITIAL);
 
@@ -133,6 +140,7 @@ export function VerifyEmailForm({ initialEmail, initialCode, codeResent }: Verif
               <p className="text-body-md text-foreground truncate font-semibold">{email}</p>
             </div>
             <input type="hidden" name="email" value={email} />
+            {next ? <input type="hidden" name="next" value={next} /> : null}
           </div>
         ) : (
           <TextField

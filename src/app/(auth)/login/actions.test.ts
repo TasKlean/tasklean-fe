@@ -104,6 +104,48 @@ describe("loginAction unverified handling", () => {
     );
   });
 
+  it("carries the next path across the verification hop", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Email not verified.", data: null },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${BASE}/api/auth/resend-verification`, () =>
+        HttpResponse.json({ success: true, message: null, data: null }),
+      ),
+    );
+
+    const redirect = await loginAction(
+      EMPTY,
+      form({ email: "a@b.test", password: "Chores12!", next: "/groups/5" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((redirect as { digest?: string }).digest)).toContain("next=%2Fgroups%2F5");
+  });
+
+  it("adds no next parameter when there was nowhere in particular to go", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Email not verified.", data: null },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${BASE}/api/auth/resend-verification`, () =>
+        HttpResponse.json({ success: true, message: null, data: null }),
+      ),
+    );
+
+    const redirect = await loginAction(
+      EMPTY,
+      form({ email: "a@b.test", password: "Chores12!" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((redirect as { digest?: string }).digest)).not.toContain("next=");
+  });
+
   it("still redirects when the resend is rate limited", async () => {
     server.use(
       http.post(`${BASE}/api/auth/login`, () =>
