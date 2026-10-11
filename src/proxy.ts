@@ -25,16 +25,25 @@ export const config = {
 // Default deny: adding a route must not require remembering to protect it.
 const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
 
+// The public paths a session makes pointless. `/` is public but not here: it
+// stays readable while signed in, or the redirect below would loop onto itself.
+const AUTH_PATHS = ["/login", "/register", "/verify-email"];
+
 /**
- * Reports whether a path is reachable without a session.
+ * Reports whether a path is in a list, by exact match or as a path prefix.
  *
- * Matches a prefix as well as the exact path, so `/login/callback` is public
- * because `/login` is. `"/"` is the one exception and matches exactly.
+ * The prefix is what makes `/login/callback` match `/login`. `"/"` is the one
+ * exception and matches exactly, since as a prefix it would claim every route.
  */
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
+function matches(paths: readonly string[], pathname: string): boolean {
+  return paths.some(
     (path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)),
   );
+}
+
+/** Reports whether a path is reachable without a session. */
+function isPublic(pathname: string): boolean {
+  return matches(PUBLIC_PATHS, pathname);
 }
 
 /**
@@ -70,8 +79,9 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     return response;
   }
 
-  // Signed in, so the auth screens have nothing to offer.
-  if (isPublic(pathname)) return NextResponse.redirect(new URL("/", request.nextUrl));
+  // Only the auth screens: every other public page stays readable while signed
+  // in, and `/` becomes the app's entry point rather than a redirect target.
+  if (matches(AUTH_PATHS, pathname)) return NextResponse.redirect(new URL("/", request.nextUrl));
 
   if (!accessTokenExpiresWithin(session.accessToken)) return NextResponse.next();
 

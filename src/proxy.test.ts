@@ -120,4 +120,11 @@ describe("proxy", () => {
     expect(response.status).toBe(307);
     expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/");
   });
+
+  it("lets a signed-in user read the home page instead of redirecting it onto itself", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
 });

@@ -12,8 +12,8 @@ is the reference: what exists, where it lives, and the rules.
 Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register` and `/verify-email`
-exist. Google sign-in, logout and everything behind the session do not. Nothing has ever reached a
-real backend, and all tests are MSW.
+exist. Google sign-in, logout and everything behind the session do not. Register, verification and
+login have run against the real backend in Docker; every automated test is still MSW.
 
 ## Quick reference
 
@@ -42,9 +42,21 @@ it.
 | Target           | `API_BASE_URL`          | Notes                                                                                        |
 | ---------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
 | Local            | `http://localhost:8080` | `docker-compose up -d` + `./mvnw spring-boot:run` in `../tasklean-be`. Dev issues **1-year** access tokens, so refresh never fires locally. |
+| Full stack (Docker) | `http://backend:8080` | `docker-compose up --build` in the parent dir runs db, backend and frontend together. The compose file sits in `../`, outside both repos and outside git. |
 | Staging (Render) | _not recorded yet_      | Prod profile: 15-minute access tokens, no seed data, Swagger disabled.                       |
 
 Swagger UI (local only): http://localhost:8080/swagger-ui.html
+
+### The container
+
+`Dockerfile` is a three-stage build (deps, build, runtime) on `node:26-alpine`, running as a
+non-root user and serving `next.config.ts`'s `output: "standalone"` bundle with `node server.js`.
+`.dockerignore` keeps `node_modules`, `.next` and `.git` out of the build context.
+
+**`NEXT_PUBLIC_GOOGLE_CLIENT_ID` has to be passed twice**: as a build arg, because the browser
+bundle inlines it at build time, and as a runtime env var, because `config/env.ts` validates it in
+the server process where build args are gone. Missing the runtime half makes every auth action fail
+with the generic error.
 
 ### Generated files
 

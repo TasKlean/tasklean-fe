@@ -76,6 +76,7 @@ Decisions that have no section of their own. Everything below gets one.
 | **Node 26** | Becomes Active LTS 2026-10-28 (supported to 2029-04), so the project sits on one line for its whole life instead of migrating a month in. Next declares `node >=20.9.0` with no upper bound. |
 | **No Node version manager** | Installed from the signed MSI via winget. With one JS project there is nothing to switch between, so a manager is added attack surface — nvm-windows' `src/web/web.go` verifies **no checksum or signature** on downloaded Node binaries, inverts `InsecureSkipVerify` on its proxy path, and falls back to `http://` for scheme-less mirrors. Revisit only if we need per-project versions. |
 | **npm is whatever Node bundles** | Node's `npm` shim prefers a global npm over the bundled one, so a stale `install -g npm` silently pins it while Node moves on — which is what we found here (10.9.1 shadowing 11.19.0). |
+| **Containerized on the standalone output** | The only way to exercise the real API was to run beside the backend and the database, so the frontend got a `Dockerfile`. `output: "standalone"` bundles a minimal server plus only the `node_modules` actually used, so the runtime stage copies two directories rather than installing anything. Build and runtime are separate stages because `NEXT_PUBLIC_*` has to exist at build time while the secrets must not. The compose file lives in the parent directory, outside both repos: it describes three services, so it belongs to neither. |
 | **LF line endings pinned in the repo** | `.gitattributes`, so the rule travels to every machine. A CRLF checkout fails `format:check` on every file and reads as a formatting problem. |
 
 ### Data fetching
@@ -322,6 +323,12 @@ public for the token preview, which is deleted. `DESIGN.md` and `globals.css` ar
 and a preview page only drifts from them. Once there is an app behind the session, an authenticated
 visitor to `/` should be sent to it, and login's default redirect target changes with it. Today it
 still lands on the marketing page.
+
+**Proxy bounces a signed-in visitor off the auth screens only, not off every public path.** The two
+lists are separate for a reason: `PUBLIC_PATHS` is "reachable without a session" and `AUTH_PATHS` is
+"pointless with one". Folding them together sent a signed-in visitor at `/` to `/`, which the
+browser reports as `ERR_TOO_MANY_REDIRECTS`. Found only by logging in against a real backend,
+because the test covered `/login` and never `/`.
 
 **The page answers "what is it" before "how do I start".** Hero, then the three steps, then the
 feature cards, then the comparison. The steps sit that high because "how do I get my flatmates in"
@@ -621,7 +628,13 @@ workaround **before** the feature depending on it gets built.
 4. **Notifications are read-only.** There's `GET` and `PATCH /{id}/read`, but no create endpoint — so
    "ping a member about a task", an MVP feature, has no API.
 5. **No server-side task filtering.** Client-side only for now.
-6. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
+6. **The dev profile's access token lasts a year and can't be shortened.**
+   `application-dev.properties` hardcodes `jwt.expiration=31536000000` with no `${JWT_EXPIRATION:...}`
+   placeholder, so `accessTokenExpiresWithin` never returns true against a local backend and the
+   single-flight refresh in Proxy has never run outside MSW. That is the most dangerous code we
+   have: refresh tokens are single-use, so losing the rotated pair kills the session silently. Needs
+   one line on the backend to make it overridable; then compose can set it to a minute for one test.
+7. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
    plain member may call it on their own membership is a `@PreAuthorize` question the spec can't
    answer — verify against a running backend before building the control.
 
@@ -653,25 +666,31 @@ workaround **before** the feature depending on it gets built.
    and validate at the boundary; a typo is a `400` at runtime, not a compile error.
 10. **Notifications reference `userId`, not group membership**, and carry denormalized `taskId` and
     `groupId`. One can arrive for a group the user isn't a member of.
-11. **The spec's status-code list is incomplete.** Every one of the 56 operations documents
+11. **A `NEXT_PUBLIC_*` variable that `config/env.ts` validates must be set at runtime too.** Next
+    inlines `process.env.NEXT_PUBLIC_X` only at a literal reference, and `readEnv` reads it in a
+    loop, so a built server bundle sees `undefined` unless the container is given the value. In
+    Docker that means both a build arg (for the browser bundle) and a runtime env (for the server
+    check). Missing it throws inside the Server Action, where the catch turns it into
+    "Something went wrong".
+12. **The spec's status-code list is incomplete.** Every one of the 56 operations documents
     200/401/429/500 (most also 400/403) and _nothing else_ — `404` and `409` appear nowhere in
     `openapi.json`, though both demonstrably occur (duplicate name → `409`, unknown invite code →
     `404`). Never treat the documented set as exhaustive.
-12. **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`, not `middleware.ts`. A
+13. **Next 16 renamed Middleware to Proxy.** The file is `src/proxy.ts`, not `middleware.ts`. A
     `middleware.ts` written from memory simply never runs — no error, no warning.
-13. **Cookies cannot be set during a Server Component render.** `.set`/`.delete` need a Proxy,
+14. **Cookies cannot be set during a Server Component render.** `.set`/`.delete` need a Proxy,
     Route Handler or Server Action. This is what forces refresh into Proxy.
-14. **No response headers are documented at all**, including the `Retry-After` the rate limiter
+15. **No response headers are documented at all**, including the `Retry-After` the rate limiter
     actually sends on `429`. Read it defensively and tolerate its absence.
-15. **Stitch screens ship their own Tailwind scale.** Each pasted page carries a `tailwind.config`
+16. **Stitch screens ship their own Tailwind scale.** Each pasted page carries a `tailwind.config`
     whose radii differ from ours — its `rounded-xl` is 0.75rem against our 1.5rem, so a copied class
     doubles every corner. Its `rounded-xl` maps to our `rounded-md`. Check the pasted config before
     trusting any class name.
-16. **An MSW major can silently disarm the test network guard.** MSW 3 renamed
+17. **An MSW major can silently disarm the test network guard.** MSW 3 renamed
     `onUnhandledRequest` to `onUnhandledFrame` *and* defaults to warning, so the old option name
     became a no-op and unhandled requests started reaching the real network while the suite stayed
     green. `typecheck` caught it; nothing else would have.
-17. **No envelope field is marked `required`** in `openapi.json` — not even `success`. The declared
+18. **No envelope field is marked `required`** in `openapi.json`, not even `success`. The declared
     `ErrorResponse` schema is the same envelope with `success: false`, and is referenced by zero
     responses. Narrow at the boundary rather than trusting the shape.
 
@@ -706,8 +725,9 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
   is pure logic with high consequence and exactly what unit tests are good at. End-to-end testing is
   a later, separate decision. See _Testing_ under the decisions above.
 - **CI** — after phase 2, when there's something worth gating.
-- **Hosting and deployment** — deferred. Nothing before phase 9 needs a deployed origin, except that
-  Google sign-in on a real domain does, so it may pull forward.
+- **Hosting and deployment**: deferred. Nothing before phase 9 needs a deployed origin, except that
+  Google sign-in on a real domain does, so it may pull forward. The `Dockerfile` added in phase 2 is
+  a local test harness, not a deployment target, though a host that takes an image inherits it.
 
 ---
 
