@@ -11,9 +11,9 @@ is the reference: what exists, where it lives, and the rules.
 `PROJECT_BIBLE.md` is authoritative on **API behaviour**, its `docs/openapi.json` on **API shapes**.
 Never restate backend internals here — link to them.
 
-**State**: API layer, session, the public home page, `/login`, `/register` and `/verify-email`
-exist. Google sign-in, logout and everything behind the session do not. Register, verification and
-login have run against the real backend in Docker; every automated test is still MSW.
+**State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`
+and Google sign-in exist. Logout and everything behind the session do not. Register, verification
+and password login have run against the real backend in Docker; every automated test is still MSW.
 
 ## Quick reference
 
@@ -78,6 +78,7 @@ deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.
 src/
   app/
     (auth)/            shared shell (brand panel + form), robots noindex
+      actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
       register/        page.tsx, actions.ts
     (public)/          site header + footer shell, the one indexable route
@@ -88,17 +89,20 @@ src/
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
     common/            primitives, no feature knowledge: brand-mark, text-field,
-                       password-field, code-input, password-strength-meter, submit-button
-    auth/              login-form, register-form, verify-email-form
+                       password-field, code-input, password-strength-meter, submit-button,
+                       or-divider
+    auth/              login-form, register-form, verify-email-form, google-sign-in
+                       (the rule plus the button), google-button
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts
     auth/
-      signin/          one per credential exchange: login, register, verify-email
+      signin/          one per credential exchange: login, register, verify-email, google
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
+      google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
       safe-next.ts     blocks open redirect via Proxy's ?next=
     config/env.ts      validated environment
     time/api-date.ts   API timestamps ↔ Date
@@ -121,6 +125,9 @@ the code** they cover.
 - **TypeScript strict, no `any`** — `unknown` plus a narrowing guard at boundaries.
 - **Server Components by default.** `'use client'` only for state, effects, handlers or browser APIs,
   pushed as far down the tree as possible.
+- **A client component never reads the environment.** A Server Component calls `getEnv()` and passes
+  the value down as a prop. That is how the Google client id reaches the browser, and it keeps
+  `config/env.ts`'s validation as the only gate.
 - **Components never call `fetch`.** All HTTP goes through `request()` in `api/client.ts`, which takes
   the access token as a parameter and knows nothing about sessions.
 - **A module reading a server variable or holding a secret imports `server-only`** — `config/env.ts`,
@@ -225,6 +232,15 @@ routes are `noindex` via the `(auth)` layout.
   is covered without a token of our own. A Route Handler would need one.
 - **Role checks in our code are UX, never authorization.** Spring is the authority: gate the UI
   optimistically *and* handle the `403`. Not built yet.
+- **Google sign-in is one endpoint for both screens.** `POST /api/auth/google` takes the ID token
+  from Google Identity Services and signs in, links or provisions by itself, so `/login` and
+  `/register` share one Server Action at the `(auth)` group root and differ only in Google's label.
+- **Every Google sign-in carries a nonce, and the two values are not interchangeable.** Proxy mints
+  the raw value into an httpOnly cookie and forwards only its **lowercase hex SHA-256** to the page,
+  which hands that hash to Google; the action sends the **raw** value to the backend, which rehashes
+  and compares. Sending the hash to the backend would make a stolen token replayable. The nonce is
+  single use: every outcome of an attempt replaces it, and the action returns the new hash so the
+  button on screen stays usable.
 - **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec** —
   the backend is being changed to match. 8–64 characters, one each of
   upper/lower/digit/non-alphanumeric, and a guessable password is rejected. Enforced at register,

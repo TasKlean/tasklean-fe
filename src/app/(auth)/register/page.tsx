@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { RegisterForm } from "@/components/auth/register-form";
+import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
 
 export const metadata: Metadata = {
   title: "Sign up",
@@ -8,7 +11,9 @@ export const metadata: Metadata = {
 };
 
 /** Renders the account creation page. */
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
+
   return (
     <div className="gap-space-lg flex flex-col">
       <header className="gap-space-xs flex flex-col">
@@ -21,6 +26,8 @@ export default function RegisterPage() {
       </header>
 
       <RegisterForm />
+
+      <GoogleSignIn intent="signup" nonceHash={nonceHash} />
 
       <p className="text-body-md text-muted-foreground text-center">
         Already have an account?{" "}

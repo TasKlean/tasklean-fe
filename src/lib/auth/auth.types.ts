@@ -26,3 +26,10 @@ export type RegisterRequest = {
   password: string;
   middleName?: string;
 };
+
+export type GoogleAuthRequest = {
+  // The credential Google Identity Services hands the browser, not an OAuth code.
+  idToken: string;
+  // The raw nonce. The token carries its SHA-256, which the backend recomputes.
+  nonce: string;
+};

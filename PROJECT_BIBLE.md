@@ -459,6 +459,57 @@ wrong: our `NEXT_PUBLIC_GOOGLE_CLIENT_ID` must exactly equal the backend's `GOOG
 deployed origin must be an Authorized JavaScript origin on that OAuth client; the consent screen
 must be published or the tester whitelisted.
 
+**One endpoint covers sign-up.** `POST /api/auth/google` matches the stable Google subject id,
+falls back to the email, and provisions when neither hits. A password account with the same address
+is **linked** and marked verified, because Google has verified that mailbox. So "log in with Google"
+and "sign up with Google" are the same call: both screens share one Server Action at the `(auth)`
+group root and differ only in the label Google renders.
+
+**Google renders the button, we do not.** The ID-token flow has no supported custom-button path, and
+their branding rules expect their widget, so it arrives as an iframe that cannot take our tokens.
+Width is a constructor option rather than CSS, which is why the widget is re-rendered when the
+container resizes, measured through a `ResizeObserver` and capped at the 400px Google rejects above.
+The theme is fixed to `outline` rather than following the OS: `filled_black` disappears into our
+dark card, `filled_blue` competes with our own primary button, and the bordered white pill stays
+legible on both schemes while reading as the secondary option it is. The old node is cleared first: `renderButton` appends, so
+re-rendering would otherwise stack a second button. The `text` option is honoured, but the
+translation need not be distinct: Slovenian renders `signin_with` and `signup_with` identically,
+while `continue_with` differs.
+
+**The nonce is two values, and mixing them up is the whole vulnerability.** OIDC makes a nonce
+required for the implicit flow, binding an ID token to the one login attempt it was minted for. We
+mint a raw 32-byte secret, keep it in an httpOnly cookie, and give Google only its lowercase hex
+SHA-256, which Google copies into the token's `nonce` claim. The backend receives the **raw** value
+and rehashes it. Sending the hash instead would be pointless: the claim is already the hash, so an
+attacker replaying a stolen token could just echo it back. Sending the raw value forces a SHA-256
+preimage.
+
+**Proxy mints it, because a render cannot.** Cookies are writable in Proxy, a Route Handler or a
+Server Action only, and the page needs the hash at render time, so Proxy sets the cookie and
+forwards the hash on the request as `x-tasklean-google-nonce`. The alternative, a route the client
+fetches on mount, costs a round trip and a public endpoint for no gain. The nonce is **reused
+across requests rather than rotated**, because a link prefetch is a request too: rotating there
+would leave the visible page holding a hash the cookie no longer matches. Single use is enforced on
+the attempt instead, where the action replaces the nonce on every outcome and hands the fresh hash
+back in its state so the button rebuilds around it rather than needing a reload.
+
+**Script readiness is read from the global, never from `onLoad`.** next/script does not fire it
+again for a script it already loaded, so after a client-side navigation between `/login` and
+`/register` the widget waited for an event that never came and simply never appeared.
+`useSyncExternalStore` over `window.google` reports the already-loaded case on mount, and the
+script's `onLoad` only wakes the subscribers on the first load.
+
+**Two consequences of the widget being Google's, not ours.** `initialize()` is page-level: a second
+call replaces the first and Google logs a warning, so the module owns that call and each mounted
+button only swaps the handler behind it, while `renderButton` runs as often as the theme or width
+needs. And the credential arrives through Google's own `postMessage`, not a React event, so the
+dispatch has to open its own `startTransition`: without it the action still runs, but `pending`
+never flips and the button shows no progress.
+
+**The code flow is not an option.** The backend verifies ID tokens only; an authorization code would
+need a token exchange with our own client secret and an endpoint that does not exist. The dev
+profile's `google.redirect-uri` is leftover config that nothing reads.
+
 **Refresh** — access tokens live **15 minutes** in staging/prod (a year in local dev, which is why
 refresh can only be tested against staging). It's **single-use with rotation**: each refresh revokes
 the old token and returns a new pair, so the new pair **must** be written back to the cookie or the

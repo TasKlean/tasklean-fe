@@ -4,8 +4,11 @@
  */
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form";
+import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
 
 export const metadata: Metadata = {
   title: "Log in",
@@ -15,6 +18,8 @@ export const metadata: Metadata = {
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
+  const nextPath = typeof next === "string" ? next : undefined;
+  const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -27,7 +32,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </p>
       </header>
 
-      <LoginForm next={typeof next === "string" ? next : undefined} />
+      <LoginForm next={nextPath} />
+
+      <GoogleSignIn intent="signin" nonceHash={nonceHash} next={nextPath} />
 
       <p className="text-body-md text-muted-foreground text-center">
         Don&apos;t have an account yet?{" "}

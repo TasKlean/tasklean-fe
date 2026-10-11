@@ -5,6 +5,13 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  NONCE_COOKIE_NAME,
+  NONCE_COOKIE_OPTIONS,
+  NONCE_HEADER_NAME,
+  createNonce,
+  hashNonce,
+} from "@/lib/auth/google-nonce";
 import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
 import { refreshTokens } from "@/lib/auth/tokens/refresh";
 import {
@@ -29,6 +36,9 @@ const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
 // stays readable while signed in, or the redirect below would loop onto itself.
 const AUTH_PATHS = ["/login", "/register", "/verify-email"];
 
+// The screens carrying a Google button, which cannot mint their own nonce.
+const GOOGLE_PATHS = ["/login", "/register"];
+
 /**
  * Reports whether a path is in a list, by exact match or as a path prefix.
  *
@@ -44,6 +54,27 @@ function matches(paths: readonly string[], pathname: string): boolean {
 /** Reports whether a path is reachable without a session. */
 function isPublic(pathname: string): boolean {
   return matches(PUBLIC_PATHS, pathname);
+}
+
+/**
+ * Hands the page a nonce for Google's widget, minting one if there isn't one.
+ *
+ * Reused rather than rotated per request: a link prefetch is a request too, and
+ * rotating there would leave the visible page holding a hash the cookie no
+ * longer matches. Single use is enforced where it belongs, on the attempt.
+ *
+ * @returns The response, carrying the hash forward and the raw nonce back.
+ */
+async function withGoogleNonce(request: NextRequest): Promise<NextResponse> {
+  const existing = request.cookies.get(NONCE_COOKIE_NAME)?.value;
+  const nonce = existing ?? createNonce();
+
+  const headers = new Headers(request.headers);
+  headers.set(NONCE_HEADER_NAME, await hashNonce(nonce));
+
+  const response = NextResponse.next({ request: { headers } });
+  if (!existing) response.cookies.set(NONCE_COOKIE_NAME, nonce, NONCE_COOKIE_OPTIONS);
+  return response;
 }
 
 /**
@@ -68,6 +99,7 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
   const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   if (!session) {
+    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
     if (isPublic(pathname)) return NextResponse.next();
 
     const response = redirectToLogin(request);

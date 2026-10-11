@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
+import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
 import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
 import { server } from "@/test/msw";
 
@@ -36,6 +37,23 @@ function requestFor(path: string, cookie?: string): NextRequest {
   return new NextRequest(`${SITE}${path}`, {
     headers: cookie ? { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } : {},
   });
+}
+
+function requestWithNonce(path: string, nonce: string): NextRequest {
+  return new NextRequest(`${SITE}${path}`, {
+    headers: { cookie: `${NONCE_COOKIE_NAME}=${nonce}` },
+  });
+}
+
+function forwardedHash(response: Response): string | undefined {
+  for (const [name, value] of response.headers.entries()) {
+    if (name.endsWith(NONCE_HEADER_NAME)) return value;
+  }
+  return undefined;
+}
+
+function nonceFrom(response: Response): string | undefined {
+  return response.headers.get("set-cookie")?.match(new RegExp(`${NONCE_COOKIE_NAME}=([^;]+)`))?.[1];
 }
 
 function refreshHandler(counter: { calls: number }, status = 200) {
@@ -126,5 +144,60 @@ describe("proxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("location")).toBeNull();
+  });
+});
+
+describe("proxy google nonce", () => {
+  it("mints one for the login screen", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(nonceFrom(response)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("mints one for the register screen", async () => {
+    const response = await proxy(requestFor("/register"));
+
+    expect(nonceFrom(response)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("keeps it httpOnly, so page scripts cannot read or forge it", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+  });
+
+  it("reuses the nonce it already handed out, so a prefetch cannot strand it", async () => {
+    const existing = "a".repeat(64);
+
+    const response = await proxy(requestWithNonce("/login", existing));
+
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+
+  it("hands the page the hash, never the nonce itself", async () => {
+    const existing = "b".repeat(64);
+
+    const response = await proxy(requestWithNonce("/login", existing));
+
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+    expect(forwardedHash(response)).not.toBe(existing);
+  });
+
+  it("hands over the hash of the nonce it just minted", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(forwardedHash(response)).toBe(await hashNonce(nonceFrom(response) ?? ""));
+  });
+
+  it("leaves the other public screens alone", async () => {
+    const response = await proxy(requestFor("/verify-email"));
+
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("does not leak the header name into a signed-in render", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(JSON.stringify([...response.headers.entries()])).not.toContain(NONCE_HEADER_NAME);
   });
 });
