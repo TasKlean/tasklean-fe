@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeNext } from "@/lib/auth/safe-next";
+import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
 
 describe("safeNext", () => {
   it.each(["/", "/tasks", "/groups/abc?tab=members", "/tasks#top"])(
@@ -9,8 +9,8 @@ describe("safeNext", () => {
     },
   );
 
-  it.each([null, undefined, "", "   "])("falls back to / for %j", (value) => {
-    expect(safeNext(value)).toBe("/");
+  it.each([null, undefined, "", "   "])("falls back to the app home for %j", (value) => {
+    expect(safeNext(value)).toBe(SIGNED_IN_HOME);
   });
 
   it.each([
@@ -23,6 +23,6 @@ describe("safeNext", () => {
     ["newline smuggling", "/tasks\nLocation: https://evil.test"],
     ["tab in path", "/ta\tsks"],
   ])("rejects %s", (_label, value) => {
-    expect(safeNext(value)).toBe("/");
+    expect(safeNext(value)).toBe(SIGNED_IN_HOME);
   });
 });

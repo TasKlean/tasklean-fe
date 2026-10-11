@@ -136,7 +136,7 @@ describe("proxy", () => {
     const response = await proxy(requestFor("/login", await sessionCookie(3600)));
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/");
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
   });
 
   it("lets a signed-in user read the home page instead of redirecting it onto itself", async () => {

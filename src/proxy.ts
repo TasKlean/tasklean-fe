@@ -13,6 +13,7 @@ import {
   hashNonce,
 } from "@/lib/auth/google-nonce";
 import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
+import { SIGNED_IN_HOME } from "@/lib/auth/safe-next";
 import { refreshTokens } from "@/lib/auth/tokens/refresh";
 import {
   SESSION_COOKIE_NAME,
@@ -111,9 +112,11 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     return response;
   }
 
-  // Only the auth screens: every other public page stays readable while signed
-  // in, and `/` becomes the app's entry point rather than a redirect target.
-  if (matches(AUTH_PATHS, pathname)) return NextResponse.redirect(new URL("/", request.nextUrl));
+  // Only the auth screens: every other public page, the marketing page
+  // included, stays readable while signed in.
+  if (matches(AUTH_PATHS, pathname)) {
+    return NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl));
+  }
 
   if (!accessTokenExpiresWithin(session.accessToken)) return NextResponse.next();
 

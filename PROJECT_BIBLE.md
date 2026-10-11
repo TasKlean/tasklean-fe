@@ -331,6 +331,13 @@ which is the right trade for chrome; anything that matters asks the backend. The
 and tolerated as absent, so a session sealed before it existed keeps working rather than being
 rejected as malformed.
 
+**The signed-in app lives at `/app`, not at a `/` that changes with the session.** One URL serving
+two experiences costs the marketing page its static render, moves protection out of Proxy's
+default-deny and into the page, and can be restored from the back/forward cache showing the
+previous person's view on a shared device. Two URLs have none of those problems. `/` is deliberately
+not redirected either: signed in or not, the marketing page stays readable, and only the auth
+screens bounce, because only they have nothing to offer a session.
+
 **Proxy bounces a signed-in visitor off the auth screens only, not off every public path.** The two
 lists are separate for a reason: `PUBLIC_PATHS` is "reachable without a session" and `AUTH_PATHS` is
 "pointless with one". Folding them together sent a signed-in visitor at `/` to `/`, which the

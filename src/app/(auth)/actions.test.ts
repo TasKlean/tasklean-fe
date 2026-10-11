@@ -134,10 +134,10 @@ describe("googleSignInAction success", () => {
     });
   });
 
-  it("redirects home when no next path was given", async () => {
+  it("redirects to the app when no next path was given", async () => {
     succeed();
 
-    expect(await redirectedTo(form({ idToken: "google-token" }))).toBe("/");
+    expect(await redirectedTo(form({ idToken: "google-token" }))).toBe("/app");
   });
 
   it("redirects to the next path it was given", async () => {
@@ -146,10 +146,10 @@ describe("googleSignInAction success", () => {
     expect(await redirectedTo(form({ idToken: "google-token", next: "/groups" }))).toBe("/groups");
   });
 
-  it("sends an off-site next path home instead", async () => {
+  it("sends an off-site next path to the app instead", async () => {
     succeed();
 
-    expect(await redirectedTo(form({ idToken: "google-token", next: "//evil.test" }))).toBe("/");
+    expect(await redirectedTo(form({ idToken: "google-token", next: "//evil.test" }))).toBe("/app");
   });
 });
 

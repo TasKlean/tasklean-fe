@@ -11,9 +11,10 @@ is the reference: what exists, where it lives, and the rules.
 `PROJECT_BIBLE.md` is authoritative on **API behaviour**, its `docs/openapi.json` on **API shapes**.
 Never restate backend internals here — link to them.
 
-**State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`
-and Google sign-in exist. Logout and everything behind the session do not. Register, verification
-and password login have run against the real backend in Docker; every automated test is still MSW.
+**State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
+Google sign-in, `/app` and logout exist. Everything else behind the session does not. Register,
+verification, password login and token rotation have run against the real backend in Docker; every
+automated test is still MSW.
 
 ## Quick reference
 
@@ -77,6 +78,8 @@ deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.
 ```
 src/
   app/
+    (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
+      app/             page.tsx, the signed-in landing page at /app
     (auth)/            shared shell (brand panel + form), robots noindex
       actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
@@ -90,7 +93,8 @@ src/
   components/
     common/            primitives, no feature knowledge: brand-mark, text-field,
                        password-field, code-input, password-strength-meter, submit-button,
-                       or-divider
+                       or-divider, greeting
+    app/               signed-in chrome: app-header, logout-button
     auth/              login-form, register-form, verify-email-form, google-sign-in
                        (the rule plus the button), google-button
     marketing/         public-page sections: site-header, site-footer, hero,
@@ -100,10 +104,11 @@ src/
                        server.ts (session-aware), client.types.ts
     auth/
       signin/          one per credential exchange: login, register, verify-email, google
-      tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation)
+      tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
+                       logout.ts (revokes server-side)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
       google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
-      safe-next.ts     blocks open redirect via Proxy's ?next=
+      safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
     config/env.ts      validated environment
     time/api-date.ts   API timestamps ↔ Date
     validation/        every form rule, shared by a form and its action
@@ -223,6 +228,12 @@ routes are `noindex` via the `(auth)` layout.
 - **The display name rides in the session cookie.** Every auth response carries it, including
   refresh, so the chrome can greet by name without an API call on every page. It is display only
   and may be stale; anything that matters reads the backend.
+- **`/app` is the signed-in home, and `/` stays public.** A visitor with a session is bounced off
+  the auth screens to `SIGNED_IN_HOME`, never off the marketing page, which stays readable.
+  `safe-next.ts` owns that constant, so login, Google and Proxy agree.
+- **Logout is best effort at the backend, certain in the browser.** `revokeSession` failing must
+  never leave someone in a session they asked to leave, so the cookie is cleared either way. It
+  revokes every refresh token the user holds, so it signs them out everywhere.
 - **Proxy is the auth boundary and the only refresh site on the navigation path.** Default deny —
   everything is protected unless in `PUBLIC_PATHS`. `/api` is excluded from the matcher so Route
   Handlers answer `401` instead of redirecting to HTML.

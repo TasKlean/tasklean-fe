@@ -42,3 +42,7 @@ export type GoogleAuthRequest = {
   // The raw nonce. The token carries its SHA-256, which the backend recomputes.
   nonce: string;
 };
+
+export type RefreshRequest = {
+  refreshToken: string;
+};
