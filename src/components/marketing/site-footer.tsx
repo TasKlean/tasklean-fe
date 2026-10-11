@@ -6,9 +6,15 @@
 import Link from "next/link";
 
 import { BrandMark } from "@/components/common/brand-mark";
+import { Greeting } from "@/components/common/greeting";
+
+type SiteFooterProps = {
+  signedIn: boolean;
+  name: string | null;
+};
 
 /** Renders the public site footer. */
-export function SiteFooter() {
+export function SiteFooter({ signedIn, name }: SiteFooterProps) {
   return (
     <footer className="bg-muted border-border/60 w-full border-t">
       <div className="max-w-app px-margin md:px-margin-tablet lg:px-margin-desktop py-space-2xl mx-auto">
@@ -42,19 +48,34 @@ export function SiteFooter() {
           </nav>
 
           <div className="gap-space-sm flex flex-col md:col-span-3">
-            <h2 className="text-label-lg text-foreground uppercase">Get started</h2>
-            <Link
-              href="/register"
-              className="text-body-md text-muted-foreground hover:text-foreground"
-            >
-              Create an account
-            </Link>
-            <Link
-              href="/login"
-              className="text-body-md text-muted-foreground hover:text-foreground"
-            >
-              Log in
-            </Link>
+            {signedIn ? (
+              <>
+                <h2 className="text-label-lg text-foreground uppercase">Your account</h2>
+                <Greeting name={name} className="text-body-md text-muted-foreground" />
+                <Link
+                  href="/app"
+                  className="text-body-md text-muted-foreground hover:text-foreground"
+                >
+                  Go to app
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="text-label-lg text-foreground uppercase">Get started</h2>
+                <Link
+                  href="/register"
+                  className="text-body-md text-muted-foreground hover:text-foreground"
+                >
+                  Create an account
+                </Link>
+                <Link
+                  href="/login"
+                  className="text-body-md text-muted-foreground hover:text-foreground"
+                >
+                  Log in
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

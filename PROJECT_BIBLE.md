@@ -331,6 +331,12 @@ which is the right trade for chrome; anything that matters asks the backend. The
 and tolerated as absent, so a session sealed before it existed keeps working rather than being
 rejected as malformed.
 
+**Session-aware chrome is what made `/` dynamic.** The marketing page was statically prerendered
+until the header had to know whether to say "Log in" or "Go to app". That was a deliberate trade,
+asked for and accepted: the page is small and the alternative, showing a signed-in visitor a "Log
+in" button, reads as broken. If the static render is ever wanted back, the answer is PPR with the
+chrome in a dynamic hole, not a client-side session check.
+
 **The signed-in app lives at `/app`, not at a `/` that changes with the session.** One URL serving
 two experiences costs the marketing page its static render, moves protection out of Proxy's
 default-deny and into the page, and can be restored from the back/forward cache showing the
