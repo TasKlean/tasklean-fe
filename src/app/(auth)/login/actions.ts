@@ -8,6 +8,7 @@
 
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
+import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
 import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
@@ -50,6 +51,9 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
       await resendVerification(email).catch(() => {});
       unverified = true;
     } else if (isApiError(error)) {
+      if (error.status === 429) {
+        return { error: rateLimitMessage(error), email };
+      }
       return { error: error.message || GENERIC_FAILURE, email };
     } else {
       return { error: GENERIC_FAILURE, email };

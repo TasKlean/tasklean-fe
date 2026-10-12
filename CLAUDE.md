@@ -86,8 +86,10 @@ src/
       register/        page.tsx, actions.ts
     (public)/          site header + footer shell, the one indexable route
       page.tsx         the home page
+    error.tsx          the boundary below the root layout, with a retry
     globals.css        design tokens — the only place colours/radii/fonts are defined
     icon.png           the favicon, by Next's file convention
+    not-found.tsx      the 404, for any path no route matches
   assets/              images components import; next/image reads their size from the file
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
@@ -96,12 +98,13 @@ src/
                        or-divider, greeting
     app/               signed-in chrome: app-header, logout-button
     auth/              login-form, register-form, verify-email-form, google-sign-in
-                       (the rule plus the button), google-button
+                       (the rule plus the button), google-button, back-home-link
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
     api/               client.ts (the only module that knows the envelope), errors.ts,
-                       server.ts (session-aware), client.types.ts
+                       server.ts (session-aware), client.types.ts,
+                       retry-phrase.ts (the 429 message)
     auth/
       signin/          one per credential exchange: login, register, verify-email, google
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
@@ -289,6 +292,7 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **`401` ends a session, `403` never does.** `401` → one silent refresh, then clear and `/login`.
   `403` → show a permission message, never log out, never retry.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
+  `api/retry-phrase.ts` composes the two into one message and every auth action uses it.
 - **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
   `400`, not an empty list.
 - **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping

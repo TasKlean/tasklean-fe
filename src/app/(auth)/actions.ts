@@ -10,6 +10,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
+import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import {
   NONCE_COOKIE_NAME,
   NONCE_COOKIE_OPTIONS,
@@ -67,8 +68,10 @@ export async function googleSignInAction(
     store.delete(NONCE_COOKIE_NAME);
     await setSession({ ...tokens, activeGroupId: null });
   } catch (error) {
-    if (isApiError(error))
-      return { error: error.message || GENERIC_FAILURE, nonceHash: await rearmNonce() };
+    if (isApiError(error)) {
+      const message = error.status === 429 ? rateLimitMessage(error) : error.message;
+      return { error: message || GENERIC_FAILURE, nonceHash: await rearmNonce() };
+    }
     // Nothing else reports this: an env or network fault here is otherwise silent.
     console.error("Google sign-in failed", error);
     return { error: GENERIC_FAILURE, nonceHash: await rearmNonce() };

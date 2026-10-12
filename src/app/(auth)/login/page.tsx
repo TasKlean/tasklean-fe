@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
+import { BackHomeLink } from "@/components/auth/back-home-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
@@ -23,6 +24,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <div className="gap-space-lg flex flex-col">
+      <BackHomeLink />
+
       <header className="gap-space-xs flex flex-col">
         <h1 className="text-display-lg-mobile md:text-headline-lg text-foreground">
           Welcome back to TasKlean

@@ -406,6 +406,28 @@ So protected routes get a title and description for the tab and nothing more. Wh
 routes get built, "SEO proper" means `metadataBase` and a canonical URL, Open Graph and
 Twitter cards, and a `sitemap.ts` listing only the indexable set.
 
+### Route boundaries and the ways out
+
+**A failure now lands on our own page.** `app/error.tsx` and `app/not-found.tsx` sit at the app
+root, so the boundary is below the root layout and catches a group layout's session read as well as
+a page's own throw. Next replaces an error's message in production, so the page offers a retry, a
+link home and `error.digest` as a reference rather than pretending to explain. It also logs the
+error: a render that fails in the browser reaches no server log, so the screen would otherwise be
+the only record of it.
+
+**No `global-error.tsx`.** It catches only a throw in the root layout itself, which is a font and a
+metadata object with no data access. A file for a case that cannot happen is a file that rots.
+
+**Default deny means the 404 is mostly for signed-in visitors.** Every path outside `PUBLIC_PATHS`
+is protected, so an anonymous visitor on a mistyped URL is redirected to `/login` before the 404 can
+render; they reach it after signing in. Only a session, or an unmatched path under a public prefix
+like `/login/x`, renders it directly. That is why its primary action points at `/app`.
+
+**`/login` and `/register` carry a back arrow; `/verify-email` does not.** Both sit at the start of
+a flow a visitor may have opened by accident, so there has to be a way back to the marketing page.
+Verification is mid-flow with a code already emailed, and an arrow out of it reads as "cancel"
+without saying so.
+
 ---
 
 ## Session and auth architecture
@@ -674,6 +696,13 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | 409  | Duplicate, or a violated rule (last admin, already a member)            | Show the server's `message` verbatim — it's written for humans                     |
 | 429  | Rate limited                                                            | Message plus the `Retry-After` window. No auto-retry loop.                         |
 | 500  | Unhandled                                                               | Generic message; the server never leaks detail                                     |
+
+**The retry window is composed in one place.** `api/retry-phrase.ts` exports `rateLimitMessage`,
+which takes the `ApiError` rather than the seconds, because every call site wants the same sentence:
+the backend's own prose plus the window. Login and Google sign-in were missing it entirely, which
+the backend's catch-all `auth` tier makes easy to hit at ten requests a minute per IP: a mistyped
+password a few times, or a household behind one address. The header is optional, so a missing one
+degrades to "shortly" rather than inventing a number.
 
 ### Rules the spec can't express
 

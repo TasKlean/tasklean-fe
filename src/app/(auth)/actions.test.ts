@@ -177,3 +177,22 @@ describe("googleSignInAction failure", () => {
     expect(logged).toHaveBeenCalled();
   });
 });
+
+describe("googleSignInAction rate limiting", () => {
+  it("turns a 429 into a retry window and rearms the nonce", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/google`, () =>
+        HttpResponse.json(
+          { success: false, message: "Too many attempts.", data: null },
+          { status: 429, headers: { "Retry-After": "90" } },
+        ),
+      ),
+    );
+
+    const state = await googleSignInAction(EMPTY, form({ idToken: "google-token" }));
+
+    expect(state.error).toBe("Too many attempts. Please try again in 2 minutes.");
+    expect(state.nonceHash).toBe(await hashNonce(jar.get("tasklean_google_nonce") ?? ""));
+    expect(setSession).not.toHaveBeenCalled();
+  });
+});

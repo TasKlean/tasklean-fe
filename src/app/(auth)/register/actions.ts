@@ -7,6 +7,7 @@
 
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
+import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import { register } from "@/lib/auth/signin/register";
 import {
   echoRegister,
@@ -22,13 +23,6 @@ export type RegisterState = {
 };
 
 const GENERIC_FAILURE = "Something went wrong creating your account. Please try again.";
-
-/** Turns a `Retry-After` count of seconds into a phrase to show. */
-function retryPhrase(seconds: number | null): string {
-  if (!seconds || seconds < 60) return "Please try again shortly.";
-  const minutes = Math.ceil(seconds / 60);
-  return `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
-}
 
 /**
  * Creates the account and sends the user on to verification.
@@ -61,7 +55,7 @@ export async function registerAction(
         return { error: null, fieldErrors: { email: error.message }, values };
       }
       if (error.status === 429) {
-        return { error: `${error.message} ${retryPhrase(error.retryAfterSeconds)}`, values };
+        return { error: rateLimitMessage(error), values };
       }
       return { error: error.message || GENERIC_FAILURE, values };
     }

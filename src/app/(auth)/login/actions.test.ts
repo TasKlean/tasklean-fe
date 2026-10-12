@@ -192,3 +192,33 @@ describe("loginAction unverified handling", () => {
     expect(state.error).toBe("Account is deactivated");
   });
 });
+
+describe("loginAction rate limiting", () => {
+  it("turns a 429 into a retry window", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          { success: false, message: "Too many attempts.", data: null },
+          { status: 429, headers: { "Retry-After": "120" } },
+        ),
+      ),
+    );
+
+    const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+
+    expect(state.error).toBe("Too many attempts. Please try again in 2 minutes.");
+    expect(state.email).toBe("a@b.test");
+  });
+
+  it("stays vague when no window was sent", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json({ success: false, message: "Slow down.", data: null }, { status: 429 }),
+      ),
+    );
+
+    const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+
+    expect(state.error).toBe("Slow down. Please try again shortly.");
+  });
+});
