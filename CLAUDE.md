@@ -257,7 +257,8 @@ routes are `noindex` via the `(auth)` layout.
   which hands that hash to Google; the action sends the **raw** value to the backend, which rehashes
   and compares. Sending the hash to the backend would make a stolen token replayable. The nonce is
   single use: every outcome of an attempt replaces it, and the action returns the new hash so the
-  button on screen stays usable.
+  button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
+  first signed-in request.
 - **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec** —
   the backend is being changed to match. 8–64 characters, one each of
   upper/lower/digit/non-alphanumeric, and a guessable password is rejected. Enforced at register,

@@ -511,7 +511,9 @@ fetches on mount, costs a round trip and a public endpoint for no gain. The nonc
 across requests rather than rotated**, because a link prefetch is a request too: rotating there
 would leave the visible page holding a hash the cookie no longer matches. Single use is enforced on
 the attempt instead, where the action replaces the nonce on every outcome and hands the fresh hash
-back in its state so the button rebuilds around it rather than needing a reload.
+back in its state so the button rebuilds around it rather than needing a reload. Only the Google
+action spends a nonce, so a password login would otherwise leave one behind until it expired: Proxy
+drops it on the first signed-in request, keeping the whole lifecycle in the file that mints it.
 
 **Script readiness is read from the global, never from `onLoad`.** next/script does not fire it
 again for a script it already loaded, so after a client-side navigation between `/login` and

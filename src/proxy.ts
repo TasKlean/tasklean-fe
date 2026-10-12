@@ -79,6 +79,19 @@ async function withGoogleNonce(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
+ * Clears a Google nonce that a session has made pointless.
+ *
+ * Only the Google action spends one, so a password login leaves it behind
+ * until it expires. Proxy mints it, so Proxy is where it gets cleaned up.
+ *
+ * @returns The same response, for use at a return site.
+ */
+function dropSpentNonce(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.has(NONCE_COOKIE_NAME)) response.cookies.delete(NONCE_COOKIE_NAME);
+  return response;
+}
+
+/**
  * Builds the redirect to `/login`, preserving where the visitor was headed.
  *
  * @returns A redirect carrying a `next` parameter for login to return them to.
@@ -115,10 +128,12 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
   // Only the auth screens: every other public page, the marketing page
   // included, stays readable while signed in.
   if (matches(AUTH_PATHS, pathname)) {
-    return NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl));
+    return dropSpentNonce(request, NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)));
   }
 
-  if (!accessTokenExpiresWithin(session.accessToken)) return NextResponse.next();
+  if (!accessTokenExpiresWithin(session.accessToken)) {
+    return dropSpentNonce(request, NextResponse.next());
+  }
 
   try {
     const refreshed = await refreshTokens(session.refreshToken);
@@ -134,7 +149,7 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
-    return response;
+    return dropSpentNonce(request, response);
   } catch {
     // Spent, revoked, or refused — there is no recovery from here.
     const response = redirectToLogin(request);

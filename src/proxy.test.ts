@@ -39,10 +39,16 @@ function requestFor(path: string, cookie?: string): NextRequest {
   });
 }
 
-function requestWithNonce(path: string, nonce: string): NextRequest {
-  return new NextRequest(`${SITE}${path}`, {
-    headers: { cookie: `${NONCE_COOKIE_NAME}=${nonce}` },
-  });
+function requestWithNonce(path: string, nonce: string, session?: string): NextRequest {
+  const cookie = session
+    ? `${NONCE_COOKIE_NAME}=${nonce}; ${SESSION_COOKIE_NAME}=${session}`
+    : `${NONCE_COOKIE_NAME}=${nonce}`;
+  return new NextRequest(`${SITE}${path}`, { headers: { cookie } });
+}
+
+function clearsNonce(response: Response): boolean {
+  const header = response.headers.get("set-cookie") ?? "";
+  return header.includes(`${NONCE_COOKIE_NAME}=;`) || header.includes(`${NONCE_COOKIE_NAME}=""`);
 }
 
 function forwardedHash(response: Response): string | undefined {
@@ -199,5 +205,44 @@ describe("proxy google nonce", () => {
     const response = await proxy(requestFor("/", await sessionCookie(3600)));
 
     expect(JSON.stringify([...response.headers.entries()])).not.toContain(NONCE_HEADER_NAME);
+  });
+});
+
+describe("proxy nonce cleanup", () => {
+  it("clears a leftover nonce once a session exists", async () => {
+    const response = await proxy(requestWithNonce("/", "c".repeat(64), await sessionCookie(3600)));
+
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("clears it when bouncing a signed-in visitor off the auth screens", async () => {
+    const response = await proxy(
+      requestWithNonce("/login", "d".repeat(64), await sessionCookie(3600)),
+    );
+
+    expect(response.status).toBe(307);
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("clears it on the response that also rotates the token pair", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+
+    const response = await proxy(requestWithNonce("/", "e".repeat(64), await sessionCookie(10)));
+
+    expect(counter.calls).toBe(1);
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("leaves it alone while the visitor is still signed out", async () => {
+    const response = await proxy(requestWithNonce("/login", "f".repeat(64)));
+
+    expect(clearsNonce(response)).toBe(false);
+  });
+
+  it("writes no cookie at all when a signed-in visitor carries no nonce", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });
