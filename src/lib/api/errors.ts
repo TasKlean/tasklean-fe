@@ -11,11 +11,20 @@ export class ApiError extends Error {
   // OpenAPI spec documents no response headers at all, so absence is normal.
   readonly retryAfterSeconds: number | null;
 
-  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+  // The envelope's machine-readable code, on the few failures that carry one.
+  readonly code: string | null;
+
+  constructor(
+    status: number,
+    message: string,
+    retryAfterSeconds: number | null = null,
+    code: string | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.code = code;
   }
 }
 

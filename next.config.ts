@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {/* config options here */};
+const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle for small Docker images.
+  output: "standalone",
+};
 
 export default nextConfig;

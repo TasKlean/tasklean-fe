@@ -1,14 +1,13 @@
 /**
- * The only module that talks to the Spring API, and the only one that knows the
- * response envelope exists. Callers get `data`, typed, or an `ApiError`.
- *
- * Server-side only, and auth is a parameter rather than a session lookup — the
- * session and refresh wrap this module instead of living inside it.
+ * The only module that knows the response envelope exists. Callers get `data`,
+ * typed, or an `ApiError`. Auth is a parameter, not a session lookup.
  */
+
+import "server-only";
 
 import type { Envelope, QueryValue, RequestOptions } from "@/lib/api/client.types";
 import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
-import { getEnv } from "@/lib/env";
+import { getEnv } from "@/lib/config/env";
 
 /**
  * Joins the configured base URL, a path and a query object into a request URL.
@@ -84,9 +83,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     cache: "no-store",
   });
 
-  // Read as text, not response.json(), so an empty body stays distinguishable
-  // from malformed JSON. Parsing is unconditional because the backend renders
-  // failures as envelope JSON too, never HTML.
+  // Text, not .json(), so an empty body stays distinguishable from malformed
+  // JSON. Unconditional: the backend renders failures as envelope JSON too.
   const raw = await response.text();
   let parsed: unknown = undefined;
   if (raw.trim() !== "") {
@@ -111,6 +109,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const envelope = isEnvelope(parsed) ? parsed : undefined;
   const message = typeof envelope?.message === "string" ? envelope.message : null;
+  const code = typeof envelope?.code === "string" ? envelope.code : null;
 
   // Any 2xx is success: POSTs return 201 though the spec says 200, and 404/409
   // are absent from the spec entirely despite both occurring.
@@ -119,6 +118,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       response.status,
       message ?? `Request failed with status ${response.status}.`,
       parseRetryAfter(response.headers.get("Retry-After")),
+      code,
     );
   }
 

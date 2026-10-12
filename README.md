@@ -25,15 +25,17 @@ docker-compose up -d
 
 ## Scripts
 
-| Command                | What it does               |
-| ---------------------- | -------------------------- |
-| `npm run dev`          | Dev server on :3000        |
-| `npm run build`        | Production build           |
-| `npm run start`        | Serve the production build |
-| `npm run lint`         | ESLint                     |
-| `npm run typecheck`    | `tsc --noEmit`             |
-| `npm run format`       | Prettier, write            |
-| `npm run format:check` | Prettier, check only       |
+| Command                | What it does                    |
+| ---------------------- | ------------------------------- |
+| `npm run dev`          | Dev server on :3000             |
+| `npm run build`        | Production build                |
+| `npm run start`        | Serve the production build      |
+| `npm run lint`         | ESLint                          |
+| `npm run typecheck`    | `next typegen` + `tsc --noEmit` |
+| `npm test`             | Vitest, single run              |
+| `npm run test:watch`   | Vitest, watch mode              |
+| `npm run format`       | Prettier, write                 |
+| `npm run format:check` | Prettier, check only            |
 
 ## Documentation
 

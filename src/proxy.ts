@@ -1,50 +1,103 @@
 /**
- * The auth boundary, and the only place a rotated token pair can be persisted
- * on the navigation path. Next 16 renamed Middleware to Proxy, so this file is
- * `proxy.ts` — a `middleware.ts` would never run.
- *
- * Next advises keeping Proxy free of network calls. We make one, but only when
- * the access token is near expiry: roughly once per 15 minutes per session. The
- * alternative caps every session at the access-token lifetime, since a Server
- * Component render cannot set cookies.
+ * The auth boundary, and the only place a rotated token pair can be persisted on
+ * the navigation path. Named `proxy.ts` because Next 16 renamed Middleware; a
+ * `middleware.ts` would never run.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { accessTokenExpiresWithin } from "@/lib/auth/access-token";
-import { refreshTokens } from "@/lib/auth/refresh";
+import {
+  NONCE_COOKIE_NAME,
+  NONCE_COOKIE_OPTIONS,
+  NONCE_HEADER_NAME,
+  createNonce,
+  hashNonce,
+} from "@/lib/auth/google-nonce";
+import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
+import { SIGNED_IN_HOME } from "@/lib/auth/safe-next";
+import { refreshTokens } from "@/lib/auth/tokens/refresh";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
   type Session,
   sealSession,
   unsealSession,
-} from "@/lib/session";
+} from "@/lib/auth/session";
 
 export const config = {
-  // `/api` is excluded deliberately: Route Handlers must answer 401 rather than
-  // redirect to an HTML page, so they handle sessions themselves via serverApi().
+  // `/api` excluded: Route Handlers must answer 401, not redirect to HTML.
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
   ],
 };
 
 // Default deny: adding a route must not require remembering to protect it.
-//
-// TEMPORARY: "/" is here only so the design preview on the root route can be
-// viewed without a session. The real root route is the task feed and must be
-// protected — remove "/" when that lands, or the feed ships readable by anyone.
-const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email", "/about"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+];
+
+// The public paths a session makes pointless. `/` is public but not here: it
+// stays readable while signed in, or the redirect below would loop onto itself.
+// `/reset-password` is not here either: an emailed link has to work even for
+// someone whose browser still holds a session, and finishing the reset kills it.
+const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
+
+// The screens carrying a Google button, which cannot mint their own nonce.
+const GOOGLE_PATHS = ["/login", "/register"];
 
 /**
- * Reports whether a path is reachable without a session.
+ * Reports whether a path is in a list, by exact match or as a path prefix.
  *
- * Matches a prefix as well as the exact path, so `/login/callback` is public
- * because `/login` is. `"/"` is the one exception and matches exactly.
+ * The prefix is what makes `/login/callback` match `/login`. `"/"` is the one
+ * exception and matches exactly, since as a prefix it would claim every route.
  */
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
+function matches(paths: readonly string[], pathname: string): boolean {
+  return paths.some(
     (path) => pathname === path || (path !== "/" && pathname.startsWith(`${path}/`)),
   );
+}
+
+/** Reports whether a path is reachable without a session. */
+function isPublic(pathname: string): boolean {
+  return matches(PUBLIC_PATHS, pathname);
+}
+
+/**
+ * Hands the page a nonce for Google's widget, minting one if there isn't one.
+ *
+ * Reused rather than rotated per request: a link prefetch is a request too, and
+ * rotating there would leave the visible page holding a hash the cookie no
+ * longer matches. Single use is enforced where it belongs, on the attempt.
+ *
+ * @returns The response, carrying the hash forward and the raw nonce back.
+ */
+async function withGoogleNonce(request: NextRequest): Promise<NextResponse> {
+  const existing = request.cookies.get(NONCE_COOKIE_NAME)?.value;
+  const nonce = existing ?? createNonce();
+
+  const headers = new Headers(request.headers);
+  headers.set(NONCE_HEADER_NAME, await hashNonce(nonce));
+
+  const response = NextResponse.next({ request: { headers } });
+  if (!existing) response.cookies.set(NONCE_COOKIE_NAME, nonce, NONCE_COOKIE_OPTIONS);
+  return response;
+}
+
+/**
+ * Clears a Google nonce that a session has made pointless.
+ *
+ * Only the Google action spends one, so a password login leaves it behind
+ * until it expires. Proxy mints it, so Proxy is where it gets cleaned up.
+ *
+ * @returns The same response, for use at a return site.
+ */
+function dropSpentNonce(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.has(NONCE_COOKIE_NAME)) response.cookies.delete(NONCE_COOKIE_NAME);
+  return response;
 }
 
 /**
@@ -69,6 +122,7 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
   const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   if (!session) {
+    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
     if (isPublic(pathname)) return NextResponse.next();
 
     const response = redirectToLogin(request);
@@ -80,10 +134,15 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     return response;
   }
 
-  // Signed in, so the auth screens have nothing to offer.
-  if (isPublic(pathname)) return NextResponse.redirect(new URL("/", request.nextUrl));
+  // Only the auth screens: every other public page, the marketing page
+  // included, stays readable while signed in.
+  if (matches(AUTH_PATHS, pathname)) {
+    return dropSpentNonce(request, NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)));
+  }
 
-  if (!accessTokenExpiresWithin(session.accessToken)) return NextResponse.next();
+  if (!accessTokenExpiresWithin(session.accessToken)) {
+    return dropSpentNonce(request, NextResponse.next());
+  }
 
   try {
     const refreshed = await refreshTokens(session.refreshToken);
@@ -92,13 +151,14 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken,
       userUid: refreshed.userUid || session.userUid,
+      name: refreshed.name || session.name,
     };
 
     const response = NextResponse.next();
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
-    return response;
+    return dropSpentNonce(request, response);
   } catch {
     // Spent, revoked, or refused — there is no recovery from here.
     const response = redirectToLogin(request);

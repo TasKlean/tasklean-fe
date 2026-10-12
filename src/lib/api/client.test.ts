@@ -4,8 +4,6 @@ import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { request } from "@/lib/api/client";
 import { server } from "@/test/msw";
 
-// The trailing slash is deliberate: every request MSW matches below also proves
-// the base and path join without doubling the slash.
 const BASE = "http://api.test";
 
 beforeAll(() => {
@@ -95,7 +93,6 @@ describe("request", () => {
       ),
     );
 
-    // 409 is absent from openapi.json entirely, yet the backend returns it.
     await expect(request("/api/categories", { method: "POST", body: {} })).rejects.toMatchObject({
       name: "ApiError",
       status: 409,
@@ -130,6 +127,41 @@ describe("request", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(429);
     expect((error as ApiError).retryAfterSeconds).toBe(42);
+  });
+
+  it("carries the envelope's error code on the ApiError", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            message: "Email not verified.",
+            code: "EMAIL_NOT_VERIFIED",
+            data: null,
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const error = await request("/api/auth/login", { method: "POST", body: {} }).catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe("EMAIL_NOT_VERIFIED");
+  });
+
+  it("leaves the code null when the envelope omits it", async () => {
+    server.use(
+      http.get(`${BASE}/api/tasks`, () =>
+        HttpResponse.json({ success: false, message: "Nope.", data: null }, { status: 400 }),
+      ),
+    );
+
+    const error = await request("/api/tasks").catch((caught: unknown) => caught);
+
+    expect((error as ApiError).code).toBeNull();
   });
 
   it("leaves retryAfterSeconds null when the header is absent", async () => {

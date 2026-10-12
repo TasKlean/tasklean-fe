@@ -3,7 +3,8 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
-import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/session";
+import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
+import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";
@@ -36,6 +37,29 @@ function requestFor(path: string, cookie?: string): NextRequest {
   return new NextRequest(`${SITE}${path}`, {
     headers: cookie ? { cookie: `${SESSION_COOKIE_NAME}=${cookie}` } : {},
   });
+}
+
+function requestWithNonce(path: string, nonce: string, session?: string): NextRequest {
+  const cookie = session
+    ? `${NONCE_COOKIE_NAME}=${nonce}; ${SESSION_COOKIE_NAME}=${session}`
+    : `${NONCE_COOKIE_NAME}=${nonce}`;
+  return new NextRequest(`${SITE}${path}`, { headers: { cookie } });
+}
+
+function clearsNonce(response: Response): boolean {
+  const header = response.headers.get("set-cookie") ?? "";
+  return header.includes(`${NONCE_COOKIE_NAME}=;`) || header.includes(`${NONCE_COOKIE_NAME}=""`);
+}
+
+function forwardedHash(response: Response): string | undefined {
+  for (const [name, value] of response.headers.entries()) {
+    if (name.endsWith(NONCE_HEADER_NAME)) return value;
+  }
+  return undefined;
+}
+
+function nonceFrom(response: Response): string | undefined {
+  return response.headers.get("set-cookie")?.match(new RegExp(`${NONCE_COOKIE_NAME}=([^;]+)`))?.[1];
 }
 
 function refreshHandler(counter: { calls: number }, status = 200) {
@@ -98,8 +122,6 @@ describe("proxy", () => {
     const written = response.cookies.get(SESSION_COOKIE_NAME)?.value;
     expect(written).toBeTruthy();
 
-    // The rotated refresh token must reach the cookie — losing it kills the
-    // session, since the backend has already revoked the old one.
     const rotated = await unsealSession(written);
     expect(rotated?.refreshToken).toBe("rt-rotated");
     expect(rotated?.activeGroupId).toBe(3);
@@ -120,6 +142,147 @@ describe("proxy", () => {
     const response = await proxy(requestFor("/login", await sessionCookie(3600)));
 
     expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/");
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+  });
+
+  it("lets a signed-in user read the home page instead of redirecting it onto itself", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+});
+
+describe("proxy password reset paths", () => {
+  it("lets an anonymous visitor ask for a reset link", async () => {
+    const response = await proxy(requestFor("/forgot-password"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("lets an anonymous visitor open the emailed link", async () => {
+    const response = await proxy(requestFor("/reset-password?token=tok-1"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("sends a signed-in visitor away from asking for a link", async () => {
+    const response = await proxy(requestFor("/forgot-password", await sessionCookie(3600)));
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+  });
+
+  it("lets a signed-in visitor finish a reset they started by email", async () => {
+    const response = await proxy(
+      requestFor("/reset-password?token=tok-1", await sessionCookie(3600)),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("mints no Google nonce for either of them", async () => {
+    const forgot = await proxy(requestFor("/forgot-password"));
+    const reset = await proxy(requestFor("/reset-password?token=tok-1"));
+
+    expect(nonceFrom(forgot)).toBeUndefined();
+    expect(nonceFrom(reset)).toBeUndefined();
+  });
+});
+
+describe("proxy google nonce", () => {
+  it("mints one for the login screen", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(nonceFrom(response)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("mints one for the register screen", async () => {
+    const response = await proxy(requestFor("/register"));
+
+    expect(nonceFrom(response)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("keeps it httpOnly, so page scripts cannot read or forge it", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(response.headers.get("set-cookie")).toContain("HttpOnly");
+  });
+
+  it("reuses the nonce it already handed out, so a prefetch cannot strand it", async () => {
+    const existing = "a".repeat(64);
+
+    const response = await proxy(requestWithNonce("/login", existing));
+
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+
+  it("hands the page the hash, never the nonce itself", async () => {
+    const existing = "b".repeat(64);
+
+    const response = await proxy(requestWithNonce("/login", existing));
+
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+    expect(forwardedHash(response)).not.toBe(existing);
+  });
+
+  it("hands over the hash of the nonce it just minted", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(forwardedHash(response)).toBe(await hashNonce(nonceFrom(response) ?? ""));
+  });
+
+  it("leaves the other public screens alone", async () => {
+    const response = await proxy(requestFor("/verify-email"));
+
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("does not leak the header name into a signed-in render", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(JSON.stringify([...response.headers.entries()])).not.toContain(NONCE_HEADER_NAME);
+  });
+});
+
+describe("proxy nonce cleanup", () => {
+  it("clears a leftover nonce once a session exists", async () => {
+    const response = await proxy(requestWithNonce("/", "c".repeat(64), await sessionCookie(3600)));
+
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("clears it when bouncing a signed-in visitor off the auth screens", async () => {
+    const response = await proxy(
+      requestWithNonce("/login", "d".repeat(64), await sessionCookie(3600)),
+    );
+
+    expect(response.status).toBe(307);
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("clears it on the response that also rotates the token pair", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+
+    const response = await proxy(requestWithNonce("/", "e".repeat(64), await sessionCookie(10)));
+
+    expect(counter.calls).toBe(1);
+    expect(clearsNonce(response)).toBe(true);
+  });
+
+  it("leaves it alone while the visitor is still signed out", async () => {
+    const response = await proxy(requestWithNonce("/login", "f".repeat(64)));
+
+    expect(clearsNonce(response)).toBe(false);
+  });
+
+  it("writes no cookie at all when a signed-in visitor carries no nonce", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });

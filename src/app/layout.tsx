@@ -4,9 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    // `default` is the whole title for pages that set none — the homepage relies
-    // on it. `template` wraps whatever a page does set, so pages supply the bare
-    // name ("Login") and never repeat the brand.
+    // `default` is the whole title; `template` wraps what a page sets.
     default: "TasKlean",
     template: "%s - TasKlean",
   },
@@ -24,9 +22,7 @@ export const viewport: Viewport = {
   ],
 };
 
-// Self-hosted by next/font at build time: no runtime request to Google, and no
-// layout shift. latin-ext is required for Slovenian diacritics (c-caron, s-caron,
-// z-caron). The variable font covers 400-700, which is every weight DESIGN.md uses.
+// latin-ext is required for Slovenian diacritics.
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
   display: "swap",
