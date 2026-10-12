@@ -426,7 +426,9 @@ like `/login/x`, renders it directly. That is why its primary action points at `
 **Every auth screen carries a back arrow except `/verify-email`.** Login and register point at the
 marketing page, the two password-reset screens point at login, since that is where a reset both
 starts and ends. Verification is the one exception: it is mid-flow with a code already emailed, and
-an arrow out of it reads as "cancel" without saying so.
+an arrow out of it reads as "cancel" without saying so. It offers a link to log in instead, because
+without one a visitor who is already verified has only "start again" and is pushed toward a second
+account.
 
 ---
 
@@ -568,8 +570,9 @@ never flips and the button shows no progress.
 need a token exchange with our own client secret and an endpoint that does not exist. The dev
 profile's `google.redirect-uri` is leftover config that nothing reads.
 
-**Refresh** — access tokens live **15 minutes** in staging/prod (a year in local dev, which is why
-refresh can only be tested against staging). It's **single-use with rotation**: each refresh revokes
+**Refresh** — access tokens live **15 minutes** in staging/prod, and a year in local dev, which is
+why rotation is tested by overriding `JWT_EXPIRATION` in the compose environment rather than by
+waiting. It's **single-use with rotation**: each refresh revokes
 the old token and returns a new pair, so the new pair **must** be written back to the cookie or the
 session is dead. Two consequences:
 
@@ -854,8 +857,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | ----- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
-| 2     | **Auth screens** ← _current_ | Register → verify → login, Google sign-in, logout.                                                                                                                 | The first flow that exercises phase 1 end to end against a real backend. Needs the staging URL, because refresh can't be tested locally. End-to-end testing and CI start making sense once this exists.     |
-| 3     | **Group onboarding**       | `/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
+| **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
+| 3     | **Group onboarding** ← _current_ | `/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
 | 4     | **Tasks — the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
 | 5     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
 | 6     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
@@ -881,8 +884,9 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 
 Unanswered on purpose. Each gets decided when the work reaches it.
 
-- **Staging API URL** — recorded nowhere in either repo. Blocks `.env.example`, `metadataBase` and
-  any real refresh test.
+- **Staging API URL** — recorded nowhere in either repo. Blocks `.env.example`'s staging row and
+  `metadataBase`. No longer blocks refresh: rotation was proved in Docker by shortening
+  `JWT_EXPIRATION`.
 - **Hosting** — Cloudflare is likely, but Next on Workers has real constraints. Nothing should assume
   a host yet.
 - **A real breached-password check** — `isGuessable` carries 24 common passwords, which stops the

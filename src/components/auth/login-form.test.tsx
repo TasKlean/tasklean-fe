@@ -131,4 +131,16 @@ describe("LoginForm password reset", () => {
       "/forgot-password",
     );
   });
+
+  it("carries the typed address so it is not typed twice", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText("Email address"), "  a+tag@b.test  ");
+
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
+      "href",
+      "/forgot-password?email=a%2Btag%40b.test",
+    );
+  });
 });

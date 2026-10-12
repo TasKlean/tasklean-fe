@@ -13,8 +13,8 @@ Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, Google sign-in, `/app` and logout exist. Everything else
-behind the session does not. Register, verification, password login and token rotation have run
-against the real backend in Docker; password reset has not, and every automated test is still MSW.
+behind the session does not. Register, verification, password login, password reset and token
+rotation have all run against the real backend in Docker; every automated test is still MSW.
 
 ## Quick reference
 
@@ -42,7 +42,7 @@ it.
 
 | Target           | `API_BASE_URL`          | Notes                                                                                        |
 | ---------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
-| Local            | `http://localhost:8080` | `docker-compose up -d` + `./mvnw spring-boot:run` in `../tasklean-be`. Dev issues **1-year** access tokens, so refresh never fires locally. |
+| Local            | `http://localhost:8080` | `docker-compose up -d` + `./mvnw spring-boot:run` in `../tasklean-be`. Dev issues **1-year** access tokens, so refresh only fires if `JWT_EXPIRATION` is overridden. |
 | Full stack (Docker) | `http://backend:8080` | `docker-compose up --build` in the parent dir runs db, backend and frontend together. The compose file sits in `../`, outside both repos and outside git. |
 | Staging (Render) | _not recorded yet_      | Prod profile: 15-minute access tokens, no seed data, Swagger disabled.                       |
 

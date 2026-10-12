@@ -9,7 +9,9 @@ export const metadata: Metadata = {
 };
 
 /** Renders the page that starts a password reset. */
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({ searchParams }: PageProps<"/forgot-password">) {
+  const { email } = await searchParams;
+
   return (
     <div className="gap-space-lg flex flex-col">
       <BackLink href="/login" label="Back to log in" />
@@ -23,7 +25,7 @@ export default function ForgotPasswordPage() {
         </p>
       </header>
 
-      <ForgotPasswordForm />
+      <ForgotPasswordForm initialEmail={typeof email === "string" ? email : undefined} />
 
       <p className="text-body-md text-muted-foreground text-center">
         Signing in with Google? There is no password to reset, so use the Google button on the{" "}

@@ -39,6 +39,16 @@ export default async function VerifyEmailPage({ searchParams }: PageProps<"/veri
         </Link>
         .
       </p>
+
+      <p className="text-body-md text-muted-foreground text-center">
+        Already confirmed this address?{" "}
+        <Link
+          href="/login"
+          className="text-link hover:text-primary-strong font-semibold underline-offset-4 hover:underline"
+        >
+          Log in
+        </Link>
+      </p>
     </div>
   );
 }

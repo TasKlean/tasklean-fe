@@ -19,10 +19,15 @@ import { validateForgotPassword } from "@/lib/validation/forms/forgot-password.s
 
 const INITIAL: ForgotPasswordState = { error: null };
 
+type ForgotPasswordFormProps = {
+  // Carried from the login screen, so the address is typed once.
+  initialEmail?: string;
+};
+
 /** Renders the form that asks for a reset link. */
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ initialEmail }: ForgotPasswordFormProps) {
   const [state, formAction] = useActionState(forgotPasswordAction, INITIAL);
-  const [email, setEmail] = useState(state.email ?? "");
+  const [email, setEmail] = useState(state.email ?? initialEmail ?? "");
   const [touched, setTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 

@@ -41,6 +41,13 @@ export function LoginForm({ next }: LoginFormProps) {
   const showPassword = submitted || (touched.password && password !== "");
 
   const shownEmailError = showEmail ? emailError : state.fieldErrors?.email;
+
+  // Carried so someone who has already typed their address does not type it
+  // again on the next screen. Untrimmed rubbish is harmless, an empty box is not.
+  const carried = email.trim();
+  const forgotHref = carried
+    ? `/forgot-password?email=${encodeURIComponent(carried)}`
+    : "/forgot-password";
   const shownPasswordError = showPassword ? passwordError : state.fieldErrors?.password;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -92,7 +99,10 @@ export function LoginForm({ next }: LoginFormProps) {
         error={shownPasswordError}
         labelAction={
           <Link
-            href="/forgot-password"
+            href={forgotHref}
+            // prefetch off: the href changes on every keystroke, and each change
+            // would otherwise queue another prefetch of the same page.
+            prefetch={false}
             className="text-label-md text-link hover:text-primary-strong underline-offset-4 hover:underline"
           >
             Forgot password?

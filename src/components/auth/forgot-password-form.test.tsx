@@ -62,6 +62,20 @@ describe("ForgotPasswordForm validation", () => {
   });
 });
 
+describe("ForgotPasswordForm prefill", () => {
+  it("starts with the address carried from login", () => {
+    render(<ForgotPasswordForm initialEmail="a@b.test" />);
+
+    expect(screen.getByLabelText("Email address")).toHaveValue("a@b.test");
+  });
+
+  it("starts empty when nothing was carried", () => {
+    render(<ForgotPasswordForm />);
+
+    expect(screen.getByLabelText("Email address")).toHaveValue("");
+  });
+});
+
 describe("ForgotPasswordForm state", () => {
   it("shows the notice the action returned", async () => {
     forgotPasswordAction.mockResolvedValueOnce({
