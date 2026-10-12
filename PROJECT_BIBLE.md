@@ -247,6 +247,20 @@ with no enum in the spec, which is what `z.enum` is for.
 
 ### The password policy
 
+**The policy is pinned by a file neither repo owns alone.** Two implementations of the same rules
+drift silently: the backend can tighten a threshold, or either side can reorder its checks, and
+nothing fails until a user is told to fix the wrong thing. So the rules are expressed once as
+vectors mapping a password to its first failing message, canonical in
+`tasklean-be/src/test/resources/password-policy-vectors.json` and mirrored verbatim here at
+`src/test/password-policy-vectors.json`. Both suites run it. The mirror is a copy rather than a
+shared package because the alternative is publishing and versioning a package for one JSON file,
+and the copy is checked by the test that reads it.
+
+**The vectors pin the order, not just the messages.** A password failing several rules has one
+right answer, the first unmet rule in `rules.ts`, because that is the order a user is asked to fix
+things. Verified by loosening the minimum length and by swapping two checks: each breaks a vector.
+
+
 **The frontend is the spec here, not the mirror.** `validation/password/policy.ts` holds it and the
 backend is being changed to match, so that file is the thing to read and any disagreement is a
 backend bug.

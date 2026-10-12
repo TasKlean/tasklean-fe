@@ -117,7 +117,8 @@ src/
       forms/           one <form>.schema.ts per form: login, register, verify-email
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
-  test/                msw.ts, server-only-stub.ts
+  test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
+                       (mirrored from the backend, run by policy.contract.test.ts)
 ```
 
 **Depth follows need, not symmetry** — `signin/` is a directory because four endpoints are coming;
@@ -259,10 +260,12 @@ routes are `noindex` via the `(auth)` layout.
   single use: every outcome of an attempt replaces it, and the action returns the new hash so the
   button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
   first signed-in request.
-- **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec** —
-  the backend is being changed to match. 8–64 characters, one each of
-  upper/lower/digit/non-alphanumeric, and a guessable password is rejected. Enforced at register,
-  never at login.
+- **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec**;
+  the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
+  guessable password is rejected. Enforced at register, never at login. Both sides run the same
+  vectors: `src/test/password-policy-vectors.json` is a verbatim mirror of the backend's canonical
+  copy, so changing the policy means editing both implementations, both copies of the file, and
+  running both suites.
 
 ## Consuming the API
 

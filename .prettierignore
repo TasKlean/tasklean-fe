@@ -5,3 +5,7 @@ package-lock.json
 
 # Authored prose. Prettier re-pads tables on every edit, which makes doc diffs noisy.
 *.md
+
+# Mirrored verbatim from tasklean-be, so a diff against the canonical copy is
+# the whole point. Reformatting it would hide drift.
+src/test/password-policy-vectors.json
