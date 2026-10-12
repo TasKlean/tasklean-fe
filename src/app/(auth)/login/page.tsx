@@ -6,7 +6,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { BackHomeLink } from "@/components/auth/back-home-link";
+import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
 
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next } = await searchParams;
+  const { next, reset } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
   return (
     <div className="gap-space-lg flex flex-col">
-      <BackHomeLink />
+      <BackLink />
 
       <header className="gap-space-xs flex flex-col">
         <h1 className="text-display-lg-mobile md:text-headline-lg text-foreground">
@@ -34,6 +34,15 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Sign in to see today&apos;s chores and keep your household in sync.
         </p>
       </header>
+
+      {reset === "1" ? (
+        <p
+          role="status"
+          className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
+        >
+          Your password is set. Sign in with it, on this device and any other.
+        </p>
+      ) : null}
 
       <LoginForm next={nextPath} />
 

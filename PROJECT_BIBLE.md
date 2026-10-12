@@ -423,10 +423,10 @@ is protected, so an anonymous visitor on a mistyped URL is redirected to `/login
 render; they reach it after signing in. Only a session, or an unmatched path under a public prefix
 like `/login/x`, renders it directly. That is why its primary action points at `/app`.
 
-**`/login` and `/register` carry a back arrow; `/verify-email` does not.** Both sit at the start of
-a flow a visitor may have opened by accident, so there has to be a way back to the marketing page.
-Verification is mid-flow with a code already emailed, and an arrow out of it reads as "cancel"
-without saying so.
+**Every auth screen carries a back arrow except `/verify-email`.** Login and register point at the
+marketing page, the two password-reset screens point at login, since that is where a reset both
+starts and ends. Verification is the one exception: it is mid-flow with a code already emailed, and
+an arrow out of it reads as "cancel" without saying so.
 
 ---
 
@@ -581,6 +581,36 @@ session is dead. Two consequences:
 **Logout** currently revokes **all** of the user's refresh tokens — it signs them out everywhere.
 The backend plans per-device logout later. Until then, don't word the button as "sign out of this
 device".
+
+**Password reset is two screens and never a session.** `POST /api/auth/forgot-password` emails a
+single-use token that lives 15 minutes, and `POST /api/auth/reset-password` spends it, verifies the
+email as a side effect (holding the token proves control of the mailbox) and returns **no tokens**.
+So the flow ends at `/login?reset=1` with a notice, not in the app.
+
+**The forgot screen must stay silent about who has an account.** The endpoint answers `200` for an
+address it has never seen, and a Google-only account is emailed a "there is nothing to reset"
+notice instead of a link, so the response is identical in all three cases. That is why the screen
+keeps its notice on the page rather than redirecting: a redirect to "check your inbox" would read
+as confirmation. The copy is "if that address has an account", and the Google case is covered by a
+static line pointing at the Google button rather than by anything the response told us.
+
+**The reset link is the frontend's URL, and the route name is not ours to choose.** The backend
+builds `${APP_BASE_URL}/reset-password?token=<raw>`, so `/reset-password` and that parameter name
+are fixed by the email. A link an email client wraps arrives truncated or bare, which is
+indistinguishable from a spent one, so the page renders an "ask for a new link" state instead of a
+form when the token is missing and leaves the rest to the backend's one 401.
+
+**Finishing a reset clears our own cookie.** The backend revokes every refresh token the user holds,
+so a session sealed before the reset is already dead; clearing it in the action saves a pointless
+bounce through Proxy's refusal path. For the same reason `/reset-password` is public but **not** in
+`AUTH_PATHS`: bouncing a signed-in visitor off it would make an emailed link unusable on the one
+browser they are most likely to open it in. `/forgot-password` is in both lists, because a session
+really does make asking for a link pointless.
+
+**A 400 from reset means the two policies have drifted.** The frontend is the spec and the backend
+matches it, so a rejected password should never reach the endpoint. If one does, the message is
+shown against the password field rather than swallowed, since that is the only place it could be
+acted on.
 
 ### Session cookie implementation
 

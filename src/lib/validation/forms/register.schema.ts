@@ -1,6 +1,6 @@
 /**
- * The register form's Zod schemas. `confirmPassword` is compared after the
- * fields pass individually, so a weak password is reported before a mismatch.
+ * The register form's Zod schemas. The match check is an object-level refine,
+ * so a weak password and a mismatch are reported together, one per field.
  */
 
 import * as z from "zod/mini";

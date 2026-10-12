@@ -153,6 +153,46 @@ describe("proxy", () => {
   });
 });
 
+describe("proxy password reset paths", () => {
+  it("lets an anonymous visitor ask for a reset link", async () => {
+    const response = await proxy(requestFor("/forgot-password"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("lets an anonymous visitor open the emailed link", async () => {
+    const response = await proxy(requestFor("/reset-password?token=tok-1"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("sends a signed-in visitor away from asking for a link", async () => {
+    const response = await proxy(requestFor("/forgot-password", await sessionCookie(3600)));
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+  });
+
+  it("lets a signed-in visitor finish a reset they started by email", async () => {
+    const response = await proxy(
+      requestFor("/reset-password?token=tok-1", await sessionCookie(3600)),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("mints no Google nonce for either of them", async () => {
+    const forgot = await proxy(requestFor("/forgot-password"));
+    const reset = await proxy(requestFor("/reset-password?token=tok-1"));
+
+    expect(nonceFrom(forgot)).toBeUndefined();
+    expect(nonceFrom(reset)).toBeUndefined();
+  });
+});
+
 describe("proxy google nonce", () => {
   it("mints one for the login screen", async () => {
     const response = await proxy(requestFor("/login"));

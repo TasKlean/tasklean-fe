@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { BackHomeLink } from "@/components/auth/back-home-link";
+import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { RegisterForm } from "@/components/auth/register-form";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
@@ -17,7 +17,7 @@ export default async function RegisterPage() {
 
   return (
     <div className="gap-space-lg flex flex-col">
-      <BackHomeLink />
+      <BackLink />
 
       <header className="gap-space-xs flex flex-col">
         <h1 className="text-display-lg-mobile md:text-headline-lg text-foreground">

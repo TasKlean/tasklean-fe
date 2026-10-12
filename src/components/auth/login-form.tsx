@@ -6,6 +6,7 @@
 
 "use client";
 
+import Link from "next/link";
 import { Mail } from "lucide-react";
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
@@ -90,14 +91,12 @@ export function LoginForm({ next }: LoginFormProps) {
         onBlur={() => setTouched((was) => ({ ...was, password: true }))}
         error={shownPasswordError}
         labelAction={
-          // Inert rather than a link: the backend has no password-reset endpoint.
-          <span
-            aria-disabled
-            title="Password reset is not available yet"
-            className="text-label-md text-muted-foreground cursor-not-allowed"
+          <Link
+            href="/forgot-password"
+            className="text-label-md text-link hover:text-primary-strong underline-offset-4 hover:underline"
           >
             Forgot password?
-          </span>
+          </Link>
         }
       />
 

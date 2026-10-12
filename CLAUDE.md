@@ -12,9 +12,9 @@ is the reference: what exists, where it lives, and the rules.
 Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
-Google sign-in, `/app` and logout exist. Everything else behind the session does not. Register,
-verification, password login and token rotation have run against the real backend in Docker; every
-automated test is still MSW.
+`/forgot-password`, `/reset-password`, Google sign-in, `/app` and logout exist. Everything else
+behind the session does not. Register, verification, password login and token rotation have run
+against the real backend in Docker; password reset has not, and every automated test is still MSW.
 
 ## Quick reference
 
@@ -84,6 +84,8 @@ src/
       actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
       register/        page.tsx, actions.ts
+      forgot-password/ page.tsx, actions.ts
+      reset-password/  page.tsx, actions.ts
     (public)/          site header + footer shell, the one indexable route
       page.tsx         the home page
     error.tsx          the boundary below the root layout, with a retry
@@ -98,7 +100,8 @@ src/
                        or-divider, greeting
     app/               signed-in chrome: app-header, logout-button
     auth/              login-form, register-form, verify-email-form, google-sign-in
-                       (the rule plus the button), google-button, back-home-link
+                       (the rule plus the button), google-button, back-link,
+                       forgot-password-form, reset-password-form
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
@@ -110,6 +113,7 @@ src/
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
                        logout.ts (revokes server-side)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
+      password-reset.ts  forgot and reset, neither of which returns tokens
       google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
       safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
     config/env.ts      validated environment
@@ -117,7 +121,8 @@ src/
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code)
       parse.ts         runs a schema, reshapes issues to one message per field
-      forms/           one <form>.schema.ts per form: login, register, verify-email
+      forms/           one <form>.schema.ts per form: login, register, verify-email,
+                       google-signin, forgot-password, reset-password
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -263,6 +268,13 @@ routes are `noindex` via the `(auth)` layout.
   single use: every outcome of an attempt replaces it, and the action returns the new hash so the
   button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
   first signed-in request.
+- **A password reset ends at the login screen, never in a session.** `POST
+  /api/auth/reset-password` returns no tokens and revokes every refresh token the user holds, so the
+  action clears our cookie and sends them to `/login?reset=1`. `/forgot-password` answers the same
+  way for an address with no account, and emails a Google-only account a "nothing to reset" notice,
+  so the screen keeps its notice neutral and never redirects. `/reset-password` is public and
+  deliberately **not** in `AUTH_PATHS`: an emailed link has to work even for a browser that still
+  holds a session.
 - **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec**;
   the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
   guessable password is rejected. Enforced at register, never at login. Both sides run the same

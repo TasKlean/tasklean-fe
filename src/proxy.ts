@@ -31,11 +31,20 @@ export const config = {
 };
 
 // Default deny: adding a route must not require remembering to protect it.
-const PUBLIC_PATHS = ["/", "/login", "/register", "/verify-email"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/reset-password",
+];
 
 // The public paths a session makes pointless. `/` is public but not here: it
 // stays readable while signed in, or the redirect below would loop onto itself.
-const AUTH_PATHS = ["/login", "/register", "/verify-email"];
+// `/reset-password` is not here either: an emailed link has to work even for
+// someone whose browser still holds a session, and finishing the reset kills it.
+const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
 
 // The screens carrying a Google button, which cannot mint their own nonce.
 const GOOGLE_PATHS = ["/login", "/register"];

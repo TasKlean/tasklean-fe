@@ -6,12 +6,17 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-/** Renders the back arrow to the public home page. */
-export function BackHomeLink() {
+type BackLinkProps = {
+  href?: string;
+  label?: string;
+};
+
+/** Renders the back arrow, pointing at the public home page by default. */
+export function BackLink({ href = "/", label = "Back to home" }: BackLinkProps) {
   return (
     <Link
-      href="/"
-      aria-label="Back to home"
+      href={href}
+      aria-label={label}
       // Pulled left by the circle's own padding so the arrow lines up with the
       // heading below it.
       className="text-muted-foreground hover:text-foreground hover:bg-muted -ml-3 flex size-11 shrink-0 items-center justify-center rounded-full transition-colors"

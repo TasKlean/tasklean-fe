@@ -121,3 +121,14 @@ describe("LoginForm validation", () => {
     expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
   });
 });
+
+describe("LoginForm password reset", () => {
+  it("offers the way to a reset rather than a dead control", () => {
+    render(<LoginForm />);
+
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveAttribute(
+      "href",
+      "/forgot-password",
+    );
+  });
+});

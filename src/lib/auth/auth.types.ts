@@ -46,3 +46,13 @@ export type GoogleAuthRequest = {
 export type RefreshRequest = {
   refreshToken: string;
 };
+
+export type ForgotPasswordRequest = {
+  email: string;
+};
+
+export type ResetPasswordRequest = {
+  // The raw token from the emailed link. The backend stores only its hash.
+  token: string;
+  newPassword: string;
+};
