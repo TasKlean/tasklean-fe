@@ -173,6 +173,52 @@ boundary rather than mocking our own modules.
 the local backend issues year-long access tokens. It is unit-tested with a controlled clock and mocked
 responses; a staging-targeted e2e run is the only real check.
 
+### Continuous integration and deployment
+
+**Two workflows by environment, matching the backend.** `main` is staging, `production` is
+production, and a PR between them is the release gesture. Keeping the same shape in both repos means
+one mental model for the pipeline rather than two.
+
+**One `verify` job instead of the backend's compile, test and sonar split.** Maven is slow enough
+that passing `target/` between jobs pays for itself; our gates are seconds each, so three extra
+runner starts and three `npm ci` runs would cost more wall-clock than running them in sequence.
+Sonar stays separate for a different reason: it holds `SONAR_TOKEN`, and a job that installs
+dependencies is the wrong place to keep a token, since a malicious postinstall reads the whole
+environment.
+
+**Production promotes a digest, it never rebuilds.** The image is environment-agnostic, so
+rebuilding on the production branch would ship a binary nobody has run. Staging pushes an immutable
+`sha-<short>` tag; production resolves that tag for the released commit, falling back to `HEAD^2`
+because merging `main` into `production` creates a new commit whose second parent is the tip that
+was actually built, and retags the digest. A missing image fails the job loudly rather than
+rebuilding quietly.
+
+**Nothing is baked into the image.** Proven rather than assumed: a build with a sentinel client id
+leaves that string nowhere in `.next`, not even in the server output, because the only reader is
+`getEnv()` in a Server Component that passes the value down as a prop. Our own "a client component
+never reads the environment" rule is what makes the image portable, so breaking that rule would also
+break build-once-promote.
+
+**Security choices that differ from the backend's workflows.** `permissions: contents: read` at the
+top, with `contents: write` only on the two jobs that tag and release, because a workflow with
+write access by default is one compromised action away from rewriting the repo.
+`persist-credentials: false` on every checkout that does not push. The Render deploy hook travels
+through `env:` rather than being interpolated into the command, and uses `curl -fsS`: the backend's
+`curl -s "${{ secrets... }}"` puts a secret URL on the command line and, without `-f`, treats a dead
+hook as success and then polls the previous deploy. Runners are pinned to `ubuntu-24.04` so a runner
+image change cannot break a release on a day nobody touched the code.
+
+**Actions are pinned to commit SHAs, and Dependabot watches `github-actions` too.** A pinned SHA
+with nothing updating it is just a stale dependency, so the two halves only work together.
+
+**No `npm audit` gate.** The five known devDependency findings have no non-destructive fix, so an
+audit step would fail every run and teach everyone to ignore red. Dependabot covers the same ground
+with a PR we can judge.
+
+**The image repository has to be private.** The standalone bundle is our compiled source, so a
+public image publishes the app. Render then needs registry credentials rather than pulling
+anonymously.
+
 ### The design system
 
 **[DESIGN.md](DESIGN.md) is the design authority; `src/app/globals.css` is its implementation.** The
@@ -873,10 +919,12 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **Testing** — Vitest + Testing Library + MSW arrive in phase 1, on the API and session layer, which
   is pure logic with high consequence and exactly what unit tests are good at. End-to-end testing is
   a later, separate decision. See _Testing_ under the decisions above.
-- **CI** — after phase 2, when there's something worth gating.
-- **Hosting and deployment**: deferred. Nothing before phase 9 needs a deployed origin, except that
-  Google sign-in on a real domain does, so it may pull forward. The `Dockerfile` added in phase 2 is
-  a local test harness, not a deployment target, though a host that takes an image inherits it.
+- **CI** — landed after phase 2. Two workflows, one `verify` job, Sonar with a coverage gate, and a
+  production pipeline that promotes the staging image rather than rebuilding. Reasoning under
+  _Continuous integration and deployment_.
+- **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
+  the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the
+  deployment artifact, which is why it takes no build arguments.
 
 ---
 
@@ -887,8 +935,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 - **Staging API URL** — recorded nowhere in either repo. Blocks `.env.example`'s staging row and
   `metadataBase`. No longer blocks refresh: rotation was proved in Docker by shortening
   `JWT_EXPIRATION`.
-- **Hosting** — Cloudflare is likely, but Next on Workers has real constraints. Nothing should assume
-  a host yet.
 - **A real breached-password check** — `isGuessable` carries 24 common passwords, which stops the
   obvious ones and nothing else. Pwned Passwords' range API is the normal answer (k-anonymity, so no
   password or full hash leaves our server) at the cost of a call inside register; a bundled top-10k

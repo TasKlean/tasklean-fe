@@ -25,6 +25,21 @@ export default defineConfig({
     // No globals: test files import `describe`/`it`/`expect` from vitest.
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    coverage: {
+      provider: "v8",
+      // lcov is what Sonar reads; text keeps a local run readable.
+      reporter: ["text", "lcov"],
+      reportsDirectory: "coverage",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "src/test/**",
+        "src/**/*.types.ts",
+        "src/app/**/layout.tsx",
+        "src/app/**/page.tsx",
+        "src/components/marketing/**",
+      ],
+    },
     env: {
       // Non-UTC on purpose: on a UTC machine a naive `new Date(apiString)` is
       // correct by accident, so the timestamp tests would pass against the very
