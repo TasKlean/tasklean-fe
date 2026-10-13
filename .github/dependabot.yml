@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for the routine bumps; majors still arrive on their own.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint declares <6.1.0 and TS 7 throws on its version
+      # guard, which kills lint. The ~6.0.3 pin is deliberate.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+
+  # The counterpart to pinning every action to a SHA: without this they rot.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5

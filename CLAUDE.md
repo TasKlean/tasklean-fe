@@ -26,6 +26,7 @@ npm run lint           # ESLint
 npm run typecheck      # next typegen && tsc --noEmit
 npm test               # Vitest, single run
 npm run test:watch     # Vitest, watch mode
+npm run test:coverage  # Vitest with coverage, writes coverage/lcov.info for Sonar
 npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
@@ -54,10 +55,11 @@ Swagger UI (local only): http://localhost:8080/swagger-ui.html
 non-root user and serving `next.config.ts`'s `output: "standalone"` bundle with `node server.js`.
 `.dockerignore` keeps `node_modules`, `.next` and `.git` out of the build context.
 
-**`NEXT_PUBLIC_GOOGLE_CLIENT_ID` has to be passed twice**: as a build arg, because the browser
-bundle inlines it at build time, and as a runtime env var, because `config/env.ts` validates it in
-the server process where build args are gone. Missing the runtime half makes every auth action fail
-with the generic error.
+**The image takes no build arguments, and one image runs anywhere.** `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+is never inlined, because the only reader is `getEnv()` in a Server Component that passes the value
+down as a prop, so no client code references `process.env`. It is a **runtime** variable like the
+other two, and missing it makes every Google sign-in fail with the generic error. A build needs no
+environment at all.
 
 ### Generated files
 
@@ -73,11 +75,46 @@ deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.
 - **`typescript` is pinned `~6.0.3`, not `^`** — typescript-eslint declares `<6.1.0`, and **TS 7
   throws** on a hard `versionMajor >= 7` guard, killing lint. Don't widen the pin.
 
+## CI and deployment
+
+Two workflows, mirroring the backend's split. `ci-staging.yml` runs on push and PR to `main`,
+`ci-production.yml` on push and PR to `production`; a `main` into `production` PR is what promotes a
+release. Both ignore `**.md`, `docs/**` and `LICENSE`.
+
+```
+staging      verify -> sonarcloud -> build-and-push -> deploy
+production   verify -> sonarcloud -> version -> promote -> deploy -> release
+```
+
+- **One `verify` job** runs lint, typecheck, `test:coverage`, `format:check` and `build` in sequence,
+  then uploads `coverage/lcov.info`. Splitting them would pay for four runner starts and four
+  `npm ci` runs to parallelise gates that take seconds.
+- **Sonar is a separate job** so the scan never shares an environment with `npm ci`, and it is
+  skipped for a fork PR, which gets no `SONAR_TOKEN`. Config lives in `sonar-project.properties`.
+- **Production promotes, it never rebuilds.** Staging pushes `sha-<short>` plus a moving `staging`
+  tag; production finds the `sha-` tag for the commit being released, or for `HEAD^2` when a merge
+  commit sits on top, and retags that digest as the version and `latest`. Production runs the bytes
+  staging proved.
+- **Render pulls tags**: the staging service `:staging`, production `:latest`. Health check path is
+  `/api/health`.
+- **Every action is pinned to a commit SHA**, and `dependabot.yml` covers `github-actions` as well
+  as `npm`, because a pinned SHA that nothing updates is a stale dependency.
+- `.github/` also holds `pull_request_template.md`, which is the summary, changes, testing and notes
+  shape `/pre-commit PR` already produces.
+- `permissions: contents: read` at the top of both files; only `version` and `release` ask for
+  `contents: write`.
+- **No `npm audit` gate** - the five known devDependency findings would fail every run. Dependabot
+  covers that ground instead.
+
+Secrets at repo level: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `RENDER_API_KEY`, `SONAR_TOKEN`.
+Per GitHub Environment (`Staging`, `Production`): `RENDER_DEPLOY_HOOK`, `RENDER_SERVICE_ID`.
+
 ## Architecture
 
 ```
 src/
   app/
+    api/health/        route.ts, the 200 Render polls; outside Proxy's matcher
     (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
       app/             page.tsx, the signed-in landing page at /app
     (auth)/            shared shell (brand panel + form), robots noindex

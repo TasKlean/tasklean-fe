@@ -11,10 +11,8 @@ FROM node:26-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# NEXT_PUBLIC_* is inlined into the client bundle at build time, so it must
-# be an ARG here, not a runtime env var.
-ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
-ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+# No build args, and none wanted: every env value is read server side at
+# runtime, so one image runs in any environment.
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
