@@ -15,6 +15,11 @@ vi.mock("@/lib/auth/session", () => ({
   getSession: () => getSession(),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () => new Headers({ "user-agent": "Vitest UA" }),
+}));
+
 import { logoutAction } from "@/app/(app)/actions";
 
 const BASE = "http://api.test";
@@ -75,5 +80,27 @@ describe("logoutAction", () => {
 
     expect(await redirectedTo()).toBe("/");
     expect(clearSession).toHaveBeenCalled();
+  });
+});
+
+describe("logoutAction device binding", () => {
+  it("tells the backend which device is leaving", async () => {
+    getSession.mockResolvedValue({
+      accessToken: "at-1",
+      refreshToken: "rt-1",
+      userUid: "u1",
+      activeGroupId: null,
+    });
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/logout`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({ success: true, message: null, data: null });
+      }),
+    );
+
+    await redirectedTo();
+
+    expect(seen.headers?.get("x-device-id")).toBe("dev-1");
   });
 });

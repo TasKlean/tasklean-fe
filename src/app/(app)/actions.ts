@@ -6,6 +6,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { deviceHeaders } from "@/lib/auth/device";
 import { clearSession, getSession } from "@/lib/auth/session";
 import { revokeSession } from "@/lib/auth/tokens/logout";
 
@@ -16,7 +17,7 @@ export async function logoutAction(): Promise<void> {
   if (session) {
     // Best effort: a refused revoke must not strand someone in a session they
     // already asked to leave, and the cookie below is what the browser obeys.
-    await revokeSession(session.refreshToken).catch(() => {});
+    await revokeSession(session.refreshToken, await deviceHeaders()).catch(() => {});
   }
 
   await clearSession();

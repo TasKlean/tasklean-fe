@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
+import { DEVICE_COOKIE_NAME } from "@/lib/auth/device";
 import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
 import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
 import { server } from "@/test/msw";
@@ -238,7 +239,7 @@ describe("proxy google nonce", () => {
   it("leaves the other public screens alone", async () => {
     const response = await proxy(requestFor("/verify-email"));
 
-    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(NONCE_COOKIE_NAME);
   });
 
   it("does not leak the header name into a signed-in render", async () => {
@@ -280,9 +281,91 @@ describe("proxy nonce cleanup", () => {
     expect(clearsNonce(response)).toBe(false);
   });
 
-  it("writes no cookie at all when a signed-in visitor carries no nonce", async () => {
+  it("writes no nonce cookie when a signed-in visitor carries no nonce", async () => {
     const response = await proxy(requestFor("/", await sessionCookie(3600)));
 
-    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(NONCE_COOKIE_NAME);
+  });
+});
+
+function requestWithDevice(path: string, deviceId?: string, session?: string): NextRequest {
+  const cookies = [
+    deviceId ? `${DEVICE_COOKIE_NAME}=${deviceId}` : "",
+    session ? `${SESSION_COOKIE_NAME}=${session}` : "",
+  ].filter(Boolean);
+
+  return new NextRequest(`${SITE}${path}`, {
+    headers: {
+      ...(cookies.length ? { cookie: cookies.join("; ") } : {}),
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0)",
+      "x-forwarded-for": "203.0.113.9",
+    },
+  });
+}
+
+describe("proxy device id", () => {
+  it("mints one on an auth screen, where a sign-in can happen", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("mints one for a signed-in visitor", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  it("mints none for an anonymous reader of the public site", async () => {
+    const response = await proxy(requestFor("/"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("keeps the id a browser already has", async () => {
+    const response = await proxy(requestWithDevice("/login", "device-kept"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("sends the id and the real browser user agent on refresh", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/refresh`, async ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({
+          success: true,
+          data: { token: await accessToken(900), refreshToken: "rt-rotated", uid: "u1" },
+        });
+      }),
+    );
+
+    await proxy(requestWithDevice("/tasks", "device-9", await sessionCookie(10, "rt-fresh")));
+
+    expect(seen.headers?.get("x-device-id")).toBe("device-9");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Mozilla/5.0 (Windows NT 10.0)");
+    expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
+  });
+});
+
+describe("proxy device id rolling", () => {
+  it("rolls the existing id forward when it rotates the session", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+
+    const response = await proxy(
+      requestWithDevice("/tasks", "device-kept", await sessionCookie(10, "rt-rolling")),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toBe("device-kept");
+  });
+
+  it("does not touch the cookie on a pass-through request", async () => {
+    const response = await proxy(
+      requestWithDevice("/tasks", "device-kept", await sessionCookie(3600)),
+    );
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
   });
 });

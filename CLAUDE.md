@@ -150,6 +150,7 @@ src/
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
                        logout.ts (revokes server-side)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
+      device.ts        the per-browser device id cookie and the headers carrying it
       password-reset.ts  forgot and reset, neither of which returns tokens
       google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
       safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
@@ -282,7 +283,18 @@ routes are `noindex` via the `(auth)` layout.
   `safe-next.ts` owns that constant, so login, Google and Proxy agree.
 - **Logout is best effort at the backend, certain in the browser.** `revokeSession` failing must
   never leave someone in a session they asked to leave, so the cookie is cleared either way. It
-  revokes every refresh token the user holds, so it signs them out everywhere.
+  ends **this device only**; other browsers keep their sessions, and signing out everywhere is a
+  separate call from account settings.
+- **Every browser carries a device id, minted by Proxy into `tasklean_device`.** The backend binds
+  a refresh token to it, so a session has a stable identity across rotation and can be listed and
+  revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which
+  cannot reach `localStorage`. `auth/device.ts` owns the cookie and builds the three headers the
+  backend reads: `X-Device-Id`, `X-Device-User-Agent` (the real browser UA, since the transport one
+  on this hop is Node's) and `X-Forwarded-For`. They ride on login, Google, verify-email, refresh
+  and every `/api/me` call, the last because `currentDevice` is resolved from the header. Logout
+  sends them too, but derives the device from the token's own binding, not from what we send.
+  Proxy mints only on the auth screens and for signed-in requests, never for an anonymous reader of
+  the marketing page.
 - **Proxy is the auth boundary and the only refresh site on the navigation path.** Default deny —
   everything is protected unless in `PUBLIC_PATHS`. `/api` is excluded from the matcher so Route
   Handlers answer `401` instead of redirecting to HTML.

@@ -17,6 +17,7 @@ import {
   createNonce,
   hashNonce,
 } from "@/lib/auth/google-nonce";
+import { deviceHeaders } from "@/lib/auth/device";
 import { safeNext } from "@/lib/auth/safe-next";
 import { setSession } from "@/lib/auth/session";
 import { signInWithGoogle } from "@/lib/auth/signin/google";
@@ -64,7 +65,7 @@ export async function googleSignInAction(
   const next = safeNext(parsed.values.next);
 
   try {
-    const tokens = await signInWithGoogle(parsed.values.idToken, nonce);
+    const tokens = await signInWithGoogle(parsed.values.idToken, nonce, await deviceHeaders());
     store.delete(NONCE_COOKIE_NAME);
     await setSession({ ...tokens, activeGroupId: null });
   } catch (error) {

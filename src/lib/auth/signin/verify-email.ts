@@ -8,19 +8,26 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import type { AuthResponse, SignedInTokens } from "@/lib/auth/auth.types";
+import type { DeviceHeaders } from "@/lib/auth/device";
 
 /**
  * Verifies an emailed code.
  *
+ * @param device Device headers, so the backend binds this session to a device.
  * @returns The token pair and the user's opaque uid.
  * @throws ApiError on failure. Unknown address, already verified, wrong code
  * and expired code are one indistinguishable message, by design.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function verifyEmail(email: string, code: string): Promise<SignedInTokens> {
+export async function verifyEmail(
+  email: string,
+  code: string,
+  device: DeviceHeaders = {},
+): Promise<SignedInTokens> {
   const response = await request<AuthResponse>("/api/auth/verify-email", {
     method: "POST",
     body: { email, code },
+    headers: device,
   });
 
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {

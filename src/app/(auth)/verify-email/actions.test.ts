@@ -8,6 +8,11 @@ vi.mock("@/lib/auth/session", () => ({
   setSession: (...args: unknown[]) => setSession(...(args as [])),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () => new Headers({ "user-agent": "Vitest UA" }),
+}));
+
 import { resendAction, verifyAction, type VerifyState } from "@/app/(auth)/verify-email/actions";
 
 const BASE = "http://api.test";

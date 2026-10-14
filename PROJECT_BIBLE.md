@@ -708,6 +708,42 @@ alternative caps every session at the access-token lifetime.
 Single-flight de-duplication is **per-process and best-effort**. Two instances can still refresh
 concurrently; solving that properly needs a shared lock, which is not worth it at this scale.
 
+### Device identity lives in a cookie, not in browser storage
+
+The backend binds each refresh token to a device, resolved from an `X-Device-Id` header it expects
+us to keep stable per browser. The obvious implementation is a UUID in `localStorage`, and it is the
+one the backend's own notes suggest. **It cannot work here.** Refresh does not happen in the
+browser; it happens in Proxy, on the server, which has no access to `localStorage` at all. A rotation
+would therefore arrive with no device, and the session would lose the identity the whole feature
+exists to give it.
+
+So Proxy mints the id into `tasklean_device`, an httpOnly cookie, exactly as it already mints the
+Google nonce, and for the same underlying reason: a cookie is the only client state the server can
+read on every request, and Proxy is one of the three places allowed to write one. `localStorage`
+also loses on browser policy: Safari wipes script-writable storage after 7 days of inactivity, so an
+id kept there would churn weekly on that browser, while a server-set httpOnly cookie does not.
+
+**The id is rolled, not just minted.** Its life is 400 days, the ceiling Chrome has enforced since
+104, and Proxy re-writes it whenever it rotates the session, which is already a cookie write. A
+browser in regular use therefore keeps its identity indefinitely; only a dormant one ages out.
+
+Losing the cookie means a new device, with no way around it: `resolveLoginDevice` matches on the
+client id alone, with no fallback on user agent, so an unseen id always takes the `isNew` branch.
+That costs a fresh device row, a new-sign-in email, and an old row left listed with no live session
+until the user removes it. Clearing site data, a private window and a second browser profile all do
+the same thing. A user-agent fallback would hide the duplicates at the price of merging two profiles
+on one machine into one device, which is the worse error.
+
+Two consequences worth stating. The **user agent must be forwarded explicitly** as
+`X-Device-User-Agent`, because on the BFF-to-backend hop the ordinary `User-Agent` is Node's, so a
+device would otherwise be named after our server rather than the browser. And the id is minted
+**only on the auth screens and for signed-in requests**: stamping a stable identifier on an anonymous
+reader of the marketing page would be a tracking cookie that no sign-in ever needs.
+
+The headers are built in one place, `auth/device.ts`, and passed as a parameter rather than looked up
+inside each call, mirroring `client.ts`'s rule that auth is a parameter and not a session lookup.
+Proxy reads them off the `NextRequest`; a Server Action reads them through `next/headers`.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:

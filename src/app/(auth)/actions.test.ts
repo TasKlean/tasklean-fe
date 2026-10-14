@@ -17,6 +17,7 @@ vi.mock("next/headers", () => ({
     set: (name: string, value: string) => jar.set(name, value),
     delete: (name: string) => jar.delete(name),
   }),
+  headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
 import { googleSignInAction, type GoogleSignInState } from "@/app/(auth)/actions";

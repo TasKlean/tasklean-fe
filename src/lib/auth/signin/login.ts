@@ -8,20 +8,27 @@ import "server-only";
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 import type { AuthResponse, SignedInTokens } from "@/lib/auth/auth.types";
+import type { DeviceHeaders } from "@/lib/auth/device";
 
 /**
  * Logs in with a password.
  *
+ * @param device Device headers, so the backend binds this session to a device.
  * @returns The token pair and the user's opaque uid.
  * @throws ApiError on any non-2xx. Unknown email and wrong password share one
  * message so neither can be probed for; deactivated, Google-only and unverified
  * each have their own.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function loginWithPassword(email: string, password: string): Promise<SignedInTokens> {
+export async function loginWithPassword(
+  email: string,
+  password: string,
+  device: DeviceHeaders = {},
+): Promise<SignedInTokens> {
   const response = await request<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: { email, password },
+    headers: device,
   });
 
   // A session without a refresh token dies at the first expiry with no way back.

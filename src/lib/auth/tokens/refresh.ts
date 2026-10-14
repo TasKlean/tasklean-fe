@@ -9,6 +9,7 @@ import "server-only";
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
 import type { AuthResponse } from "@/lib/auth/auth.types";
+import type { DeviceHeaders } from "@/lib/auth/device";
 
 // Our field names, not the backend's `token` and `uid`.
 export type RefreshedTokens = {
@@ -43,14 +44,18 @@ export class RefreshFailedError extends Error {
  * De-duplication is per-process and best-effort; two deployed instances can
  * still refresh concurrently, which would need a shared lock to prevent.
  *
+ * @param device Device headers, so rotation stays bound to the same device.
  * @returns The rotated pair. The caller must persist it or the session is lost.
  * @throws RefreshFailedError when the backend refuses, or returns no pair.
  */
-export function refreshTokens(refreshToken: string): Promise<RefreshedTokens> {
+export function refreshTokens(
+  refreshToken: string,
+  device: DeviceHeaders = {},
+): Promise<RefreshedTokens> {
   const existing = inFlight.get(refreshToken);
   if (existing) return existing;
 
-  const pending = performRefresh(refreshToken);
+  const pending = performRefresh(refreshToken, device);
   inFlight.set(refreshToken, pending);
 
   // A failure is forgotten at once so a retry is possible; a success is kept
@@ -73,13 +78,17 @@ export function refreshTokens(refreshToken: string): Promise<RefreshedTokens> {
  *
  * @throws RefreshFailedError when the backend refuses, or returns half a pair.
  */
-async function performRefresh(refreshToken: string): Promise<RefreshedTokens> {
+async function performRefresh(
+  refreshToken: string,
+  device: DeviceHeaders,
+): Promise<RefreshedTokens> {
   let response: AuthResponse;
 
   try {
     response = await request<AuthResponse>("/api/auth/refresh", {
       method: "POST",
       body: { refreshToken },
+      headers: device,
     });
   } catch (error) {
     if (isApiError(error)) {

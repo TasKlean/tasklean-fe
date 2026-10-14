@@ -9,6 +9,7 @@
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase";
+import { deviceHeaders } from "@/lib/auth/device";
 import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
 import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
@@ -42,7 +43,7 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
   let unverified = false;
 
   try {
-    const tokens = await loginWithPassword(email, password);
+    const tokens = await loginWithPassword(email, password, await deviceHeaders());
     await setSession({ ...tokens, activeGroupId: null });
   } catch (error) {
     // Not a failure but a step: send a fresh code and move them on.

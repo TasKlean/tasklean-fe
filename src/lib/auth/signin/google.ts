@@ -7,6 +7,7 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth/auth.types";
+import type { DeviceHeaders } from "@/lib/auth/device";
 
 /**
  * Signs in with a Google ID token.
@@ -17,15 +18,24 @@ import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth
  *
  * @param idToken The credential from Google Identity Services.
  * @param nonce The raw per-attempt secret whose hash the token carries.
+ * @param device Device headers, so the backend binds this session to a device.
  * @returns The token pair and the user's opaque uid.
  * @throws ApiError on any non-2xx. A rejected token, a nonce that does not
  * match, an unverified Google mailbox and a deactivated account all arrive as
  * 401; a missing nonce is a 400.
  * @throws Error when a 2xx arrives without a usable token pair.
  */
-export async function signInWithGoogle(idToken: string, nonce: string): Promise<SignedInTokens> {
+export async function signInWithGoogle(
+  idToken: string,
+  nonce: string,
+  device: DeviceHeaders = {},
+): Promise<SignedInTokens> {
   const body: GoogleAuthRequest = { idToken, nonce };
-  const response = await request<AuthResponse>("/api/auth/google", { method: "POST", body });
+  const response = await request<AuthResponse>("/api/auth/google", {
+    method: "POST",
+    body,
+    headers: device,
+  });
 
   // A session without a refresh token dies at the first expiry with no way back.
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {

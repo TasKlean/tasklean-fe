@@ -1,6 +1,20 @@
 import { http, HttpResponse } from "msw";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
+
+const { jar } = vi.hoisted(() => ({
+  jar: new Map<string, string>([["tasklean_device", "dev-1"]]),
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
+    set: (name: string, value: string) => jar.set(name, value),
+    delete: (name: string) => jar.delete(name),
+  }),
+  headers: async () => new Headers({ "user-agent": "Vitest UA", "x-forwarded-for": "203.0.113.9" }),
+}));
+
 import { loginAction, type LoginState } from "@/app/(auth)/login/actions";
 
 const BASE = "http://api.test";
@@ -220,5 +234,26 @@ describe("loginAction rate limiting", () => {
     const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
 
     expect(state.error).toBe("Slow down. Please try again shortly.");
+  });
+});
+
+describe("loginAction device binding", () => {
+  it("sends the device id and the real browser user agent", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/login`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json(
+          { success: false, message: "Invalid email or password", data: null },
+          { status: 401 },
+        );
+      }),
+    );
+
+    await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+
+    expect(seen.headers?.get("x-device-id")).toBe("dev-1");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
+    expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
   });
 });

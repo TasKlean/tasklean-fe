@@ -12,6 +12,12 @@ import {
   createNonce,
   hashNonce,
 } from "@/lib/auth/google-nonce";
+import {
+  DEVICE_COOKIE_NAME,
+  DEVICE_COOKIE_OPTIONS,
+  buildDeviceHeaders,
+  createDeviceId,
+} from "@/lib/auth/device";
 import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
 import { SIGNED_IN_HOME } from "@/lib/auth/safe-next";
 import { refreshTokens } from "@/lib/auth/tokens/refresh";
@@ -113,13 +119,26 @@ function redirectToLogin(request: NextRequest): NextResponse {
 }
 
 /**
+ * Reports whether this request is one that should carry a device id.
+ *
+ * The marketing page is deliberately excluded: an id minted for an anonymous
+ * reader would be a tracking cookie that no sign-in ever asks for.
+ */
+function needsDeviceId(pathname: string, session: Session | null): boolean {
+  return session !== null || matches(AUTH_PATHS, pathname);
+}
+
+/**
  * Guards every matched route: redirects anonymous visitors to `/login`,
  * refreshes a near-expiry token pair and persists the rotation, and drops the
  * session when refresh is refused.
  */
-export default async function proxy(request: NextRequest): Promise<NextResponse> {
+async function route(
+  request: NextRequest,
+  session: Session | null,
+  deviceId: string,
+): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
-  const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   if (!session) {
     if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
@@ -145,7 +164,14 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
   }
 
   try {
-    const refreshed = await refreshTokens(session.refreshToken);
+    const refreshed = await refreshTokens(
+      session.refreshToken,
+      buildDeviceHeaders({
+        deviceId,
+        userAgent: request.headers.get("user-agent"),
+        forwardedFor: request.headers.get("x-forwarded-for"),
+      }),
+    );
     const rotated: Session = {
       ...session,
       accessToken: refreshed.accessToken,
@@ -158,6 +184,9 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
+    // Rolled on the same beat, so a browser in regular use never ages out of
+    // its own device identity and gets listed as a stranger.
+    response.cookies.set(DEVICE_COOKIE_NAME, deviceId, DEVICE_COOKIE_OPTIONS);
     return dropSpentNonce(request, response);
   } catch {
     // Spent, revoked, or refused — there is no recovery from here.
@@ -165,4 +194,25 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;
   }
+}
+
+/**
+ * Runs the auth boundary, and mints the device id the backend binds sessions to.
+ *
+ * Minting lives here because a cookie can only be written in Proxy, a Route
+ * Handler or a Server Action, and the id has to exist before the sign-in that
+ * uses it. One mint serves whichever response the boundary produced.
+ */
+export default async function proxy(request: NextRequest): Promise<NextResponse> {
+  const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const existingDeviceId = request.cookies.get(DEVICE_COOKIE_NAME)?.value;
+  const deviceId = existingDeviceId || createDeviceId();
+
+  const response = await route(request, session, deviceId);
+
+  if (!existingDeviceId && needsDeviceId(request.nextUrl.pathname, session)) {
+    response.cookies.set(DEVICE_COOKIE_NAME, deviceId, DEVICE_COOKIE_OPTIONS);
+  }
+
+  return response;
 }
