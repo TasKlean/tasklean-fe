@@ -888,6 +888,14 @@ workaround **before** the feature depending on it gets built.
 18. **No envelope field is marked `required`** in `openapi.json`, not even `success`. The declared
     `ErrorResponse` schema is the same envelope with `success: false`, and is referenced by zero
     responses. Narrow at the boundary rather than trusting the shape.
+19. **Google's sign-in button is a cross-origin iframe that declares no `color-scheme`**, so it is a
+    light document. Under our dark `:root` the schemes disagree, the browser stops treating the
+    iframe canvas as transparent and paints it opaque, and a square white slab appears around a
+    button that is still a perfect pill inside it. Only a *rebuilt* widget is affected, and
+    `renderButton` is rebuilt on every width change because width is a constructor option, so the
+    first paint always looks right and a later resize is what breaks it. The slot pins the iframe to
+    `color-scheme: light`. Reproducing it needs a real browser at two widths; jsdom and a single
+    screenshot both show a clean pill.
 
 ---
 
