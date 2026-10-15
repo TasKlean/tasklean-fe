@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next, reset } = await searchParams;
+  const { next, reset, signedOut } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
@@ -41,6 +41,17 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
         >
           Your password is set. Sign in with it, on this device and any other.
+        </p>
+      ) : null}
+
+      {signedOut === "all" || signedOut === "device" ? (
+        <p
+          role="status"
+          className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
+        >
+          {signedOut === "all"
+            ? "You are signed out everywhere. Sign in again to carry on here."
+            : "You signed this device out. Sign in again to carry on here."}
         </p>
       ) : null}
 

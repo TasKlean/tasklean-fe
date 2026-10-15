@@ -16,6 +16,7 @@ export type Session = {
   activeGroupId: number | null;
   // Display only, for the chrome. Absent on a session sealed before it existed.
   name?: string;
+  photoUrl?: string;
 };
 
 export const SESSION_COOKIE_NAME = "tasklean_session";
@@ -81,6 +82,7 @@ function toSession(payload: unknown): Session | null {
     activeGroupId: value.activeGroupId,
     // Spread so the key stays absent rather than present-and-undefined.
     ...(typeof value.name === "string" ? { name: value.name } : {}),
+    ...(typeof value.photoUrl === "string" ? { photoUrl: value.photoUrl } : {}),
   };
 }
 

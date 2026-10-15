@@ -13,7 +13,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="bg-background flex min-h-dvh flex-col">
-      <AppHeader name={session?.name ?? null} />
+      <AppHeader name={session?.name ?? null} photoUrl={session?.photoUrl ?? null} />
       <main className="flex-1">{children}</main>
     </div>
   );

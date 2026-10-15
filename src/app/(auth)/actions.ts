@@ -19,7 +19,7 @@ import {
 } from "@/lib/auth/google-nonce";
 import { deviceHeaders } from "@/lib/auth/device";
 import { safeNext } from "@/lib/auth/safe-next";
-import { setSession } from "@/lib/auth/session";
+import { startSession } from "@/lib/auth/start-session";
 import { signInWithGoogle } from "@/lib/auth/signin/google";
 import { parseGoogleSignIn } from "@/lib/validation/forms/google-signin.schema";
 
@@ -67,7 +67,7 @@ export async function googleSignInAction(
   try {
     const tokens = await signInWithGoogle(parsed.values.idToken, nonce, await deviceHeaders());
     store.delete(NONCE_COOKIE_NAME);
-    await setSession({ ...tokens, activeGroupId: null });
+    await startSession(tokens);
   } catch (error) {
     if (isApiError(error)) {
       const message = error.status === 429 ? rateLimitMessage(error) : error.message;

@@ -12,9 +12,10 @@ is the reference: what exists, where it lives, and the rules.
 Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
-`/forgot-password`, `/reset-password`, Google sign-in, `/app` and logout exist. Everything else
-behind the session does not. Register, verification, password login, password reset and token
-rotation have all run against the real backend in Docker; every automated test is still MSW.
+`/forgot-password`, `/reset-password`, Google sign-in, `/app`, `/app/account`,
+`/app/settings/devices` and logout exist. Everything else behind the session does not. Register,
+verification, password login, password reset and token rotation have all run against the real
+backend in Docker; every automated test is still MSW.
 
 ## Quick reference
 
@@ -116,7 +117,11 @@ src/
   app/
     api/health/        route.ts, the 200 Render polls; outside Proxy's matcher
     (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
-      app/             page.tsx, the signed-in landing page at /app
+      app/             everything behind the session lives under /app
+        page.tsx       the signed-in landing page
+        account/       the profile page behind the avatar menu
+        settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
+          devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
     (auth)/            shared shell (brand panel + form), robots noindex
       actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
@@ -132,10 +137,11 @@ src/
   assets/              images components import; next/image reads their size from the file
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
-    common/            primitives, no feature knowledge: brand-mark, text-field,
-                       password-field, code-input, password-strength-meter, submit-button,
-                       or-divider, greeting
-    app/               signed-in chrome: app-header, logout-button
+    common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
+                       masked-email, load-error, brand-mark, text-field, password-field,
+                       code-input, password-strength-meter, submit-button, or-divider, greeting
+    app/               signed-in chrome: app-header, settings-nav, device-row,
+                       sign-out-everywhere
     auth/              login-form, register-form, verify-email-form, google-sign-in
                        (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -155,12 +161,14 @@ src/
       google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
       safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
     config/env.ts      validated environment
+    devices/devices.ts the caller's own devices and sessions
     time/api-date.ts   API timestamps ↔ Date
+    users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
-                       google-signin, forgot-password, reset-password
+                       google-signin, forgot-password, reset-password, device-action
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -197,6 +205,9 @@ the code** they cover.
 - **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare
   `<img>` and never `public/`, which costs the intrinsic size and the build-time blur
   placeholder. The logo has a dark-mode twin, so render `BrandMark` rather than either file.
+  **A remote profile photo is the exception**: it has no build-time size, so `next.config.ts`
+  allowlists the hosts the optimizer may fetch and `Avatar` falls back to initials for anything
+  else, since an unlisted host makes `next/image` throw and takes the page with it.
 - **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
   design's Material Symbols. `aria-hidden` when a text label says the same thing.
 - **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
@@ -224,7 +235,12 @@ the code** they cover.
 - **No em or en dashes.** Not in UI copy, not in comments, not in docs. A full stop, a comma or a
   colon says the same thing. Older files still carry them and get swept as they are touched.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never a
-  bare "Something went wrong" when the envelope carried a `message`.
+  bare "Something went wrong" when the envelope carried a `message`. A screen that loads data
+  catches `ApiError` and renders `LoadError` inline, keeping the rest of the page usable; the route
+  boundary is for the failures nobody anticipated, and `SessionExpiredError` redirects to `/login`.
+- **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
+  button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
+  which cannot be styled and reads badly on a phone.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
@@ -278,6 +294,14 @@ routes are `noindex` via the `(auth)` layout.
 - **The display name rides in the session cookie.** Every auth response carries it, including
   refresh, so the chrome can greet by name without an API call on every page. It is display only
   and may be stale; anything that matters reads the backend.
+- **So does the avatar, but it costs one call at sign-in.** `AuthResponse` has no `photoUrl`, so
+  `startSession` reads `/api/users/me` once and seals it beside the name. Best effort: a failure
+  costs an avatar, never a login. Every sign-in path goes through `startSession`, never
+  `setSession` directly, or the chrome loses the photo on whichever path skipped it.
+- **Everything behind the session lives under `/app`.** `/app` is the home, `/app/account` and
+  `/app/settings/*` hang off it, and future screens follow. The prefix makes the auth boundary
+  legible in the URL and keeps a marketing page and an app route from ever colliding. Protection
+  does not depend on it: Proxy is default-deny.
 - **`/app` is the signed-in home, and `/` stays public.** A visitor with a session is bounced off
   the auth screens to `SIGNED_IN_HOME`, never off the marketing page, which stays readable.
   `safe-next.ts` owns that constant, so login, Google and Proxy agree.
@@ -291,7 +315,7 @@ routes are `noindex` via the `(auth)` layout.
   cannot reach `localStorage`. `auth/device.ts` owns the cookie and builds the three headers the
   backend reads: `X-Device-Id`, `X-Device-User-Agent` (the real browser UA, since the transport one
   on this hop is Node's) and `X-Forwarded-For`. They ride on login, Google, verify-email, refresh
-  and every `/api/me` call, the last because `currentDevice` is resolved from the header. Logout
+  and every `/api/devices` call, the last because `currentDevice` is resolved from the header. Logout
   sends them too, but derives the device from the token's own binding, not from what we send.
   Proxy mints only on the auth screens and for signed-in requests, never for an anonymous reader of
   the marketing page.
@@ -378,6 +402,9 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **The suite runs in a pinned non-UTC timezone** (`TZ = "Europe/Ljubljana"`). On a UTC machine a
   naive `new Date(apiString)` is right by accident and the timestamp tests would pass against the bug
   they exist to catch. `time/api-date.test.ts` asserts the pin.
+- **jsdom implements no `ResizeObserver`**, so `vitest.setup.ts` stubs it. A component that
+  measures itself would otherwise throw on mount; the stub never fires, so a measured size simply
+  stays absent.
 - New logic in `src/lib/` gets a colocated test.
 
 ## Environment

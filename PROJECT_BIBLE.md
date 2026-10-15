@@ -744,6 +744,57 @@ The headers are built in one place, `auth/device.ts`, and passed as a parameter 
 inside each call, mirroring `client.ts`'s rule that auth is a parameter and not a session lookup.
 Proxy reads them off the `NextRequest`; a Server Action reads them through `next/headers`.
 
+### The avatar costs one call at sign-in, not one per page
+
+The chrome shows a profile photo, and `AuthResponse` does not carry one: it has `token`,
+`refreshToken`, `uid`, `email`, `name` and `message`, nothing more. Only `GET /api/users/me` knows
+the `photoUrl`, which the backend fills from Google's `picture` claim.
+
+Three ways to get it to the chrome, and the cheap one wins. Fetching the profile in both layouts
+would put a backend call on every signed-in page render, including the marketing page. Asking the
+backend to add the field is the cleanest answer and the one to take if it ever becomes easy, since
+`name` is already there for exactly this reason. Until then `startSession` reads the profile once,
+right after a credential exchange, and seals the photo into the cookie beside the name.
+
+It inherits the same contract as the name: **display only, and allowed to be stale.** A photo
+changed elsewhere shows up at the next sign-in. The call is best effort and its failure swallowed,
+because an avatar is never worth failing a login over.
+
+The consequence worth remembering: **every sign-in path must go through `startSession`**. Calling
+`setSession` directly still works and still signs the user in, which is exactly why a path that
+skipped it would lose the avatar quietly rather than loudly.
+
+Remote photos also break the project's image rule, which assumes a static import with a build-time
+size. `next.config.ts` therefore allowlists the hosts the optimizer may fetch, currently only
+Google's, and `Avatar` checks the host before drawing: an unlisted one falls back to initials.
+Without that check `next/image` throws on an unconfigured host and takes the whole page down, and
+allowlisting every host instead would turn our optimizer into an open image proxy.
+
+### What the devices screen offers, and what it refuses to
+
+Three operations exist on the backend and all three are worth exposing: end one device's session,
+remove a device, and end every session. There is **no bulk delete**, and the screen does not fake
+one by looping requests: a half-failed loop leaves a mess nobody can see, and "sign out everywhere"
+already covers the case that matters, losing a device.
+
+A dead session dims its row but **keeps its Remove button at full strength**, since that is exactly
+when removal is the useful action. Its sign-out button disappears instead, because ending a session
+that has already ended does nothing.
+
+**Ending this browser's own session has to clear the cookie.** The backend revokes refresh tokens
+and nothing else, so the access token sealed in our cookie keeps working until it expires, which in
+dev is a **year**. Without clearing it the screen would cheerfully report you were still signed in.
+The action therefore asks the backend which row is the current device, and if it is the one being
+ended, clears the session and redirects to `/login`. Asking the backend rather than trusting a
+hidden form field means a tampered field cannot sign anyone out, and an unreadable answer is treated
+as "not ours", because wrongly logging someone out is worse than wrongly leaving them in. The same
+check covers removal, which also answers "what if the list empties": the only device you can remove
+last is your own.
+
+Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
+Someone pressing it believes every other session is gone, and a silent failure would leave them
+believing it wrongly.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -948,15 +999,16 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Group onboarding** ← _current_ | `/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
-| 4     | **Tasks — the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
-| 5     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
-| 6     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
-| 7     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 4 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
-| 8     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
-| 9     | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell.                                                                                                    | Deliberately late: it's a capability layered onto a working app, and an offline shell for screens that don't exist yet is wasted work.                                                                      |
-| 10    | **Push notifications**     | Device registration, permission flow, device management screen.                                                                                                    | Needs the PWA service worker from phase 9.                                                                                                                                                                  |
-| 11    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Blocked on API gap 3_ — there's no upload endpoint on the backend.                                                                                                                                         |
+| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the settings shell, and devices and sessions: list, rename, per-device logout, remove, log out everywhere. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
+| 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
+| 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
+| 7     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
+| 8     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 5 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
+| 9     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
+| 10    | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell.                                                                                                    | Deliberately late: it's a capability layered onto a working app, and an offline shell for screens that don't exist yet is wasted work.                                                                      |
+| 11    | **Push notifications**     | Device registration and the permission flow. The device list itself landed in phase 3.                                                                                                    | Needs the PWA service worker from phase 9.                                                                                                                                                                  |
+| 12    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Blocked on API gap 3_ — there's no upload endpoint on the backend.                                                                                                                                         |
 
 **Cross-cutting work**, slotted where it earns its place rather than done up front:
 

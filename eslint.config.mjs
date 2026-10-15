@@ -14,6 +14,16 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "coverage/**",
   ]),
+  {
+    rules: {
+      // A leading underscore already means "deliberately unused" across this
+      // codebase, chiefly the `_previous` every Server Action takes and ignores.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

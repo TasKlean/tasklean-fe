@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/common/account-menu";
 import { BrandMark } from "@/components/common/brand-mark";
 import { Greeting } from "@/components/common/greeting";
 
@@ -18,10 +19,11 @@ const SECTIONS = [
 type SiteHeaderProps = {
   signedIn: boolean;
   name: string | null;
+  photoUrl: string | null;
 };
 
 /** Renders the public site header. */
-export function SiteHeader({ signedIn, name }: SiteHeaderProps) {
+export function SiteHeader({ signedIn, name, photoUrl }: SiteHeaderProps) {
   return (
     <header className="bg-background/85 border-border/60 sticky top-0 z-50 w-full border-b backdrop-blur-xl">
       <div className="max-w-app px-margin md:px-margin-tablet lg:px-margin-desktop gap-gutter mx-auto flex h-16 items-center justify-between md:h-20">
@@ -44,16 +46,17 @@ export function SiteHeader({ signedIn, name }: SiteHeaderProps) {
         <div className="gap-space-xs flex items-center">
           {signedIn ? (
             <>
-              <Greeting
-                name={name}
-                className="text-label-lg text-muted-foreground px-space-sm hidden whitespace-nowrap sm:block"
-              />
               <Link
                 href="/app"
                 className="text-label-lg bg-primary text-primary-foreground hover:bg-primary-strong px-space-md sm:px-space-lg shadow-level-1 flex min-h-11 items-center rounded-full whitespace-nowrap transition-colors"
               >
                 Go to app
               </Link>
+              <Greeting
+                name={name}
+                className="text-label-lg text-muted-foreground px-space-sm hidden whitespace-nowrap sm:block"
+              />
+              <AccountMenu name={name} photoUrl={photoUrl} />
             </>
           ) : (
             <>

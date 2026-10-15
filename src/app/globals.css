@@ -163,6 +163,20 @@
   /* Desktop caps the layout rather than filling the viewport, so a wide screen
    * frames the app like a bulletin board instead of an admin tool. */
   --container-app: 1200px;
+
+  /* The wait on a press-and-hold, drawn as a border filling in around the
+   * element. A stroke with pathLength 1 makes the dash maths independent of how
+   * long the perimeter actually is. */
+  --animate-hold: hold 3s linear forwards;
+
+  @keyframes hold {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
 }
 
 /* Light. Values are DESIGN.md's; the comment gives its name for each. */

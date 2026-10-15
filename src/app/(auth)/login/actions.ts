@@ -14,7 +14,7 @@ import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
 import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
 import { echoLogin, parseLogin } from "@/lib/validation/forms/login.schema";
-import { setSession } from "@/lib/auth/session";
+import { startSession } from "@/lib/auth/start-session";
 
 export type LoginState = {
   error: string | null;
@@ -44,7 +44,7 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
 
   try {
     const tokens = await loginWithPassword(email, password, await deviceHeaders());
-    await setSession({ ...tokens, activeGroupId: null });
+    await startSession(tokens);
   } catch (error) {
     // Not a failure but a step: send a fresh code and move them on.
     if (isEmailUnverified(error)) {

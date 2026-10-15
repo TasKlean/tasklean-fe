@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/marketing/site-header";
 
 describe("SiteHeader signed out", () => {
   it("offers the ways in", () => {
-    render(<SiteHeader signedIn={false} name={null} />);
+    render(<SiteHeader signedIn={false} name={null} photoUrl={null} />);
 
     expect(screen.getByRole("link", { name: "Log in" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Get started" })).toBeInTheDocument();
@@ -16,7 +16,7 @@ describe("SiteHeader signed out", () => {
 
 describe("SiteHeader signed in", () => {
   it("points at the app instead", () => {
-    render(<SiteHeader signedIn name="Bob" />);
+    render(<SiteHeader signedIn name="Bob" photoUrl={null} />);
 
     expect(screen.getByRole("link", { name: "Go to app" })).toHaveAttribute("href", "/app");
     expect(screen.queryByRole("link", { name: "Log in" })).toBeNull();
@@ -24,13 +24,13 @@ describe("SiteHeader signed in", () => {
   });
 
   it("greets by name", () => {
-    render(<SiteHeader signedIn name="Bob" />);
+    render(<SiteHeader signedIn name="Bob" photoUrl={null} />);
 
     expect(screen.getByText(/Hello,/)).toHaveTextContent("Hello, Bob");
   });
 
   it("drops the greeting when the session carries no name", () => {
-    render(<SiteHeader signedIn name={null} />);
+    render(<SiteHeader signedIn name={null} photoUrl={null} />);
 
     expect(screen.queryByText(/Hello,/)).toBeNull();
     expect(screen.getByRole("link", { name: "Go to app" })).toBeInTheDocument();

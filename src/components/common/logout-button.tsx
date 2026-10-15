@@ -8,8 +8,12 @@
 import { LogOut } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
+type LogoutButtonProps = {
+  className: string;
+};
+
 /** Renders the sign-out control, disabled while the action is in flight. */
-export function LogoutButton() {
+export function LogoutButton({ className }: LogoutButtonProps) {
   const { pending } = useFormStatus();
 
   return (
@@ -17,7 +21,7 @@ export function LogoutButton() {
       type="submit"
       disabled={pending}
       aria-busy={pending}
-      className="text-label-lg text-muted-foreground hover:text-foreground hover:bg-muted px-space-md gap-space-xs flex min-h-11 items-center rounded-full whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-70"
+      className={`${className} disabled:cursor-not-allowed disabled:opacity-70`}
     >
       <LogOut className="size-4" aria-hidden />
       <span>{pending ? "Signing you out…" : "Log out"}</span>

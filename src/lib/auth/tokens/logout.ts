@@ -26,3 +26,20 @@ export async function revokeSession(
   const body: RefreshRequest = { refreshToken };
   await request<unknown>("/api/auth/logout", { method: "POST", body, headers: device });
 }
+
+/**
+ * Ends every session the user holds, on every device, including this one.
+ *
+ * The caller must clear the cookie afterwards: this browser's own tokens are
+ * among the ones revoked, so staying put would leave a session that is already
+ * dead at the backend.
+ *
+ * @throws ApiError when the token is already spent or unknown.
+ */
+export async function revokeAllSessions(
+  refreshToken: string,
+  device: DeviceHeaders = {},
+): Promise<void> {
+  const body: RefreshRequest = { refreshToken };
+  await request<unknown>("/api/auth/logout-all", { method: "POST", body, headers: device });
+}

@@ -10,7 +10,7 @@ import { safeNext } from "@/lib/auth/safe-next";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device";
-import { setSession } from "@/lib/auth/session";
+import { startSession } from "@/lib/auth/start-session";
 import { resendVerification, verifyEmail } from "@/lib/auth/signin/verify-email";
 import { parseResend, parseVerifyEmail } from "@/lib/validation/forms/verify-email.schema";
 
@@ -39,7 +39,7 @@ export async function verifyAction(
 
   try {
     const tokens = await verifyEmail(email, code, await deviceHeaders());
-    await setSession({ ...tokens, activeGroupId: null });
+    await startSession(tokens);
   } catch (error) {
     if (isApiError(error)) {
       if (error.status === 429) {
