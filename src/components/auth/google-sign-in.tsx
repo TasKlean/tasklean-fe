@@ -4,6 +4,7 @@
  * handed down rather than reaching the browser on its own.
  */
 
+import { googleSignInAction } from "@/app/(auth)/actions";
 import { GoogleButton } from "@/components/auth/google-button";
 import { OrDivider } from "@/components/common/or-divider";
 import { getEnv } from "@/lib/config/env";
@@ -25,6 +26,7 @@ export function GoogleSignIn({ intent, nonceHash, next }: GoogleSignInProps) {
       <OrDivider />
 
       <GoogleButton
+        action={googleSignInAction}
         clientId={getEnv().NEXT_PUBLIC_GOOGLE_CLIENT_ID}
         intent={intent}
         next={next}

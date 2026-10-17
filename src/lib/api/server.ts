@@ -10,6 +10,12 @@ import type { RequestOptions } from "@/lib/api/client.types";
 import { isApiError } from "@/lib/api/errors";
 import { getSession } from "@/lib/auth/session";
 
+export type ServerApiOptions = Omit<RequestOptions, "accessToken"> & {
+  // Set where the endpoint verifies a credential from the body: its 401 is that
+  // credential's verdict, and a mistyped password must not end the session.
+  credentialCheck?: boolean;
+};
+
 export class SessionExpiredError extends Error {
   constructor(message = "No valid session. Sign in again.") {
     super(message);
@@ -27,22 +33,23 @@ export function isSessionExpiredError(error: unknown): error is SessionExpiredEr
 /**
  * Calls the API with the current session's access token.
  *
- * @param options As `request()`, minus `accessToken` — the session supplies it.
- * @throws SessionExpiredError when there is no session, or the API returns 401.
+ * @param options As `request()`, minus `accessToken`, which the session supplies,
+ * plus `credentialCheck` to keep a 401 as an ApiError.
+ * @throws SessionExpiredError when there is no session, or the API returns 401
+ * for anything but a credential check.
  * @throws ApiError for every other failure, including 403: authenticated but
  * not allowed is a permission problem, not a session one.
  */
-export async function serverApi<T>(
-  path: string,
-  options: Omit<RequestOptions, "accessToken"> = {},
-): Promise<T> {
+export async function serverApi<T>(path: string, options: ServerApiOptions = {}): Promise<T> {
+  const { credentialCheck = false, ...rest } = options;
+
   const session = await getSession();
   if (!session) throw new SessionExpiredError();
 
   try {
-    return await request<T>(path, { ...options, accessToken: session.accessToken });
+    return await request<T>(path, { ...rest, accessToken: session.accessToken });
   } catch (error) {
-    if (isApiError(error) && error.status === 401) {
+    if (!credentialCheck && isApiError(error) && error.status === 401) {
       throw new SessionExpiredError();
     }
     throw error;

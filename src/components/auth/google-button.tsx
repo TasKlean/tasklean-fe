@@ -17,19 +17,25 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { googleSignInAction, type GoogleSignInState } from "@/app/(auth)/actions";
 import type {
+  GoogleActionState,
   GoogleButtonProps,
   GoogleCredentialResponse,
   GoogleIdApi,
 } from "@/components/auth/google-button.types";
 
-const INITIAL: GoogleSignInState = { error: null };
+const INITIAL: GoogleActionState = { error: null };
 
 const GSI_SRC = "https://accounts.google.com/gsi/client";
 
 // Google rejects a wider button and ignores a CSS width.
 const MAX_WIDTH = 400;
+
+const LABELS = {
+  signin: "signin_with",
+  signup: "signup_with",
+  link: "continue_with",
+} as const;
 
 const gisListeners = new Set<() => void>();
 
@@ -81,9 +87,9 @@ function configureGis(clientId: string, nonceHash: string): GoogleIdApi | null {
   return api;
 }
 
-/** Renders Google's sign-in button and turns its credential into a session. */
-export function GoogleButton({ clientId, intent, next, nonceHash }: GoogleButtonProps) {
-  const [state, formAction, pending] = useActionState(googleSignInAction, INITIAL);
+/** Renders Google's button and posts its credential to the given action. */
+export function GoogleButton({ action, clientId, intent, next, nonceHash }: GoogleButtonProps) {
+  const [state, formAction, pending] = useActionState(action, INITIAL);
   const [width, setWidth] = useState(0);
   const slot = useRef<HTMLDivElement>(null);
 
@@ -142,7 +148,7 @@ export function GoogleButton({ clientId, intent, next, nonceHash }: GoogleButton
       theme: "outline",
       size: "large",
       shape: "pill",
-      text: intent === "signup" ? "signup_with" : "signin_with",
+      text: LABELS[intent],
       logo_alignment: "center",
       width,
     });
@@ -170,7 +176,7 @@ export function GoogleButton({ clientId, intent, next, nonceHash }: GoogleButton
 
       {pending ? (
         <p role="status" className="text-body-md text-muted-foreground text-center">
-          Signing you in with Google…
+          {intent === "link" ? "Linking your Google account…" : "Signing you in with Google…"}
         </p>
       ) : null}
     </div>

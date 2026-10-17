@@ -8,37 +8,50 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SETTINGS_SECTIONS } from "@/app/(app)/app/settings/sections";
+import { SETTINGS_GROUPS } from "@/app/(app)/app/settings/sections";
 
-/** Renders the list of settings sections, marking the open one. */
+/** Renders the settings groups and their sections, marking the open one. */
 export function SettingsNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Settings sections" className="hidden lg:block">
-      <ul className="gap-space-xs flex flex-col">
-        {SETTINGS_SECTIONS.map((section) => {
-          const open = pathname === section.href || pathname.startsWith(`${section.href}/`);
-          const Icon = section.icon;
+    <nav aria-label="Settings sections" className="gap-space-md hidden flex-col lg:flex">
+      {SETTINGS_GROUPS.map((group) => (
+        <div key={group.label} className="gap-space-xs flex flex-col">
+          <h2
+            id={`settings-group-${group.label}`}
+            className="text-label-sm text-muted-foreground px-space-md uppercase"
+          >
+            {group.label}
+          </h2>
 
-          return (
-            <li key={section.href}>
-              <Link
-                href={section.href}
-                aria-current={open ? "page" : undefined}
-                className={`text-label-lg gap-space-sm px-space-md flex min-h-11 items-center rounded-xl transition-colors ${
-                  open
-                    ? "bg-muted text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Icon className="size-4 shrink-0" aria-hidden />
-                {section.label}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+          <ul aria-labelledby={`settings-group-${group.label}`} className="flex flex-col">
+            {group.sections.map((section) => {
+              const open = pathname === section.href || pathname.startsWith(`${section.href}/`);
+              const Icon = section.icon;
+
+              return (
+                <li key={section.href}>
+                  <Link
+                    href={section.href}
+                    aria-current={open ? "page" : undefined}
+                    className={`text-label-lg gap-space-sm px-space-md flex min-h-11 items-center rounded-xl transition-colors ${
+                      open
+                        ? "bg-muted text-foreground font-semibold"
+                        : section.destructive
+                          ? "text-destructive-subtle-foreground hover:bg-destructive-subtle"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    {section.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }

@@ -167,7 +167,7 @@
   /* The wait on a press-and-hold, drawn as a border filling in around the
    * element. A stroke with pathLength 1 makes the dash maths independent of how
    * long the perimeter actually is. */
-  --animate-hold: hold 3s linear forwards;
+  --animate-hold: hold 1.5s linear forwards;
 
   @keyframes hold {
     from {

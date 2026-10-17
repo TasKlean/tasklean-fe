@@ -795,6 +795,56 @@ Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere re
 Someone pressing it believes every other session is gone, and a silent failure would leave them
 believing it wrongly.
 
+### Settings is grouped, and each section is a route
+
+The sections are grouped rather than listed flat, because they already split along a real line:
+**Security** holds the password, the connected accounts and the devices, and **Account** holds
+what ends the account. One list in `sections.ts` feeds both the desktop rail and the mobile index, so the two
+cannot drift, and each section stays a real route that deep links.
+
+Account sits **after** Security while deactivation is the only thing in it. A group with one
+destructive link in it has no business being the first thing settings offers; it fills out when a
+profile section exists. Nothing is called "Security" at page level, since that word now names the
+group: the pages are **Password**, **Connected accounts**, **Devices and sessions** and **Deactivate
+account**.
+
+### Changing a password without losing the session
+
+`POST /api/account/change-password` verifies the current password, and the backend answers a wrong
+one with **401**, the same status an expired token gets, with no code to tell them apart. Our rule
+is that a 401 ends the session, so as written it would have signed someone out for a typo.
+`serverApi` therefore takes `credentialCheck: true`, which keeps the 401 an `ApiError` for the
+handful of endpoints that verify something from the request body. It is opt-in rather than a
+general relaxation: everywhere else, a 401 really is the session.
+
+Changing or setting a password **revokes every refresh token the account holds**, this browser's
+included, and the backend then issues a fresh pair for the device the `X-Device-Id` header names.
+Two consequences the UI cannot skip. The pair has to be sealed into our cookie, or the session we
+are standing in is already dead. And the device headers have to ride along, or the backend resolves
+a device it has never seen, writes a new row, and emails a new-sign-in notice for the browser the
+person is sitting at.
+
+**Linking Google needs a nonce on a page you reach while signed in.** Proxy minted one only on
+`/login` and `/register`, and deleted any leftover on every signed-in request, so the connected
+accounts page is now the one signed-in response that keeps its nonce. Nothing else about the exchange changes: the
+page still gets only the hash, and the action still sends the raw value.
+
+The backend verifies the Google token, the nonce and that Google says the mailbox is verified. It
+does **not** check that the Google address matches the account's, so the copy does not claim it
+does. Unlinking is refused when no password is set, because Google would be the only way back in.
+The UI does not offer the attempt and then relay the refusal: it says to set a password first, which
+is the thing that would make unlinking possible.
+
+**Deactivation asks for the password in place**, in the same confirm-in-place pattern as removing a
+device, because that password is also what the backend re-authenticates with. A Google-only account
+has none to give and is confirmed by the session alone. Afterwards every session is gone, so the
+action clears our cookie and lands on `/login?deactivated=1` rather than leaving a cookie that
+authenticates nothing.
+
+Editing the profile is still **not built**: `PUT /api/users/{uid}` is a full replace that requires
+`email`, so a name change would be a rewrite of the record with whatever fields the form happened to
+carry.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -840,6 +890,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Resource          | Path                           | Client notes                                                                                                                                                                                                                                      |
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
+| Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -847,7 +898,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Task completions  | `/api/task-completions`        | `GET` needs `?taskId=`, or `/member/{groupMemberId}`. Append-only — there's no delete, so "undo a completion" isn't available.                                                                                                                    |
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group → `409`.                                                                                                                                                                        |
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge.                                                                                                                                 |
-| Devices           | `/api/devices`                 | Push token registration. `GET` needs `?userId=`.                                                                                                                                                                                                  |
+| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it.                                                   |
 | Audit logs        | `/api/audit-logs`              | `?groupId=`, or `/entity?entityType=&entityId=`, or `/member/{id}`. Could power a group activity feed.                                                                                                                                            |
 
 ### Status codes and what the UI does
@@ -856,7 +907,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ---- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 2xx  | Success                                                                 | POSTs really return 201 though the spec says 200 — never branch on the exact code  |
 | 400  | Validation, malformed body, bad enum/param type                         | Render against the field; `message` joins the field errors                         |
-| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message.                |
+| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account`, it is the credential in the body being refused, so it shows against the field. |
 | 403  | Authenticated but not permitted                                         | Permission message. **Never** log out, never retry. Not predictable from the spec. |
 | 404  | Not found, or unknown route                                             | Not-found state for the resource                                                   |
 | 409  | Duplicate, or a violated rule (last admin, already a member)            | Show the server's `message` verbatim — it's written for humans                     |
@@ -999,7 +1050,7 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the settings shell, and devices and sessions: list, rename, per-device logout, remove, log out everywhere. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts and deactivation. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
 | 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
 | 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |

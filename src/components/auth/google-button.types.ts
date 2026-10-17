@@ -22,7 +22,7 @@ export type GoogleRenderOptions = {
   theme: "outline" | "filled_blue" | "filled_black";
   size: "large";
   shape: "pill";
-  text: "signin_with" | "signup_with";
+  text: "signin_with" | "signup_with" | "continue_with";
   logo_alignment: "left" | "center";
   // Pixels. Google rejects anything above 400 and ignores a CSS width.
   width?: number;
@@ -33,12 +33,26 @@ export type GoogleIdApi = {
   renderButton: (parent: HTMLElement, options: GoogleRenderOptions) => void;
 };
 
+// What either Google action hands back. The hash belongs to the nonce minted
+// for the next attempt, because this one is spent whatever the outcome.
+export type GoogleActionState = {
+  error: string | null;
+  nonceHash?: string;
+};
+
+export type GoogleAction = (
+  state: GoogleActionState,
+  formData: FormData,
+) => Promise<GoogleActionState>;
+
 export type GoogleButtonProps = {
   clientId: string;
   // The nonce hash from Proxy. The raw value never leaves the server.
   nonceHash: string;
-  // Picks Google's own label: "Sign in with" or "Sign up with".
-  intent: "signin" | "signup";
+  // Picks Google's own label: sign in, sign up, or continue when linking.
+  intent: "signin" | "signup" | "link";
+  // The Server Action the credential is posted to: signing in, or linking.
+  action: GoogleAction;
   // Where to go afterwards, forwarded by Proxy.
   next?: string;
 };

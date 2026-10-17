@@ -63,7 +63,7 @@ describe("MaskedEmail on hover", () => {
     const button = renderMasked();
 
     fireEvent.pointerEnter(button, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(2500));
+    act(() => vi.advanceTimersByTime(1200));
 
     expect(screen.queryByText(EMAIL)).toBeNull();
   });
@@ -73,7 +73,7 @@ describe("MaskedEmail on hover", () => {
     const button = renderMasked();
 
     fireEvent.pointerEnter(button, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(1500));
 
     expect(screen.getByText(EMAIL)).toBeInTheDocument();
   });
@@ -83,9 +83,9 @@ describe("MaskedEmail on hover", () => {
     const button = renderMasked();
 
     fireEvent.pointerEnter(button, { pointerType: "mouse" });
-    act(() => vi.advanceTimersByTime(2000));
+    act(() => vi.advanceTimersByTime(1000));
     fireEvent.pointerLeave(button);
-    act(() => vi.advanceTimersByTime(3000));
+    act(() => vi.advanceTimersByTime(1500));
 
     expect(screen.queryByText(EMAIL)).toBeNull();
   });

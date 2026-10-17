@@ -20,10 +20,11 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
-import { googleSignInAction, type GoogleSignInState } from "@/app/(auth)/actions";
+import { googleSignInAction } from "@/app/(auth)/actions";
+import type { GoogleActionState } from "@/components/auth/google-button.types";
 
 const BASE = "http://api.test";
-const EMPTY: GoogleSignInState = { error: null };
+const EMPTY: GoogleActionState = { error: null };
 const TOKENS = { token: "access-1", refreshToken: "refresh-1", uid: "user-uid-1" };
 
 beforeAll(() => {

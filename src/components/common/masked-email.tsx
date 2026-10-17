@@ -1,7 +1,7 @@
 /**
- * The address, hidden until asked for. A mouse reveals it by hovering for three
- * seconds, with a border drawing itself around the element to show the wait;
- * everything else reveals it on a press, since hover is a thing only a mouse has.
+ * The address, hidden until asked for. A mouse reveals it by hovering, with a
+ * border drawing itself around the element to show the wait; everything else
+ * reveals it on a press, since hover is a thing only a mouse has.
  */
 
 "use client";
@@ -20,7 +20,9 @@ type Box = {
   radius: number;
 };
 
-const HOLD_MS = 3000;
+// Matches `--animate-hold` in globals.css: the ring closing and the address
+// appearing are two clocks, and they have to be set to the same time.
+const HOLD_MS = 1500;
 
 // Long enough to read as an address, short enough not to publish its length.
 const MASK_LENGTH = 12;
@@ -118,7 +120,7 @@ export function MaskedEmail({ email, className }: MaskedEmailProps) {
         stopHolding();
         setRevealed(false);
       }}
-      className={`text-body-md text-muted-foreground hover:text-foreground gap-space-xs px-space-xs relative inline-flex min-h-11 w-fit items-center rounded-md transition-colors ${className ?? ""}`}
+      className={`text-body-md text-muted-foreground hover:text-foreground gap-space-xs px-space-xs relative inline-flex min-h-8 w-fit items-center rounded-md transition-colors pointer-coarse:min-h-11 ${className ?? ""}`}
     >
       {revealed ? (
         <>

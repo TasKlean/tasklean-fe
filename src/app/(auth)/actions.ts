@@ -9,6 +9,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import type { GoogleActionState } from "@/components/auth/google-button.types";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import {
@@ -22,12 +23,6 @@ import { safeNext } from "@/lib/auth/safe-next";
 import { startSession } from "@/lib/auth/start-session";
 import { signInWithGoogle } from "@/lib/auth/signin/google";
 import { parseGoogleSignIn } from "@/lib/validation/forms/google-signin.schema";
-
-export type GoogleSignInState = {
-  error: string | null;
-  // The hash of the nonce minted for the next attempt, since this one is spent.
-  nonceHash?: string;
-};
 
 const GENERIC_FAILURE = "Something went wrong signing you in with Google. Please try again.";
 
@@ -50,9 +45,9 @@ async function rearmNonce(): Promise<string> {
  * @returns The error to display, or nothing because it redirected on success.
  */
 export async function googleSignInAction(
-  _previous: GoogleSignInState,
+  _previous: GoogleActionState,
   formData: FormData,
-): Promise<GoogleSignInState> {
+): Promise<GoogleActionState> {
   const parsed = parseGoogleSignIn(Object.fromEntries(formData));
   if (!parsed.ok) {
     return { error: parsed.errors.idToken ?? GENERIC_FAILURE, nonceHash: await rearmNonce() };

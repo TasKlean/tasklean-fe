@@ -13,9 +13,10 @@ Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, Google sign-in, `/app`, `/app/account`,
-`/app/settings/devices` and logout exist. Everything else behind the session does not. Register,
-verification, password login, password reset and token rotation have all run against the real
-backend in Docker; every automated test is still MSW.
+`/app/settings/{devices,password,connected-accounts,deactivate}` and logout exist.
+Everything else behind the session does not. Register, verification, password login, password reset
+and token rotation have all run against the real backend in Docker; the account endpoints have run
+against a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -121,7 +122,11 @@ src/
         page.tsx       the signed-in landing page
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
+                       (grouped: Security, then Account) and sections.types.ts
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
+          password/    page.tsx and actions.ts: change a password, or set the first
+          connected-accounts/  page.tsx and actions.ts: link and unlink Google
+          deactivate/  page.tsx and actions.ts: closing the account
     (auth)/            shared shell (brand panel + form), robots noindex
       actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
@@ -141,13 +146,15 @@ src/
                        masked-email, load-error, brand-mark, text-field, password-field,
                        code-input, password-strength-meter, submit-button, or-divider, greeting
     app/               signed-in chrome: app-header, settings-nav, device-row,
-                       sign-out-everywhere
+                       sign-out-everywhere, password-form, google-connection,
+                       unlink-google, deactivate-account
     auth/              login-form, register-form, verify-email-form, google-sign-in
                        (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
+    account/account.ts the caller's own password, connections and deactivation
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message)
@@ -168,7 +175,8 @@ src/
       rules.ts         the field-level Zod pieces (email, name, password, code)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
-                       google-signin, forgot-password, reset-password, device-action
+                       google-signin, forgot-password, reset-password, device-action,
+                       change-password, set-password, deactivate-account
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -327,6 +335,16 @@ routes are `noindex` via the `(auth)` layout.
   Component render**.
 - **`serverApi()` is session-aware; `request()` is raw.** `serverApi` throws `SessionExpiredError` on
   `401` and deliberately does not refresh. `403` passes through as `ApiError`.
+- **`credentialCheck: true` is the one opt-out, and only `/api/account` uses it.** Those endpoints
+  verify a password or a Google token we just sent, and the backend answers a wrong one with `401`
+  carrying no code, so without the flag a typo would sign the person out.
+- **A password change reseals the session.** `POST /api/account/change-password` and `/set-password`
+  revoke every refresh token, this browser's included, then issue a fresh pair for the device the
+  `X-Device-Id` header names. The action seals it with `startSession`, and without the header the
+  backend binds the pair to a new device and emails a new-sign-in notice for this same browser.
+- **Proxy mints a Google nonce on `/app/settings/connected-accounts` too.** Linking happens while
+  signed in, so that path is the one signed-in response that keeps its nonce instead of dropping
+  it.
 - **Mutations use Server Actions, not Route Handlers** — Next checks `Origin` against `Host`, so CSRF
   is covered without a token of our own. A Route Handler would need one.
 - **Role checks in our code are UX, never authorization.** Spring is the authority: gate the UI
@@ -375,7 +393,8 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   goes through `time/api-date.ts` — `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
   (the backend parses `ISO_LOCAL_DATE_TIME`).
 - **`401` ends a session, `403` never does.** `401` → one silent refresh, then clear and `/login`.
-  `403` → show a permission message, never log out, never retry.
+  `403` → show a permission message, never log out, never retry. The exception is an endpoint that
+  checks a credential from the request body, where `401` is that credential's verdict.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
   `api/retry-phrase.ts` composes the two into one message and every auth action uses it.
 - **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a

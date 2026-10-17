@@ -52,8 +52,9 @@ const PUBLIC_PATHS = [
 // someone whose browser still holds a session, and finishing the reset kills it.
 const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
 
-// The screens carrying a Google button, which cannot mint their own nonce.
-const GOOGLE_PATHS = ["/login", "/register"];
+// The screens carrying a Google button, which cannot mint their own nonce. The
+// connected accounts page is one, so it keeps a nonce every other path drops.
+const GOOGLE_PATHS = ["/login", "/register", "/app/settings/connected-accounts"];
 
 /**
  * Reports whether a path is in a list, by exact match or as a path prefix.
@@ -107,6 +108,17 @@ function dropSpentNonce(request: NextRequest, response: NextResponse): NextRespo
 }
 
 /**
+ * Builds the pass-through response for a path a visitor may stay on.
+ *
+ * @returns One carrying a nonce where a Google widget needs one, and a plain
+ * one everywhere else, dropping whatever nonce was left behind.
+ */
+async function passThrough(request: NextRequest): Promise<NextResponse> {
+  if (matches(GOOGLE_PATHS, request.nextUrl.pathname)) return withGoogleNonce(request);
+  return dropSpentNonce(request, NextResponse.next());
+}
+
+/**
  * Builds the redirect to `/login`, preserving where the visitor was headed.
  *
  * @returns A redirect carrying a `next` parameter for login to return them to.
@@ -141,16 +153,20 @@ async function route(
   const { pathname } = request.nextUrl;
 
   if (!session) {
-    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
-    if (isPublic(pathname)) return NextResponse.next();
-
-    const response = redirectToLogin(request);
-    // A cookie that exists but no longer unseals would otherwise be resent on
-    // every request forever.
-    if (request.cookies.has(SESSION_COOKIE_NAME)) {
-      response.cookies.delete(SESSION_COOKIE_NAME);
+    // Before the nonce, since a Google path behind the session is not one an
+    // anonymous visitor may linger on.
+    if (!isPublic(pathname)) {
+      const response = redirectToLogin(request);
+      // A cookie that exists but no longer unseals would otherwise be resent on
+      // every request forever.
+      if (request.cookies.has(SESSION_COOKIE_NAME)) {
+        response.cookies.delete(SESSION_COOKIE_NAME);
+      }
+      return response;
     }
-    return response;
+
+    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
+    return NextResponse.next();
   }
 
   // Only the auth screens: every other public page, the marketing page
@@ -160,7 +176,7 @@ async function route(
   }
 
   if (!accessTokenExpiresWithin(session.accessToken)) {
-    return dropSpentNonce(request, NextResponse.next());
+    return passThrough(request);
   }
 
   try {
@@ -180,16 +196,16 @@ async function route(
       name: refreshed.name || session.name,
     };
 
-    const response = NextResponse.next();
+    const response = await passThrough(request);
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
     // Rolled on the same beat, so a browser in regular use never ages out of
     // its own device identity and gets listed as a stranger.
     response.cookies.set(DEVICE_COOKIE_NAME, deviceId, DEVICE_COOKIE_OPTIONS);
-    return dropSpentNonce(request, response);
+    return response;
   } catch {
-    // Spent, revoked, or refused — there is no recovery from here.
+    // Spent, revoked, or refused: there is no recovery from here.
     const response = redirectToLogin(request);
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;

@@ -59,7 +59,28 @@ describe("serverApi", () => {
     await expect(serverApi("/api/users/me")).rejects.toBeInstanceOf(SessionExpiredError);
   });
 
-  it("lets a 403 through as an ApiError — not a session problem", async () => {
+  it("keeps a 401 as an ApiError on a credential check", async () => {
+    getSession.mockResolvedValue(session);
+    server.use(
+      http.post(`${BASE}/api/account/change-password`, () =>
+        HttpResponse.json(
+          { success: false, message: "Current password is incorrect" },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const error = await serverApi("/api/account/change-password", {
+      method: "POST",
+      credentialCheck: true,
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).not.toBeInstanceOf(SessionExpiredError);
+    expect((error as ApiError).message).toBe("Current password is incorrect");
+  });
+
+  it("lets a 403 through as an ApiError, since it is not a session problem", async () => {
     getSession.mockResolvedValue(session);
     server.use(
       http.get(`${BASE}/api/groups/g1`, () =>

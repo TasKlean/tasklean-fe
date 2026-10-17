@@ -288,6 +288,55 @@ describe("proxy nonce cleanup", () => {
   });
 });
 
+describe("proxy google nonce while signed in", () => {
+  it("mints one for the security section, where a link needs a credential", async () => {
+    const response = await proxy(
+      requestFor("/app/settings/connected-accounts", await sessionCookie(3600)),
+    );
+
+    const minted = nonceFrom(response);
+    expect(minted).toMatch(/^[0-9a-f]{64}$/);
+    expect(forwardedHash(response)).toBe(await hashNonce(minted ?? ""));
+  });
+
+  it("keeps the one it already handed out there, rather than dropping it", async () => {
+    const existing = "a".repeat(64);
+    const response = await proxy(
+      requestWithNonce("/app/settings/connected-accounts", existing, await sessionCookie(3600)),
+    );
+
+    expect(clearsNonce(response)).toBe(false);
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+  });
+
+  it("keeps it on the response that also rotates the token pair", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+    const existing = "b".repeat(64);
+
+    const response = await proxy(
+      requestWithNonce(
+        "/app/settings/connected-accounts",
+        existing,
+        await sessionCookie(10, "rt-linking"),
+      ),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(clearsNonce(response)).toBe(false);
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+    expect(response.headers.get("set-cookie") ?? "").toContain(SESSION_COOKIE_NAME);
+  });
+
+  it("sends an anonymous visitor to login instead of minting one", async () => {
+    const response = await proxy(requestFor("/app/settings/connected-accounts"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/login");
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+});
+
 function requestWithDevice(path: string, deviceId?: string, session?: string): NextRequest {
   const cookies = [
     deviceId ? `${DEVICE_COOKIE_NAME}=${deviceId}` : "",
