@@ -2,14 +2,32 @@
  * The settings groups and their sections, in the order they appear. One list
  * feeds the desktop rail and the mobile index, so the two cannot drift.
  *
- * Account sits last while deactivation is the only thing in it: a destructive
- * link has no business being the first thing settings offers.
+ * Preferences sits first because it is the harmless group people come back to,
+ * and Account sits last while deactivation is the only thing in it: a
+ * destructive link has no business being the first thing settings offers.
  */
 
-import { KeyRound, Link2, MonitorSmartphone, UserX } from "lucide-react";
+import { KeyRound, Languages, Link2, MonitorSmartphone, Palette, UserX } from "lucide-react";
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections.types";
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
+  {
+    label: "Preferences",
+    sections: [
+      {
+        href: "/app/settings/appearance",
+        label: "Appearance",
+        description: "Light, dark, or whatever your device uses",
+        icon: Palette,
+      },
+      {
+        href: "/app/settings/language",
+        label: "Language",
+        description: "The language the app speaks",
+        icon: Languages,
+      },
+    ],
+  },
   {
     label: "Security",
     sections: [

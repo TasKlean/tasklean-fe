@@ -8,12 +8,9 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import type { GoogleActionState } from "@/components/auth/google-button.types";
 import { linkGoogle, unlinkGoogle } from "@/lib/account/account";
-import { isApiError } from "@/lib/api/errors";
-import { rateLimitMessage } from "@/lib/api/retry-phrase";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
 import {
   NONCE_COOKIE_NAME,
   NONCE_COOKIE_OPTIONS,
@@ -29,8 +26,6 @@ export type ConnectedAccountsActionState = {
 
 const CONNECTED_ACCOUNTS_PATH = "/app/settings/connected-accounts";
 
-const GENERIC_FAILURE = "Something went wrong. Please try again.";
-
 const NO_NONCE = "That attempt expired. Please try again.";
 
 /**
@@ -45,20 +40,6 @@ async function rearmNonce(): Promise<string> {
   const nonce = createNonce();
   (await cookies()).set(NONCE_COOKIE_NAME, nonce, NONCE_COOKIE_OPTIONS);
   return hashNonce(nonce);
-}
-
-/**
- * Turns a failed call into a message the row can show.
- *
- * @returns The message to display. A dead session never returns: it redirects,
- * since nothing on the page works without one.
- */
-function failureMessage(error: unknown): string {
-  if (isSessionExpiredError(error)) redirect("/login");
-  if (!isApiError(error)) return GENERIC_FAILURE;
-
-  const message = error.status === 429 ? rateLimitMessage(error) : error.message;
-  return message || GENERIC_FAILURE;
 }
 
 /** Links the Google account the widget just authenticated. */
@@ -79,7 +60,7 @@ export async function linkGoogleAction(
   try {
     await linkGoogle(parsed.values.idToken, nonce);
   } catch (error) {
-    return { error: failureMessage(error), nonceHash: await rearmNonce() };
+    return { error: actionFailureMessage(error), nonceHash: await rearmNonce() };
   }
 
   store.delete(NONCE_COOKIE_NAME);
@@ -94,7 +75,7 @@ export async function unlinkGoogleAction(
   try {
     await unlinkGoogle();
   } catch (error) {
-    return { error: failureMessage(error) };
+    return { error: actionFailureMessage(error) };
   }
 
   revalidatePath(CONNECTED_ACCOUNTS_PATH);

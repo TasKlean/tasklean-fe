@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
 /*
+ * The dark condition, defined once and used twice: by the token block below and
+ * by every `dark:` utility. The OS preference decides, unless `data-theme` on
+ * <html> says otherwise. The server writes that attribute from the reader's
+ * saved theme, so the first paint is already the scheme they chose.
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme="dark"], :root[data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/*
  * Design tokens — the single source of truth for colour, type, radius, spacing
  * and elevation. The values come from DESIGN.md ("Domestic Serenity"); that file
  * is the design authority and this one is its implementation, so change it there
@@ -74,6 +91,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* The theme picker's previews, which show a scheme rather than wear it. */
+  --color-swatch-light: var(--swatch-light);
+  --color-swatch-light-foreground: var(--swatch-light-foreground);
+  --color-swatch-dark: var(--swatch-dark);
+  --color-swatch-dark-foreground: var(--swatch-dark-foreground);
 
   /* Type scale. Each step carries its own line height, tracking and weight, so
    * `text-headline-md` alone is the complete heading style. */
@@ -233,26 +256,27 @@
   --elevation-1: 0 4px 20px -2px rgb(53 88 114 / 0.06);
   --elevation-2: 0 12px 32px -4px rgb(53 88 114 / 0.12);
   --elevation-3: 0 24px 48px -12px rgb(53 88 114 / 0.18);
-}
 
-/*
- * Dark follows the OS setting. DESIGN.md is a light-only scheme, so these are
- * derived rather than given. Where its frontmatter already implied a dark
- * counterpart the derivation reuses it instead of inventing: primary becomes
- * `inverse-primary`, foreground becomes `inverse-on-surface`, and the light
- * primary demotes to `accent` — all standard Material behaviour. The canvas
- * ramp and the sage/coral tones are genuinely new; replace them when Stitch
- * emits a dark scheme.
- *
- * Shadows are re-tinted to near-black: a slate-tinted glow is invisible on a
- * dark canvas, so the light values would silently flatten every card.
- *
- * The cookie-driven toggle lands with the settings screen, at which point this
- * moves to a data-attribute on <html> so the server renders the chosen theme
- * with no flash on first paint.
- */
-@media (prefers-color-scheme: dark) {
-  :root {
+  /* The picker's previews. Deliberately not redeclared under `dark`: a square
+   * has to show what light and dark look like whichever one is active. */
+  --swatch-light: #f9faf2; /* light's background */
+  --swatch-light-foreground: #355872; /* light's primary */
+  --swatch-dark: #111410; /* dark's background */
+  --swatch-dark-foreground: #a7cbe9; /* dark's inverse-primary */
+
+  /*
+   * Dark, applied when the OS asks for it or the reader chose it. DESIGN.md is
+   * a light-only scheme, so these are derived rather than given. Where its
+   * frontmatter already implied a dark counterpart the derivation reuses it
+   * instead of inventing: primary becomes `inverse-primary`, foreground becomes
+   * `inverse-on-surface`, and the light primary demotes to `accent`, all
+   * standard Material behaviour. The canvas ramp and the sage/coral tones are
+   * genuinely new; replace them when Stitch emits a dark scheme.
+   *
+   * Shadows are re-tinted to near-black: a slate-tinted glow is invisible on a
+   * dark canvas, so the light values would silently flatten every card.
+   */
+  @variant dark {
     color-scheme: dark;
 
     --background: #111410;

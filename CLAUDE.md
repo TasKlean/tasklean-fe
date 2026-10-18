@@ -13,10 +13,10 @@ Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, Google sign-in, `/app`, `/app/account`,
-`/app/settings/{devices,password,connected-accounts,deactivate}` and logout exist.
-Everything else behind the session does not. Register, verification, password login, password reset
-and token rotation have all run against the real backend in Docker; the account endpoints have run
-against a stub only; every automated test is MSW.
+`/app/settings/{appearance,language,devices,password,connected-accounts,deactivate}` and logout
+exist. Everything else behind the session does not. Register, verification, password login, password
+reset and token rotation have all run against the real backend in Docker; the account and
+user-settings endpoints have run against a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -122,7 +122,9 @@ src/
         page.tsx       the signed-in landing page
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
-                       (grouped: Security, then Account) and sections.types.ts
+                       (grouped: Preferences, Security, Account) and sections.types.ts
+          appearance/  page.tsx and actions.ts: the colour scheme
+          language/    page.tsx and actions.ts: the UI language
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
@@ -143,11 +145,13 @@ src/
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   components/
     common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
-                       masked-email, load-error, brand-mark, text-field, password-field,
-                       code-input, password-strength-meter, submit-button, or-divider, greeting
+                       masked-email, load-error, form-notice, brand-mark, text-field,
+                       password-field, code-input, password-strength-meter, submit-button,
+                       or-divider, greeting
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
-                       unlink-google, deactivate-account
+                       unlink-google, deactivate-account, appearance-form, theme-preview,
+                       language-form
     auth/              login-form, register-form, verify-email-form, google-sign-in
                        (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -157,7 +161,8 @@ src/
     account/account.ts the caller's own password, connections and deactivation
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts,
-                       retry-phrase.ts (the 429 message)
+                       retry-phrase.ts (the 429 message),
+                       action-failure.ts (what every Server Action shows on a throw)
     auth/
       signin/          one per credential exchange: login, register, verify-email, google
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
@@ -169,14 +174,18 @@ src/
       safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
+    preferences/       preferences.ts (theme and language, via /api/user-settings),
+                       theme-cookie.ts (the cached theme the server paints from),
+                       theme-attribute.ts (the data-theme value, client-safe)
     time/api-date.ts   API timestamps ↔ Date
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
-      rules.ts         the field-level Zod pieces (email, name, password, code)
+      rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
-                       change-password, set-password, deactivate-account
+                       change-password, set-password, deactivate-account, appearance,
+                       language
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -198,9 +207,13 @@ the code** they cover.
   `config/env.ts`'s validation as the only gate.
 - **Components never call `fetch`.** All HTTP goes through `request()` in `api/client.ts`, which takes
   the access token as a parameter and knows nothing about sessions.
-- **A module reading a server variable or holding a secret imports `server-only`** — `config/env.ts`,
-  `api/client.ts`, `api/server.ts`, `auth/session.ts`, `auth/signin/*`, `auth/tokens/refresh.ts`.
-  `validation/` must **not**, since client components import it.
+- **A module reading a server variable or holding a secret imports `server-only`**, and so does
+  every feature module that calls `serverApi` or touches a cookie: `config/env.ts`, `api/client.ts`,
+  `api/server.ts`, `api/action-failure.ts`, `auth/session.ts`, `auth/device.ts`, `auth/signin/*`,
+  `auth/tokens/refresh.ts`, `account/`, `devices/`, `users/`, `preferences/preferences.ts` and
+  `preferences/theme-cookie.ts`. `validation/` must **not**, since client components import it, and
+  neither may `preferences/preferences.types.ts` or `preferences/theme-attribute.ts`, which the
+  forms read.
 - **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
@@ -209,7 +222,13 @@ the code** they cover.
   `muted-foreground`, `destructive`) never by appearance. Never hard-code a hex or rem elsewhere.
   **[DESIGN.md](DESIGN.md) is the design authority**; `globals.css` implements it. Token names are
   Tailwind's, not DESIGN.md's Material ones — each value carries a comment naming its origin.
-  Typeface **Plus Jakarta Sans** via `next/font`. Dark mode follows the OS.
+  Typeface **Plus Jakarta Sans** via `next/font`.
+- **Dark follows the OS unless the reader chose otherwise.** `globals.css` defines the condition
+  once as `@custom-variant dark`, and both the dark token block (through `@variant dark`) and every
+  `dark:` utility run through it, so the palette is written once. `data-theme` on `<html>` is the
+  override; the root layout writes it from the theme cookie, so the first paint is already right.
+  The four `swatch-*` tokens are the exception that never flips: the picker has to show a scheme
+  rather than wear it.
 - **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare
   `<img>` and never `public/`, which costs the intrinsic size and the build-time blur
   placeholder. The logo has a dark-mode twin, so render `BrandMark` rather than either file.
@@ -242,6 +261,9 @@ the code** they cover.
   rejecting it.
 - **No em or en dashes.** Not in UI copy, not in comments, not in docs. A full stop, a comma or a
   colon says the same thing. Older files still carry them and get swept as they are touched.
+- **A Server Action reports a throw through `actionFailureMessage`.** One place composes the 429
+  window, falls back to the generic line when the envelope carried nothing, and redirects a dead
+  session to `/login`. An action that writes its own copy will drift from the others.
 - **Errors surface, never vanish.** Every mutation has a visible success and failure state. Never a
   bare "Something went wrong" when the envelope carried a `message`. A screen that loads data
   catches `ApiError` and renders `LoadError` inline, keeping the rest of the page usable; the route
@@ -306,6 +328,10 @@ routes are `noindex` via the `(auth)` layout.
   `startSession` reads `/api/users/me` once and seals it beside the name. Best effort: a failure
   costs an avatar, never a login. Every sign-in path goes through `startSession`, never
   `setSession` directly, or the chrome loses the photo on whichever path skipped it.
+- **Sign-in caches the theme as well as the avatar.** `startSession` reads `/api/user-settings`
+  beside `/api/users/me` and writes `tasklean_theme`, always, so a browser never keeps painting the
+  theme of whoever used it last. The API stays the authority: the cookie is this browser's cache,
+  rewritten on every save, and a change made on another device arrives at the next sign-in.
 - **Everything behind the session lives under `/app`.** `/app` is the home, `/app/account` and
   `/app/settings/*` hang off it, and future screens follow. The prefix makes the auth boundary
   legible in the URL and keeps a marketing page and an app route from ever colliding. Protection

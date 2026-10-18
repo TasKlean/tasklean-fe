@@ -12,6 +12,7 @@ import {
   PASSWORD_SPECIAL,
 } from "@/lib/validation/password/policy";
 import { CODE_LENGTH } from "@/lib/validation/code-length";
+import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -65,3 +66,9 @@ export const codeRule = z
     z.minLength(1, `Enter the ${CODE_LENGTH}-digit code.`),
     z.regex(new RegExp("^[0-9]{" + CODE_LENGTH + "}$"), `Enter all ${CODE_LENGTH} digits.`),
   );
+
+/** One of the colour schemes the picker offers. */
+export const themeRule = z.enum(THEMES, { error: "Pick a theme." });
+
+/** One of the languages the app supports. */
+export const localeRule = z.enum(LOCALES, { error: "Pick a language." });

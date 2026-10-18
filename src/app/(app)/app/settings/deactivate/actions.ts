@@ -8,17 +8,13 @@
 
 import { redirect } from "next/navigation";
 import { deactivateAccount } from "@/lib/account/account";
-import { isApiError } from "@/lib/api/errors";
-import { rateLimitMessage } from "@/lib/api/retry-phrase";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
 import { clearSession } from "@/lib/auth/session";
 import { parseDeactivateAccount } from "@/lib/validation/forms/deactivate-account.schema";
 
 export type DeactivateState = {
   error: string | null;
 };
-
-const GENERIC_FAILURE = "Something went wrong. Please try again.";
 
 /**
  * Deactivates the account and sends them to the sign-in screen.
@@ -36,11 +32,7 @@ export async function deactivateAccountAction(
     // Empty means a Google-only account, which the session alone confirms.
     await deactivateAccount(parsed.values.password || undefined);
   } catch (error) {
-    if (isSessionExpiredError(error)) redirect("/login");
-    if (!isApiError(error)) return { error: GENERIC_FAILURE };
-
-    const message = error.status === 429 ? rateLimitMessage(error) : error.message;
-    return { error: message || GENERIC_FAILURE };
+    return { error: actionFailureMessage(error) };
   }
 
   await clearSession();

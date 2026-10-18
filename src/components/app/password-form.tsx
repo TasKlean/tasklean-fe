@@ -8,12 +8,12 @@
 
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
 import {
   changePasswordAction,
   type PasswordActionState,
   setPasswordAction,
 } from "@/app/(app)/app/settings/password/actions";
+import { FormNotice } from "@/components/common/form-notice";
 import { PasswordField } from "@/components/common/password-field";
 import { PasswordStrengthMeter } from "@/components/common/password-strength-meter";
 import { SubmitButton } from "@/components/common/submit-button";
@@ -93,25 +93,14 @@ export function PasswordForm({ passwordSet }: PasswordFormProps) {
 
   return (
     <div className="gap-space-md flex flex-col">
-      {state.error ? (
-        <p
-          role="alert"
-          className="bg-destructive-subtle text-destructive-subtle-foreground text-body-md p-space-md rounded-md"
-        >
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <FormNotice tone="error">{state.error}</FormNotice> : null}
 
       {state.done ? (
-        <p
-          role="status"
-          className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md gap-space-xs flex items-center rounded-md"
-        >
-          <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+        <FormNotice tone="success">
           {passwordSet
             ? "Your password is changed. Every other device has been signed out."
             : "Your password is set. You can sign in with your email address now."}
-        </p>
+        </FormNotice>
       ) : null}
 
       <form

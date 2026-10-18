@@ -7,8 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
 import { deviceHeaders } from "@/lib/auth/device";
 import { clearSession, getSession } from "@/lib/auth/session";
 import { revokeAllSessions } from "@/lib/auth/tokens/logout";
@@ -20,19 +19,6 @@ export type DeviceActionState = {
 };
 
 const DEVICES_PATH = "/app/settings/devices";
-
-const GENERIC_FAILURE = "Something went wrong. Please try again.";
-
-/**
- * Turns a failed call into a message the row can show.
- *
- * @returns The state to hand back. A dead session never returns: it redirects,
- * since nothing on the page works without one.
- */
-function failed(error: unknown): DeviceActionState {
-  if (isSessionExpiredError(error)) redirect("/login");
-  return { error: isApiError(error) ? error.message || GENERIC_FAILURE : GENERIC_FAILURE };
-}
 
 /**
  * Reports whether a device is the browser making this request.
@@ -70,7 +56,7 @@ export async function signOutDeviceAction(
   try {
     await logoutDevice(parsed.values.deviceId);
   } catch (error) {
-    return failed(error);
+    return { error: actionFailureMessage(error) };
   }
 
   if (ourOwn) {
@@ -102,7 +88,7 @@ export async function removeDeviceAction(
   try {
     await removeDevice(parsed.values.deviceId);
   } catch (error) {
-    return failed(error);
+    return { error: actionFailureMessage(error) };
   }
 
   if (ourOwn) {
@@ -131,7 +117,7 @@ export async function signOutEverywhereAction(
   try {
     await revokeAllSessions(session.refreshToken, await deviceHeaders());
   } catch (error) {
-    return failed(error);
+    return { error: actionFailureMessage(error) };
   }
 
   await clearSession();

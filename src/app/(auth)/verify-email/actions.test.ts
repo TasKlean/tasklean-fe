@@ -8,8 +8,16 @@ vi.mock("@/lib/auth/session", () => ({
   setSession: (...args: unknown[]) => setSession(...(args as [])),
 }));
 
+const { jar } = vi.hoisted(() => ({
+  jar: new Map<string, string>([["tasklean_device", "dev-1"]]),
+}));
+
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  cookies: async () => ({
+    get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
+    set: (name: string, value: string) => jar.set(name, value),
+    delete: (name: string) => jar.delete(name),
+  }),
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 

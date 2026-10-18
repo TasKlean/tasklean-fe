@@ -1,14 +1,24 @@
 import { http, HttpResponse } from "msw";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
 
 const setSession = vi.fn(async () => {});
+
+const { jar } = vi.hoisted(() => ({ jar: new Map<string, string>() }));
 
 vi.mock("@/lib/auth/session", () => ({
   setSession: (...args: unknown[]) => setSession(...(args as [])),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
+    set: (name: string, value: string) => jar.set(name, value),
+  }),
+}));
+
 import { startSession } from "@/lib/auth/start-session";
+import { THEME_COOKIE_NAME } from "@/lib/preferences/theme-cookie";
 
 const BASE = "http://api.test";
 
@@ -25,12 +35,23 @@ beforeAll(() => {
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "test-client-id";
 });
 
+beforeEach(() => {
+  server.use(preferencesHandler({ theme: "SYSTEM", locale: "EN" }));
+});
+
 afterEach(() => {
   setSession.mockClear();
+  jar.clear();
 });
 
 function profileHandler(body: Record<string, unknown>, status = 200) {
   return http.get(`${BASE}/api/users/me`, () =>
+    HttpResponse.json({ success: status === 200, message: null, data: body }, { status }),
+  );
+}
+
+function preferencesHandler(body: Record<string, unknown>, status = 200) {
+  return http.get(`${BASE}/api/user-settings`, () =>
     HttpResponse.json({ success: status === 200, message: null, data: body }, { status }),
   );
 }
@@ -79,5 +100,24 @@ describe("startSession", () => {
     await startSession({ accessToken: "at-1", refreshToken: "rt-1", userUid: "u1" });
 
     expect(setSession).toHaveBeenCalledWith(expect.objectContaining({ name: "Grace" }));
+  });
+});
+
+describe("startSession and the theme", () => {
+  it("caches the theme the account saved, so the next render paints it", async () => {
+    server.use(profileHandler({ name: "Ada" }), preferencesHandler({ theme: "DARK" }));
+
+    await startSession(TOKENS);
+
+    expect(jar.get(THEME_COOKIE_NAME)).toBe("DARK");
+  });
+
+  it("stops painting the theme of whoever used this browser last", async () => {
+    jar.set(THEME_COOKIE_NAME, "DARK");
+    server.use(profileHandler({ name: "Ada" }), preferencesHandler({}, 500));
+
+    await startSession(TOKENS);
+
+    expect(jar.get(THEME_COOKIE_NAME)).toBe("SYSTEM");
   });
 });
