@@ -798,8 +798,8 @@ believing it wrongly.
 ### Settings is grouped, and each section is a route
 
 The sections are grouped rather than listed flat, because they already split along a real line:
-**Preferences** holds appearance and language, **Security** holds the password, the connected
-accounts and the devices, and **Account** holds what ends the account. One list in `sections.ts`
+**Preferences** holds appearance, language and notifications, **Security** holds the password, the
+connected accounts and the devices, and **Account** holds what ends the account. One list in `sections.ts`
 feeds both the desktop rail and the mobile index, so the two cannot drift, and each section stays a
 real route that deep links.
 
@@ -893,6 +893,77 @@ tells a screen reader to pronounce English in German. The page says plainly that
 one so far, so the control is honest rather than decorative. Translating the interface is its own
 phase, and the saved preference is what it will read.
 
+### Notification channels are saved long before anything is sent
+
+`GET /api/notification-settings` and `PUT /api/notification-settings/batch` store, per user, which
+of four events reach them in the app and by email. **Nothing delivers them yet**: no mail goes out,
+no in-app row is written, and there is no push channel in the contract even though the device table
+holds push tokens. The page says so in a line of its own, because a switch that silently does
+nothing is worse than no switch at all.
+
+**The page edits a draft and saves it in one press.** Every switch is a real checkbox holding its
+own state, Save posts one list of type names per channel, and the action writes only the types that
+differ. The first design saved on each press, which was one call per switch and up to four for a
+column: cheap to write, expensive to use, and impossible to change your mind in. A reminder appears
+the moment the draft differs from what is saved, and a refused save keeps the draft so it can be
+sent again rather than being thrown away.
+
+**The batch endpoint exists because of atomicity, not request count.** Writing a type at a time
+meant a save could stop half way, leaving the account in a state neither the page nor the person
+chose. `PUT /batch` runs the whole list in one transaction, so a refused save has applied nothing
+and the page on screen is still true: the action reports the message and leaves the page alone. Its
+two 400s cannot reach us: the list is never **empty**, since every type is sent, and a **duplicate
+type** is impossible in a matrix keyed by type.
+
+**The response is a re-read, not an echo**, so what comes back includes a type another device wrote
+while this save was in flight. That is what the page then shows, which is why the form takes the
+answer over its own draft.
+
+**Revalidating is for pages whose truth only the server holds.** A device row disappears, a
+password flips the card from "set" to "change", a Google account shows as linked: none of that is in
+the action's answer, so those three actions call `revalidatePath` and the re-render is what the
+person sees. The three preference pages are the opposite. They render the value the action already
+returned, so the call added a fetch and nothing else, and all three now skip it.
+
+**The save reads nothing, before or after, and revalidates nothing.** The form carries every type,
+so there is no missing value a read could supply, and the batch answers with the backend's own
+re-read, so there is nothing to fetch afterwards either. `revalidatePath` was there at first and did
+nothing measurable: the route is dynamic because it reads the session cookie, `request()` sends
+`cache: "no-store"`, and a dynamic segment is stale in the client router cache the moment it lands,
+so every visit refetches anyway. One request per save. Appearance and language still read first because
+their endpoint replaces a pair while each page edits one half of it; here the page holds the whole
+thing. The price is that the matrix is written whole: a type changed on another device since this
+page loaded is replaced by what the person in front of it chose, which is the behaviour a Save
+button promises anyway.
+
+**The column switches are the same control as the rows.** Each sits at the head of its channel, is
+on while anything in that column is on, and turning it off empties the column in the draft. They are
+the one control that needs JavaScript: everything else works with scripting off, because checkboxes
+and a submit button are what the form actually is.
+
+**Sections are collapsed until they are opened.** Each group is a `<details>` card, so hiding and
+showing costs no state and works without scripting, and a closed one still reports how many of its
+types are on per channel. Every type names its section in a `Record`, so a type added later fails to
+compile until it has one rather than quietly falling off the page.
+
+**The matrix is keyed by our own list of types, not by the response.** The backend promises all four
+entries, but no field in the spec is `required`, so the four rows are built from our enum and each
+one takes the entry that matches or the backend's own default. A missing row is then impossible
+rather than handled, and a type we do not offer is ignored instead of rendered blank.
+
+### A form action resets the DOM, and a controlled value does not come back
+
+React resets a form once its action answers. For an uncontrolled field that is the point. For a
+controlled one it is a trap: the reset puts the DOM back to what the page loaded with, and React
+never rewrites a value its own render did not change, so the control keeps showing the old choice
+while state holds the new one. It looked like a stale read from the API, and it was not: the data
+was right and only the DOM was wrong.
+
+Remounting the field does not fix it, because the reset lands after the commit. The fix is to cancel
+the reset, `onReset={(event) => event.preventDefault()}`, on any form whose values live in React
+state. The language select and the notification switches both carry it. A form that wants its fields
+emptied on success, like the password form, still does that from state, where it can be read.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -947,6 +1018,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group → `409`.                                                                                                                                                                        |
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge.                                                                                                                                 |
 | User settings     | `/api/user-settings`           | The caller's own theme and language. `GET` answers the defaults (`SYSTEM`, `EN`) when nothing was ever saved, so there is no empty state. `PUT` is a **full replace** and `@NotNull` on both fields, so a screen editing one sends the other back unchanged.                                                            |
+| Notification settings | `/api/notification-settings` | The caller's own channels. `GET` always answers one entry per type, defaults included, so there is no empty state. `PUT /batch` replaces the types it is sent, in one transaction, and answers with the whole matrix **re-read** after the writes; an empty list or a duplicate type is a `400`. `PUT /{type}` does one type and we no longer call it. Nothing reads these yet. |
 | Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it.                                                   |
 | Audit logs        | `/api/audit-logs`              | `?groupId=`, or `/entity?entityType=&entityId=`, or `/member/{id}`. Could power a group activity feed.                                                                                                                                            |
 
@@ -1099,7 +1171,7 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance and language preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
 | 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
 | 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |

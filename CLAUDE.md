@@ -13,10 +13,10 @@ Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, Google sign-in, `/app`, `/app/account`,
-`/app/settings/{appearance,language,devices,password,connected-accounts,deactivate}` and logout
-exist. Everything else behind the session does not. Register, verification, password login, password
-reset and token rotation have all run against the real backend in Docker; the account and
-user-settings endpoints have run against a stub only; every automated test is MSW.
+`/app/settings/{appearance,language,notifications,devices,password,connected-accounts,deactivate}`
+and logout exist. Everything else behind the session does not. Register, verification, password login, password
+reset and token rotation have all run against the real backend in Docker; the account, user-settings and
+notification-settings endpoints have run against a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -125,6 +125,7 @@ src/
                        (grouped: Preferences, Security, Account) and sections.types.ts
           appearance/  page.tsx and actions.ts: the colour scheme
           language/    page.tsx and actions.ts: the UI language
+          notifications/  page.tsx and actions.ts: the channels each notification uses
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
@@ -151,7 +152,8 @@ src/
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
-                       language-form
+                       language-form, notifications-form, notification-toggle,
+                       switch-track
     auth/              login-form, register-form, verify-email-form, google-sign-in
                        (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -174,18 +176,22 @@ src/
       safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
+    notifications/     settings.ts (the channels each notification type uses: a GET for the
+                       page, a batch PUT that answers with the whole matrix) and
+                       settings.types.ts
     preferences/       preferences.ts (theme and language, via /api/user-settings),
                        theme-cookie.ts (the cached theme the server paints from),
                        theme-attribute.ts (the data-theme value, client-safe)
     time/api-date.ts   API timestamps ↔ Date
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
-      rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale)
+      rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
+                       notification type)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
                        change-password, set-password, deactivate-account, appearance,
-                       language
+                       language, notifications
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -210,10 +216,10 @@ the code** they cover.
 - **A module reading a server variable or holding a secret imports `server-only`**, and so does
   every feature module that calls `serverApi` or touches a cookie: `config/env.ts`, `api/client.ts`,
   `api/server.ts`, `api/action-failure.ts`, `auth/session.ts`, `auth/device.ts`, `auth/signin/*`,
-  `auth/tokens/refresh.ts`, `account/`, `devices/`, `users/`, `preferences/preferences.ts` and
-  `preferences/theme-cookie.ts`. `validation/` must **not**, since client components import it, and
-  neither may `preferences/preferences.types.ts` or `preferences/theme-attribute.ts`, which the
-  forms read.
+  `auth/tokens/refresh.ts`, `account/`, `devices/`, `users/`, `notifications/settings.ts`,
+  `preferences/preferences.ts` and `preferences/theme-cookie.ts`. `validation/` must **not**, since
+  client components import it, and neither may `preferences/preferences.types.ts`,
+  `preferences/theme-attribute.ts` or `notifications/settings.types.ts`, which the forms read.
 - **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
@@ -251,7 +257,9 @@ the code** they cover.
   its action and `validateX` for the component. `zod/mini` not `zod`. Nothing in `password/policy.ts` becomes a
   schema: the strength meter needs per-rule booleans. Reasoning in the bible.
 - **An action parses `Object.fromEntries(formData)`**, never `formData.get` by hand — the schema owns
-  trimming, so a password reaches the backend exactly as typed while text fields do not.
+  trimming, so a password reaches the backend exactly as typed while text fields do not. The one
+  exception is a **checkbox group**, where the name repeats and `fromEntries` would keep only the
+  last box: those fields are read with `getAll` into a list, as `notifications/actions.ts` does.
 - **A field shows only its first unmet rule.** Zod reports every failed check; the order in
   `rules.ts` is therefore the order a user is asked to fix things.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
@@ -268,6 +276,22 @@ the code** they cover.
   bare "Something went wrong" when the envelope carried a `message`. A screen that loads data
   catches `ApiError` and renders `LoadError` inline, keeping the rest of the page usable; the route
   boundary is for the failures nobody anticipated, and `SessionExpiredError` redirects to `/login`.
+- **A form whose values live in React state cancels the reset.** React resets a form's DOM once its
+  action answers, and never rewrites a controlled value it did not change, so the control keeps the
+  reset value while state disagrees. `onReset={(event) => event.preventDefault()}` is the fix, and
+  both the language select and the notification switches carry it.
+- **An action revalidates only when the page's truth comes from the server.** Devices, password and
+  connected accounts render rows and flags the action cannot hand back, so they call
+  `revalidatePath` and the re-render is what updates the screen. Appearance, language and
+  notifications return the saved value and the form renders from it, so revalidating only buys a
+  second fetch: the route is dynamic, `request()` sends `cache: "no-store"`, and a dynamic segment
+  is stale in the client router cache as soon as it lands, so there is no stored copy to invalidate.
+- **A page of switches edits a draft and saves it in one press.** The notification matrix is state,
+  the switches are real checkboxes posting one list of type names per channel, and the action sends
+  the whole matrix in one batch. It reads nothing before or after and revalidates nothing: the form
+  holds every value, the batch answers with the backend's own re-read, and a dynamic route fetched
+  with `no-store` has no cached copy to invalidate. A reminder appears the moment the draft differs from what is saved,
+  and a refused save keeps the draft so it can be sent again.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone.

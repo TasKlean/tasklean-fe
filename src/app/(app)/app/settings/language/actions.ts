@@ -5,7 +5,6 @@
 
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
 import { getPreferences, savePreferences } from "@/lib/preferences/preferences";
 import { parseLanguage } from "@/lib/validation/forms/language.schema";
@@ -15,8 +14,6 @@ export type LanguageActionState = {
   // The visible success state, since the page it returns to looks unchanged.
   done?: boolean;
 };
-
-const LANGUAGE_PATH = "/app/settings/language";
 
 /** Saves the chosen language. */
 export async function saveLanguageAction(
@@ -35,6 +32,5 @@ export async function saveLanguageAction(
     return { error: actionFailureMessage(error) };
   }
 
-  revalidatePath(LANGUAGE_PATH);
   return { error: null, done: true };
 }

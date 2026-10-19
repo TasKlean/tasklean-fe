@@ -32,14 +32,19 @@ const LABELS: Record<AppLocale, string> = {
 export function LanguageForm({ locale }: LanguageFormProps) {
   const [state, formAction] = useActionState(saveLanguageAction, INITIAL);
   const [chosen, setChosen] = useState(locale);
-
   return (
     <div className="gap-space-md flex flex-col">
       {state.error ? <FormNotice tone="error">{state.error}</FormNotice> : null}
 
       {state.done ? <FormNotice tone="success">Your language is saved.</FormNotice> : null}
 
-      <form action={formAction} className="gap-space-md flex max-w-sm flex-col">
+      {/* React resets the form once the action answers, which would put the
+          select back on the option the page loaded with: the value is state. */}
+      <form
+        action={formAction}
+        onReset={(event) => event.preventDefault()}
+        className="gap-space-md flex max-w-sm flex-col"
+      >
         <div className="gap-space-xs flex flex-col">
           <label htmlFor="locale" className="text-label-lg text-foreground">
             Language

@@ -5,7 +5,6 @@
 
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
 import { getPreferences, savePreferences } from "@/lib/preferences/preferences";
 import { writeTheme } from "@/lib/preferences/theme-cookie";
@@ -16,8 +15,6 @@ export type AppearanceActionState = {
   // The visible success state, since the page it returns to looks unchanged.
   done?: boolean;
 };
-
-const APPEARANCE_PATH = "/app/settings/appearance";
 
 /** Saves the chosen colour scheme and caches it for the next render. */
 export async function saveAppearanceAction(
@@ -37,6 +34,5 @@ export async function saveAppearanceAction(
     return { error: actionFailureMessage(error) };
   }
 
-  revalidatePath(APPEARANCE_PATH);
   return { error: null, done: true };
 }

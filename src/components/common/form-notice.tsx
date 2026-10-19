@@ -3,16 +3,17 @@
  * drift apart, and so every screen announces them the same way.
  */
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Info } from "lucide-react";
 import type { ReactNode } from "react";
 
 type FormNoticeProps = {
-  tone: "success" | "error";
+  tone: "success" | "info" | "error";
   children: ReactNode;
 };
 
 const TONES = {
   success: "bg-success-subtle text-success-subtle-foreground",
+  info: "bg-warning-subtle text-warning-subtle-foreground",
   error: "bg-destructive-subtle text-destructive-subtle-foreground",
 } as const;
 
@@ -20,10 +21,11 @@ const TONES = {
 export function FormNotice({ tone, children }: FormNoticeProps) {
   return (
     <p
-      role={tone === "success" ? "status" : "alert"}
+      role={tone === "error" ? "alert" : "status"}
       className={`text-body-md p-space-md gap-space-xs flex items-center rounded-md ${TONES[tone]}`}
     >
       {tone === "success" ? <CheckCircle2 className="size-4 shrink-0" aria-hidden /> : null}
+      {tone === "info" ? <Info className="size-4 shrink-0" aria-hidden /> : null}
       {children}
     </p>
   );

@@ -13,6 +13,7 @@ import {
 } from "@/lib/validation/password/policy";
 import { CODE_LENGTH } from "@/lib/validation/code-length";
 import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
+import { NOTIFICATION_TYPES } from "@/lib/notifications/settings.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -72,3 +73,8 @@ export const themeRule = z.enum(THEMES, { error: "Pick a theme." });
 
 /** One of the languages the app supports. */
 export const localeRule = z.enum(LOCALES, { error: "Pick a language." });
+
+/** One of the notification types the settings page lists. */
+export const notificationTypeRule = z.enum(NOTIFICATION_TYPES, {
+  error: "Pick a notification type.",
+});

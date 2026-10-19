@@ -7,7 +7,7 @@
  * destructive link has no business being the first thing settings offers.
  */
 
-import { KeyRound, Languages, Link2, MonitorSmartphone, Palette, UserX } from "lucide-react";
+import { Bell, KeyRound, Languages, Link2, MonitorSmartphone, Palette, UserX } from "lucide-react";
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections.types";
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
@@ -25,6 +25,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         label: "Language",
         description: "The language the app speaks",
         icon: Languages,
+      },
+      {
+        href: "/app/settings/notifications",
+        label: "Notifications",
+        description: "Which ones reach you, and where",
+        icon: Bell,
       },
     ],
   },

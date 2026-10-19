@@ -43,6 +43,17 @@ describe("LanguageForm", () => {
     expect(saveLanguageAction.mock.calls[0]?.[1]?.get("locale")).toBe("DE");
   });
 
+  it("keeps the chosen language on screen once the save answers", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<LanguageForm locale="EN" />);
+
+    await user.selectOptions(screen.getByLabelText("Language"), "DE");
+    await user.click(screen.getByRole("button", { name: "Save language" }));
+
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Language")).toHaveValue("DE");
+  });
+
   it("confirms a save", async () => {
     const user = userEvent.setup({ delay: null });
     render(<LanguageForm locale="EN" />);
