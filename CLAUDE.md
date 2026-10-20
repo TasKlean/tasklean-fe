@@ -13,13 +13,13 @@ Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
-`/app/settings/{appearance,language,notifications,devices,password,connected-accounts,deactivate}`
+`/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
 and logout exist. Everything else behind the session does not. **Two-factor is half built**: a
-sign-in the backend gates is answered end to end, but nothing enrolls, disables or reissues recovery
-codes yet, so `/api/account/2fa/*` has no caller. Register, verification, password login, password
-reset and token rotation have all run against the real backend in Docker; the account, user-settings,
-notification-settings and two-factor endpoints have run against a stub only; every automated test is
-MSW.
+sign-in the backend gates is answered end to end and the settings card reports the state, but
+nothing enrolls, disables or reissues recovery codes yet, so only `GET /api/account/2fa` has a
+caller. Register, verification, password login, password reset and token rotation have all run
+against the real backend in Docker; the account, user-settings, notification-settings and two-factor
+endpoints have run against a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -129,6 +129,7 @@ src/
           appearance/  page.tsx and actions.ts: the colour scheme
           language/    page.tsx and actions.ts: the UI language
           notifications/  page.tsx and actions.ts: the channels each notification uses
+          two-factor/  page.tsx: whether a second factor is on, and what is left of it
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
@@ -157,14 +158,15 @@ src/
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
                        language-form, notifications-form, notification-toggle,
-                       switch-track
+                       switch-track, two-factor-card
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
-    account/account.ts the caller's own password, connections and deactivation
+    account/           account.ts (the caller's own password, connections and deactivation)
+                       and two-factor.ts, which reads the second factor's state
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message),

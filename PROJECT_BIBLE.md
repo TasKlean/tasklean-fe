@@ -702,6 +702,14 @@ already renders. Everything else a 401 says is shown against the code field, whi
 digit from looking like a dead end, and a 429 goes through `rateLimitMessage` like every other auth
 call.
 
+**`enabled` and `pendingSetup` are different states, and the card says so.** A setup nobody
+confirmed leaves a stored secret behind but does **not** gate a sign-in, so showing it as on would
+tell the reader their account is protected when it is not. The card reads it as a third state,
+Unfinished, and says plainly that nothing extra is asked for yet. It also treats an unreadable
+`recoveryCodesRemaining` as none left rather than as a number, warns at three or fewer, and gives
+zero its own sentence: with no codes and no phone there is no way back into the account, and the
+backend has no admin reset.
+
 **One field, both kinds of code.** The endpoint takes an authenticator code or a recovery code in
 the same field, so the client keeps no mode of its own: `twoFactorCodeRule` accepts six digits or
 eight recovery characters and normalises the way the backend matches, stripping spaces and the
@@ -1065,7 +1073,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair, except that `login` and `google` return a **challenge** instead for an account with a second factor. `POST /2fa/verify` takes `{ challengeToken, code }` and answers the ordinary pair; it is capped at 10 requests a minute per IP. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
-| Two-factor        | `/api/account/2fa`             | The caller's own second factor, and **no caller yet**. `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
+| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Only `GET` has a caller so far**, and it reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -1249,7 +1257,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **Two-factor authentication** - the backend shipped it during phase 3, so it is being matched in
   pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
   that enabled a second factor anywhere else could not get into the app at all until it did.
-  Enrollment, disabling and reissuing recovery codes follow as a settings section inside phase 3.
+  The settings card that reports the state came next. Enrollment, disabling and reissuing recovery
+  codes follow in the same section.
   Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the

@@ -7,7 +7,16 @@
  * destructive link has no business being the first thing settings offers.
  */
 
-import { Bell, KeyRound, Languages, Link2, MonitorSmartphone, Palette, UserX } from "lucide-react";
+import {
+  Bell,
+  KeyRound,
+  Languages,
+  Link2,
+  MonitorSmartphone,
+  Palette,
+  ShieldCheck,
+  UserX,
+} from "lucide-react";
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections.types";
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
@@ -42,6 +51,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         label: "Password",
         description: "Change it, or set your first one",
         icon: KeyRound,
+      },
+      {
+        href: "/app/settings/two-factor",
+        label: "Two-factor authentication",
+        description: "A code from your phone at sign-in",
+        icon: ShieldCheck,
       },
       {
         href: "/app/settings/connected-accounts",
