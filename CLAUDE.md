@@ -14,12 +14,13 @@ Never restate backend internals here — link to them.
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. **Two-factor is half built**: a
-sign-in the backend gates is answered end to end and the settings card reports the state, but
-nothing enrolls, disables or reissues recovery codes yet, so only `GET /api/account/2fa` has a
-caller. Register, verification, password login, password reset and token rotation have all run
-against the real backend in Docker; the account, user-settings, notification-settings and two-factor
-endpoints have run against a stub only; every automated test is MSW.
+and logout exist. Everything else behind the session does not. **Two-factor is most of the way
+built**: a sign-in the backend gates is answered end to end, the settings page lists the methods,
+and enrolling in an authenticator app works, but nothing turns it off or reissues recovery codes
+yet, so `GET /api/account/2fa` plus its `setup` and `enable` posts are the only callers. Register,
+verification, password login, password reset and token rotation have all run against the real
+backend in Docker, and two-factor setup and enable against a local one; the account, user-settings
+and notification-settings endpoints have run against a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -37,7 +38,7 @@ npm run format:check   # Prettier, check only
 ```
 
 Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
-Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`. **Node 26** (`.nvmrc` +
+Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`, `uqr`. **Node 26** (`.nvmrc` +
 `engines.node`); npm comes from Node's bundled copy, so a global npm install would silently shadow
 it.
 
@@ -129,7 +130,8 @@ src/
           appearance/  page.tsx and actions.ts: the colour scheme
           language/    page.tsx and actions.ts: the UI language
           notifications/  page.tsx and actions.ts: the channels each notification uses
-          two-factor/  page.tsx: whether a second factor is on, and what is left of it
+          two-factor/  page.tsx and actions.ts: the methods on offer, and enrolling in
+                       an authenticator app
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
@@ -153,12 +155,13 @@ src/
     common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, password-strength-meter, submit-button,
-                       or-divider, greeting
+                       or-divider, greeting, copy-button, qr-image
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
                        language-form, notifications-form, notification-toggle,
-                       switch-track, two-factor-card
+                       switch-track, two-factor-method (the shell every method shares),
+                       two-factor-card, two-factor-enroll, recovery-codes
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -166,7 +169,7 @@ src/
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (the caller's own password, connections and deactivation)
-                       and two-factor.ts, which reads the second factor's state
+                       and two-factor.ts, which reads the second factor's state and turns it on
     api/               client.ts (the only module that knows the envelope), errors.ts,
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message),
@@ -192,6 +195,7 @@ src/
     preferences/       preferences.ts (theme and language, via /api/user-settings),
                        theme-cookie.ts (the cached theme the server paints from),
                        theme-attribute.ts (the data-theme value, client-safe)
+    qr/                qr-code.ts (the encoder, server side only) and qr-code.types.ts
     time/api-date.ts   API timestamps ↔ Date
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
@@ -201,7 +205,8 @@ src/
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
                        change-password, set-password, deactivate-account, appearance,
-                       language, notifications, two-factor
+                       language, notifications, two-factor, two-factor-setup,
+                       two-factor-enable
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -228,8 +233,9 @@ the code** they cover.
   every feature module that calls `serverApi` or touches a cookie: `config/env.ts`, `api/client.ts`,
   `api/server.ts`, `api/action-failure.ts`, `auth/session.ts`, `auth/device.ts`, `auth/signin/*`,
   `auth/tokens/refresh.ts`, `auth/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
+  `qr/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
   `notifications/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie.ts`. `validation/` must **not**, since
-  client components import it, and neither may `preferences/preferences.types.ts`,
+  client components import it, and neither may `qr/qr-code.types.ts`, `preferences/preferences.types.ts`,
   `preferences/theme-attribute.ts` or `notifications/settings.types.ts`, which the forms read.
 - **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
@@ -293,6 +299,15 @@ the code** they cover.
   is the fix, and the language select and the notification switches carry it. **A text input does
   not need it**: React writes its value into the attribute, which is what a reset restores, so the
   two-factor code survives a refusal with nothing added.
+- **A complete code submits its own form.** `CodeInput` calls `requestSubmit()` from an effect once
+  six digits are in, so the form's own validation and action still run. It fires on a keystroke or a
+  paste, never on a code that arrived with the component: a prefilled one, as the email link's is, is
+  a value to look over. The press is still there for a paste and for a second attempt.
+- **Anything an action hands back only once must survive a re-render.** Recovery codes exist
+  nowhere else, so the component holding them stays mounted whatever the server then says, the
+  action does not revalidate, and dismissing them is its own state. Writing a cookie in an action
+  re-renders the route just as `revalidatePath` does, so a conditional that unmounts the component
+  takes the codes with it.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and
@@ -445,6 +460,23 @@ routes are `noindex` via the `(auth)` layout.
   eight-character recovery code and normalises the way the backend matches: spaces and the hyphen
   stripped, uppercased. The screen offers a toggle because the two look nothing alike to type, not
   because the endpoint cares.
+- **Enrolling is two calls, and only the second one turns anything on.** `POST
+  /api/account/2fa/setup` re-authenticates with the password and answers with the secret and an
+  `otpauth://` URI; `POST /2fa/enable` takes a code from the app and answers with ten recovery codes
+  **plus a fresh token pair**, having revoked every other session. Both carry
+  `credentialCheck: true`, since their 401 is the password or the code and not the session, and
+  `enable` carries the device headers so the new pair stays on this browser. Running `setup` again
+  replaces a setup nobody confirmed, so the entry already in the app stops working.
+- **Only an authenticator code can confirm a setup.** `/2fa/enable` has no recovery codes to fall
+  back on yet, so that form uses `codeRule`, the plain six digits, not `twoFactorCodeRule`.
+- **The QR code is encoded on the server.** `lib/qr/qr-code.ts` turns the URI into one SVG path, so
+  `uqr` never reaches the browser bundle and the client gets a string rather than a few thousand
+  booleans. `qr-ink` and `qr-paper` are the two tokens that never follow the colour scheme: a camera
+  reads dark modules on a light field in either one.
+- **Only the authenticator app exists.** The settings page lists Email and Text message as methods
+  with a dead "Coming soon" button, and the backend's `TwoFactorProviderType` has only `LOCAL`.
+  `TwoFactorMethod` is the shell they share, and it refuses to render children for a method marked
+  unavailable, so no form can appear behind one by accident.
 - **A password reset ends at the login screen, never in a session.** `POST
   /api/auth/reset-password` returns no tokens and revokes every refresh token the user holds, so the
   action clears our cookie and sends them to `/login?reset=1`. `/forgot-password` answers the same

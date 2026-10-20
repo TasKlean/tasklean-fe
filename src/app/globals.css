@@ -98,6 +98,10 @@
   --color-swatch-dark: var(--swatch-dark);
   --color-swatch-dark-foreground: var(--swatch-dark-foreground);
 
+  /* The enrollment QR code, which a camera reads rather than a person. */
+  --color-qr-ink: var(--qr-ink);
+  --color-qr-paper: var(--qr-paper);
+
   /* Type scale. Each step carries its own line height, tracking and weight, so
    * `text-headline-md` alone is the complete heading style. */
   --text-display-lg: 2.5rem;
@@ -263,6 +267,11 @@
   --swatch-light-foreground: #355872; /* light's primary */
   --swatch-dark: #111410; /* dark's background */
   --swatch-dark-foreground: #a7cbe9; /* dark's inverse-primary */
+
+  /* The QR code, also not redeclared under `dark`: a scanner expects dark
+   * modules on a light field, and an inverted code is read less reliably. */
+  --qr-ink: #000000; /* plain black, for contrast rather than for the palette */
+  --qr-paper: #ffffff;
 
   /*
    * Dark, applied when the OS asks for it or the reader chose it. DESIGN.md is

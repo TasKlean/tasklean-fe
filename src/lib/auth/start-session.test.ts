@@ -101,6 +101,22 @@ describe("startSession", () => {
 
     expect(setSession).toHaveBeenCalledWith(expect.objectContaining({ name: "Grace" }));
   });
+
+  it("falls back to the profile uid when the exchange answered with the pair alone", async () => {
+    server.use(profileHandler({ uid: "u9", name: "Grace" }));
+
+    await startSession({ accessToken: "at-1", refreshToken: "rt-1" });
+
+    expect(setSession).toHaveBeenCalledWith(expect.objectContaining({ userUid: "u9" }));
+  });
+
+  it("seals an empty uid rather than failing when neither side carried one", async () => {
+    server.use(profileHandler({ name: "Grace" }));
+
+    await startSession({ accessToken: "at-1", refreshToken: "rt-1" });
+
+    expect(setSession).toHaveBeenCalledWith(expect.objectContaining({ userUid: "" }));
+  });
 });
 
 describe("startSession and the theme", () => {

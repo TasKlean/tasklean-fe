@@ -2,6 +2,11 @@ import { http, HttpResponse } from "msw";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () => new Headers({ "user-agent": "Vitest UA" }),
+}));
+
 vi.mock("@/lib/auth/session", () => ({
   getSession: async () => ({
     accessToken: "at-1",
@@ -11,7 +16,7 @@ vi.mock("@/lib/auth/session", () => ({
   }),
 }));
 
-import { getTwoFactorStatus } from "@/lib/account/two-factor";
+import { enableTwoFactor, getTwoFactorStatus, startTwoFactorSetup } from "@/lib/account/two-factor";
 import { isSessionExpiredError } from "@/lib/api/server";
 
 const BASE = "http://api.test";
@@ -27,6 +32,24 @@ function answers(data: unknown, status = 200) {
     HttpResponse.json({ success: status === 200, message: null, data }, { status }),
   );
 }
+
+type Seen = { headers?: Headers; body?: unknown };
+
+function records(
+  path: string,
+  data: unknown,
+  seen: Seen,
+  status = 200,
+  message: string | null = null,
+) {
+  return http.post(`${BASE}/api/account/2fa/${path}`, async ({ request }) => {
+    seen.headers = request.headers;
+    seen.body = await request.json().catch(() => undefined);
+    return HttpResponse.json({ success: status === 200, message, data }, { status });
+  });
+}
+
+const ENROLLMENT = { secret: "JBSWY3DPEHPK3PXP", otpauthUri: "otpauth://totp/TasKlean:a@b.c" };
 
 describe("getTwoFactorStatus", () => {
   it("reads an enabled factor", async () => {
@@ -98,5 +121,127 @@ describe("getTwoFactorStatus", () => {
     );
 
     await expect(getTwoFactorStatus()).rejects.toThrow("Nope.");
+  });
+});
+
+describe("startTwoFactorSetup", () => {
+  it("returns what the authenticator app needs", async () => {
+    server.use(records("setup", ENROLLMENT, {}));
+
+    await expect(startTwoFactorSetup("Secret1!")).resolves.toEqual(ENROLLMENT);
+  });
+
+  it("sends the password it was given", async () => {
+    const seen: Seen = {};
+    server.use(records("setup", ENROLLMENT, seen));
+
+    await startTwoFactorSetup("Secret1!");
+
+    expect(seen.body).toEqual({ password: "Secret1!" });
+  });
+
+  it("sends nothing for an account with no password to give", async () => {
+    const seen: Seen = {};
+    server.use(records("setup", ENROLLMENT, seen));
+
+    await startTwoFactorSetup();
+
+    expect(seen.body).toEqual({});
+  });
+
+  it("refuses a response with a secret but no URI", async () => {
+    server.use(records("setup", { secret: "JBSWY3DPEHPK3PXP" }, {}));
+
+    await expect(startTwoFactorSetup()).rejects.toThrow("returned nothing to enroll");
+  });
+
+  it("refuses a response with a URI but no secret", async () => {
+    server.use(records("setup", { otpauthUri: "otpauth://totp/x" }, {}));
+
+    await expect(startTwoFactorSetup()).rejects.toThrow("returned nothing to enroll");
+  });
+
+  it("treats a 401 as the password being wrong, not the session dying", async () => {
+    server.use(records("setup", null, {}, 401, "Current password is incorrect"));
+
+    const error = await startTwoFactorSetup("nope").catch((reason: unknown) => reason);
+
+    expect(isSessionExpiredError(error)).toBe(false);
+    expect(error).toHaveProperty("status", 401);
+  });
+
+  it("surfaces a 409 as the backend's own message", async () => {
+    server.use(records("setup", null, {}, 409, "Two-factor authentication is already on."));
+
+    await expect(startTwoFactorSetup()).rejects.toThrow("already on");
+  });
+});
+
+describe("enableTwoFactor", () => {
+  it("returns the recovery codes and the fresh pair", async () => {
+    server.use(
+      records(
+        "enable",
+        { recoveryCodes: ["AAAA1111", "BBBB2222"], token: "at-2", refreshToken: "rt-2" },
+        {},
+      ),
+    );
+
+    await expect(enableTwoFactor("123456")).resolves.toEqual({
+      recoveryCodes: ["AAAA1111", "BBBB2222"],
+      tokens: { accessToken: "at-2", refreshToken: "rt-2" },
+    });
+  });
+
+  it("sends the code and the device headers, so the pair stays on this device", async () => {
+    const seen: Seen = {};
+    server.use(records("enable", { token: "at-2", refreshToken: "rt-2" }, seen));
+
+    await enableTwoFactor("123456");
+
+    expect(seen.body).toEqual({ code: "123456" });
+    expect(seen.headers?.get("x-device-id")).toBe("dev-1");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
+  });
+
+  it("refuses a response with half a pair, since the old one is already revoked", async () => {
+    server.use(records("enable", { recoveryCodes: ["AAAA1111"], token: "at-2" }, {}));
+
+    await expect(enableTwoFactor("123456")).rejects.toThrow("no new token pair");
+  });
+
+  it("survives a response with no codes in it, because the factor is on either way", async () => {
+    server.use(records("enable", { token: "at-2", refreshToken: "rt-2" }, {}));
+
+    await expect(enableTwoFactor("123456")).resolves.toMatchObject({ recoveryCodes: [] });
+  });
+
+  it("drops an entry in the list that is not a code", async () => {
+    server.use(
+      records(
+        "enable",
+        { recoveryCodes: ["AAAA1111", null, 7], token: "at-2", refreshToken: "rt-2" },
+        {},
+      ),
+    );
+
+    await expect(enableTwoFactor("123456")).resolves.toMatchObject({
+      recoveryCodes: ["AAAA1111"],
+    });
+  });
+
+  it("treats a 401 as the code being wrong, not the session dying", async () => {
+    server.use(records("enable", null, {}, 401, "That code is not valid."));
+
+    const error = await enableTwoFactor("000000").catch((reason: unknown) => reason);
+
+    expect(isSessionExpiredError(error)).toBe(false);
+    expect(error).toHaveProperty("status", 401);
+  });
+
+  it("surfaces a 409 as the backend's own message", async () => {
+    server.use(records("enable", null, {}, 409, "Start two-factor setup before turning it on."));
+
+    await expect(enableTwoFactor("123456")).rejects.toThrow("Start two-factor setup");
   });
 });

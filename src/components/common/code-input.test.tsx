@@ -2,7 +2,7 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { CodeInput } from "@/components/common/code-input";
 
@@ -16,6 +16,21 @@ function Harness({ initial = "", autoFocus = false }: { initial?: string; autoFo
       onChange={setCode}
       autoFocus={autoFocus}
     />
+  );
+}
+
+function FormHarness({ initial = "", onSubmit }: { initial?: string; onSubmit: () => void }) {
+  const [code, setCode] = useState(initial);
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <CodeInput name="code" label="6-digit code" value={code} onChange={setCode} />
+      <button type="submit">Verify</button>
+    </form>
   );
 }
 
@@ -131,5 +146,62 @@ describe("CodeInput", () => {
 
     expect(boxes()[0]).toHaveFocus();
     expect(boxes()[1]).not.toHaveFocus();
+  });
+});
+
+describe("CodeInput and its form", () => {
+  it("submits as soon as the last digit is typed", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<FormHarness onSubmit={onSubmit} />);
+
+    await user.click(boxes()[0]);
+    await user.keyboard("123456");
+
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("submits a pasted code too", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<FormHarness onSubmit={onSubmit} />);
+
+    await user.click(boxes()[0]);
+    await user.paste("123456");
+
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("stays put for a code that arrived with the form, as an email link's does", async () => {
+    const onSubmit = vi.fn();
+    render(<FormHarness initial="123456" onSubmit={onSubmit} />);
+
+    await Promise.resolve();
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("submits again once a corrected digit completes the code", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<FormHarness onSubmit={onSubmit} />);
+
+    await user.click(boxes()[0]);
+    await user.keyboard("123456");
+    await user.keyboard("{Backspace}");
+    await user.keyboard("9");
+
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not submit a code that is still short", async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(<FormHarness onSubmit={onSubmit} />);
+
+    await user.click(boxes()[0]);
+    await user.keyboard("12345");
+
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

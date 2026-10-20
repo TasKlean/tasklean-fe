@@ -715,7 +715,46 @@ the same field, so the client keeps no mode of its own: `twoFactorCodeRule` acce
 eight recovery characters and normalises the way the backend matches, stripping spaces and the
 hyphen and upcasing. The screen still offers a toggle, because six boxes and a hyphenated word are
 nothing alike to type, and it says a recovery code works here, since someone who lost their phone
-will otherwise assume they are locked out.
+will otherwise assume they are locked out. **Confirming a setup is the exception**: `/2fa/enable`
+has no recovery codes to fall back on yet, so that one form takes the plain six digits.
+
+**The QR code is encoded on the server, and travels as a path.** `otpauthUri` has to become a
+picture somewhere. Doing it in the browser puts an encoder in the client bundle for a screen most
+people visit once; doing it in a Server Component is impossible, because the secret only exists
+after a Server Action has run. So the action encodes it and hands the client `{ size, path }`: one
+SVG path with horizontal runs merged, rather than a few thousand booleans over the wire, and
+`uqr` stays server side. The component draws it with `fill-qr-ink` on `bg-qr-paper`, two tokens
+deliberately not redeclared under `dark` for the same reason the picker's swatches are not: a
+scanner expects dark modules on a light field, and an inverted code is read less reliably. A test
+rasterises the path back into a grid and compares it against the encoder's own matrix, so a run
+merged one module short fails rather than producing a code that merely looks right.
+
+**Nothing that is shown once may depend on a render surviving.** `enable` returns the recovery codes
+and the backend keeps only their hashes, so they exist in exactly one place: the action's answer. It
+would be natural to `revalidatePath` after turning the factor on, and that is precisely what must
+not happen, because the page would re-render with the factor enabled, the conditional around the
+enrollment component would evaluate false, React would unmount it, and the codes would be gone
+before they were read. This was not caught by reasoning but by testing: sealing the new session
+writes a cookie, and **writing a cookie in a Server Action re-renders the route just as
+`revalidatePath` does**. The component therefore stays mounted whatever the status says, as long as
+it is holding codes, and the page no longer decides for it. Dismissing them is separate state, and
+"I have saved them" calls `router.refresh()` rather than linking to the page it is already on, which
+the App Router treats as a no-op. The `href` stays on the anchor as the no-script path.
+
+**A pending setup can be resumed, and a resume is not a restart.** The status says `pendingSetup`
+but no endpoint hands the secret back, so the obvious reading is that the only way on is to start
+again. It is not: the pending secret still verifies, so if the entry is still in the app a code from
+it finishes the job with no new QR code. The screen offers that first and keeps "start again" as the
+escape, saying what it costs, since re-running `setup` replaces the stored secret and kills the
+entry already in the app.
+
+**The methods are a list, and only one of them exists.** The backend's `TwoFactorProviderType` has a
+single value, `LOCAL`, so Email and Text message are listed with a dead "Coming soon" button rather
+than built or hidden. Listing them answers "what else can I use" without anyone having to ask, and
+the shared `TwoFactorMethod` shell is what makes adding a real one a matter of listing it. The shell
+refuses to render children for a method marked unavailable, so a form cannot appear behind one by
+accident. The authenticator entry owns its own enrollment, collapsed behind a button, which keeps
+the page a set of choices rather than one open form between two headings.
 
 ### Session cookie implementation
 
@@ -744,6 +783,21 @@ otherwise silently expand to 32 bytes.
 
 Rotating `SESSION_SECRET` invalidates every session at once. That is the emergency revoke-all lever,
 and the reason it must differ per environment.
+
+### `uqr` for the QR code, not `qrcode`
+
+QR encoding is Reed-Solomon plus mask selection, so it is the rare case where a dependency beats
+writing it. `qrcode` is the obvious pick by downloads and was the one the plan named, but it brings
+`pngjs`, `dijkstrajs` and **`yargs`** as runtime dependencies, for a web app that needs none of
+them, and its types live in a separate `@types` package. `uqr` has **zero dependencies**, ships its
+own types, and exposes exactly the one function we want: text in, module matrix out, with the
+drawing left to us. Same reasoning as `jose`: in a seven-dependency project, transitive cost is the
+deciding factor. It is pinned loosely like everything else, and the one call is wrapped in
+`lib/qr/qr-code.ts`, so replacing it touches a single file.
+
+Error correction is left at **L**, the lowest. Measured on a real `otpauth://` URI, L needs a 49
+module grid where M needs 57: the same picture on screen means smaller modules for a camera to
+resolve. Redundancy is for a printed code that gets creased, and this one is read off a screen.
 
 ### Refresh lives in Proxy, not in the API client
 
@@ -1027,6 +1081,29 @@ back to the first one; a checkbox has no `checked` attribute written and falls b
 That is the whole difference, and it is why the code prompt keeps a refused code on screen with
 nothing added, while the language picker could not.
 
+### A finished code submits itself
+
+Six digits and then a press is a press nobody means to withhold, so `CodeInput` submits its own form
+once the last box is filled, on every screen that uses it: sign-in, verify-email and enrollment. Two
+details decide whether it works.
+
+**It submits from an effect, not from the keystroke.** The value that travels is the hidden input's,
+and at keystroke time React has not written the last digit into it yet, so submitting there posts
+five digits. The effect runs after that commit. It goes through `requestSubmit()` rather than
+`submit()`, which is what keeps each form's own `onSubmit` validation and its action in play, and a
+ref guards against submitting twice for one completion while still re-arming when a digit is
+corrected.
+
+**A code that arrived with the component does not count as typed.** The verify-email link carries
+the code in the URL and prefills it, and a test has always asserted that nothing fires on mount: the
+address may be wrong and a page that posts the moment it loads gives nobody a chance to look. So the
+guard starts spent whenever the initial value is already complete, and a typed or pasted code is the
+only thing that triggers a submit. The press remains for the no-script path and for a retry.
+
+The boxes are also **centred rather than spread**. `justify-between` is fine on the narrow auth
+column it was written for, but a settings card is wide, and six boxes a hand apart stop reading as
+one field.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -1073,7 +1150,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair, except that `login` and `google` return a **challenge** instead for an account with a second factor. `POST /2fa/verify` takes `{ challengeToken, code }` and answers the ordinary pair; it is capped at 10 requests a minute per IP. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
-| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Only `GET` has a caller so far**, and it reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
+| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **`GET`, `POST /setup` and `POST /enable` have callers**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -1257,8 +1334,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **Two-factor authentication** - the backend shipped it during phase 3, so it is being matched in
   pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
   that enabled a second factor anywhere else could not get into the app at all until it did.
-  The settings card that reports the state came next. Enrollment, disabling and reissuing recovery
-  codes follow in the same section.
+  The settings card that reports the state came next, then enrollment. Disabling and reissuing
+  recovery codes follow in the same section.
   Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the

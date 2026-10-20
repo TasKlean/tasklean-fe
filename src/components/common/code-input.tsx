@@ -1,13 +1,15 @@
 /**
- * Six boxes behaving as one field. The value is a dense string of 0–6 digits, so
- * it can never go sparse. `onChange` takes a state updater, not a string: a
+ * Six boxes behaving as one field. The value is a dense string of up to six
+ * digits, so it can never go sparse. `onChange` takes a state updater, not a string: a
  * burst of keystrokes would otherwise all compute from the same stale value.
+ * A complete code submits its form by itself, since nobody types six digits and
+ * then means to stop.
  */
 
 "use client";
 
 import type { ClipboardEvent, Dispatch, KeyboardEvent, SetStateAction } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { CODE_LENGTH } from "@/lib/validation/code-length";
 
 type CodeInputProps = {
@@ -32,7 +34,24 @@ export function CodeInput({
   autoFocus = false,
 }: CodeInputProps) {
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  const group = useRef<HTMLDivElement | null>(null);
+  // Starts spent when the code arrived with the component, as the one in an
+  // email link does: that is a value to check over, not a keystroke.
+  const sent = useRef(value.length >= CODE_LENGTH);
   const errorId = `${name}-error`;
+
+  // In an effect, not in the keystroke: the hidden input is what carries the
+  // value, and React has not written the last digit into it yet.
+  useEffect(() => {
+    if (value.length < CODE_LENGTH) {
+      sent.current = false;
+      return;
+    }
+    if (sent.current) return;
+    sent.current = true;
+    // requestSubmit, not submit: it runs the form's own validation and action.
+    group.current?.closest("form")?.requestSubmit();
+  }, [value]);
 
   function focusBox(index: number) {
     boxes.current[Math.max(0, Math.min(CODE_LENGTH - 1, index))]?.focus();
@@ -95,10 +114,13 @@ export function CodeInput({
       </span>
 
       <div
+        ref={group}
         role="group"
         aria-labelledby={`${name}-label`}
         aria-describedby={error ? errorId : undefined}
-        className="gap-space-xs flex justify-between sm:gap-3"
+        // Centred rather than spread: on a wide card the boxes would otherwise
+        // sit a hand apart and stop reading as one field.
+        className="gap-space-xs flex justify-center sm:gap-3"
       >
         {BOXES.map((index) => (
           <input

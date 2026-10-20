@@ -17,12 +17,14 @@ export type AuthResponse = {
   challengeToken?: string;
 };
 
-// What a credential exchange yields, whichever endpoint produced it. `name` is
-// the display name for the chrome, absent on a backend build that omits it.
+// What a credential exchange yields, whichever endpoint produced it. Neither
+// display field is guaranteed: `name` is absent on a backend build that omits
+// it, and enabling a second factor answers with the token pair alone, so
+// `startSession` fills both from the profile instead.
 export type SignedInTokens = {
   accessToken: string;
   refreshToken: string;
-  userUid: string;
+  userUid?: string;
   name?: string;
 };
 

@@ -28,12 +28,17 @@ export async function startSession(tokens: SignedInTokens): Promise<void> {
 
   const name = tokens.name ?? profile?.name;
 
+  // An exchange that answers with the pair alone leaves the uid to the profile
+  // call; an empty one from an older response means the same as none.
+  const userUid = tokens.userUid || profile?.uid || "";
+
   // Written on every sign-in, not only when it is known: a browser must never
   // keep painting the theme of the account that used it last.
   await writeTheme(preferences?.theme ?? DEFAULT_PREFERENCES.theme);
 
   await setSession({
     ...tokens,
+    userUid,
     activeGroupId: null,
     ...(name ? { name } : {}),
     ...(profile?.photoUrl ? { photoUrl: profile.photoUrl } : {}),

@@ -38,12 +38,11 @@ describe("TwoFactorForm", () => {
     expect(screen.queryByLabelText("Recovery code")).toBeNull();
   });
 
-  it("sends the six digits that were typed", async () => {
+  it("sends the six digits as soon as they are typed, with no press needed", async () => {
     const user = userEvent.setup({ delay: null });
     render(<TwoFactorForm />);
 
     await user.type(screen.getByLabelText("Digit 1"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     expect(verifyTwoFactorAction).toHaveBeenCalledTimes(1);
     expect(sentCode()).toBe("123456");

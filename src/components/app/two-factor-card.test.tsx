@@ -95,6 +95,16 @@ describe("TwoFactorCard", () => {
     expect(screen.getByRole("status")).toHaveTextContent("no recovery codes left");
   });
 
+  it("renders whatever acts on the method below its own state", () => {
+    render(
+      <TwoFactorCard status={status()} confirmedOn={null}>
+        <button type="button">Set up</button>
+      </TwoFactorCard>,
+    );
+
+    expect(screen.getByRole("button", { name: "Set up" })).toBeVisible();
+  });
+
   it("nudges nobody who has it switched off", () => {
     render(<TwoFactorCard status={status()} confirmedOn={null} />);
 
