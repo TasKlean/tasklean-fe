@@ -6,9 +6,17 @@ import { describe, expect, it } from "vitest";
 import { useState } from "react";
 import { CodeInput } from "@/components/common/code-input";
 
-function Harness({ initial = "" }: { initial?: string }) {
+function Harness({ initial = "", autoFocus = false }: { initial?: string; autoFocus?: boolean }) {
   const [code, setCode] = useState(initial);
-  return <CodeInput name="code" label="6-digit code" value={code} onChange={setCode} />;
+  return (
+    <CodeInput
+      name="code"
+      label="6-digit code"
+      value={code}
+      onChange={setCode}
+      autoFocus={autoFocus}
+    />
+  );
 }
 
 function boxes() {
@@ -110,5 +118,18 @@ describe("CodeInput", () => {
     render(<Harness />);
 
     for (const box of boxes()) expect(box).toHaveAttribute("inputmode", "numeric");
+  });
+
+  it("leaves focus alone by default", () => {
+    render(<Harness />);
+
+    expect(boxes()[0]).not.toHaveFocus();
+  });
+
+  it("focuses the first box only when asked", () => {
+    render(<Harness autoFocus />);
+
+    expect(boxes()[0]).toHaveFocus();
+    expect(boxes()[1]).not.toHaveFocus();
   });
 });

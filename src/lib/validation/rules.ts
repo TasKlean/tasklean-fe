@@ -68,6 +68,20 @@ export const codeRule = z
     z.regex(new RegExp("^[0-9]{" + CODE_LENGTH + "}$"), `Enter all ${CODE_LENGTH} digits.`),
   );
 
+// Six digits from an authenticator, or an eight-character recovery code.
+const TWO_FACTOR_CODE = /^(?:[0-9]{6}|[A-Z0-9]{8})$/;
+
+/**
+ * An authenticator code or a recovery code, normalised the way the backend
+ * matches them: it strips spaces, the hyphen and the case before comparing.
+ */
+export const twoFactorCodeRule = z.string({ error: "Enter your code." }).check(
+  z.trim(),
+  z.minLength(1, "Enter your code."),
+  z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
+  z.regex(TWO_FACTOR_CODE, "Enter the 6 digits from your app, or a recovery code."),
+);
+
 /** One of the colour schemes the picker offers. */
 export const themeRule = z.enum(THEMES, { error: "Pick a theme." });
 

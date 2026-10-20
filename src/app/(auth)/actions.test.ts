@@ -21,6 +21,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import { googleSignInAction } from "@/app/(auth)/actions";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
 import type { GoogleActionState } from "@/components/auth/google-button.types";
 
 const BASE = "http://api.test";
@@ -196,5 +197,50 @@ describe("googleSignInAction rate limiting", () => {
     expect(state.error).toBe("Too many attempts. Please try again in 2 minutes.");
     expect(state.nonceHash).toBe(await hashNonce(jar.get("tasklean_google_nonce") ?? ""));
     expect(setSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("googleSignInAction two-factor", () => {
+  function gated(): void {
+    server.use(
+      http.post(`${BASE}/api/auth/google`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: { twoFactorRequired: true, challengeToken: "challenge-2", token: null },
+        }),
+      ),
+    );
+  }
+
+  it("stores the challenge and asks for a code", async () => {
+    gated();
+
+    expect(await redirectedTo(form({ idToken: "google-token" }))).toBe("/two-factor");
+    expect(jar.get(CHALLENGE_COOKIE_NAME)).toBe("challenge-2");
+  });
+
+  it("starts no session until the code is in", async () => {
+    gated();
+
+    await googleSignInAction(EMPTY, form({ idToken: "google-token" })).catch(() => {});
+
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("spends the nonce, since Google's token was accepted", async () => {
+    gated();
+
+    await googleSignInAction(EMPTY, form({ idToken: "google-token" })).catch(() => {});
+
+    expect(jar.has("tasklean_google_nonce")).toBe(false);
+  });
+
+  it("carries the next path across the extra hop", async () => {
+    gated();
+
+    expect(await redirectedTo(form({ idToken: "google-token", next: "/groups" }))).toBe(
+      "/two-factor?next=%2Fgroups",
+    );
   });
 });

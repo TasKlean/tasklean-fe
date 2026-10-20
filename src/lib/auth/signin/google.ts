@@ -6,8 +6,9 @@
 import "server-only";
 
 import { request } from "@/lib/api/client";
-import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth/auth.types";
+import type { AuthResponse, GoogleAuthRequest, SignInOutcome } from "@/lib/auth/auth.types";
 import type { DeviceHeaders } from "@/lib/auth/device";
+import { signInOutcome } from "@/lib/auth/signin/outcome";
 
 /**
  * Signs in with a Google ID token.
@@ -19,7 +20,8 @@ import type { DeviceHeaders } from "@/lib/auth/device";
  * @param idToken The credential from Google Identity Services.
  * @param nonce The raw per-attempt secret whose hash the token carries.
  * @param device Device headers, so the backend binds this session to a device.
- * @returns The token pair and the user's opaque uid.
+ * @returns A token pair, or the challenge an account with two-factor on gets
+ * instead. The caller must branch before it persists anything.
  * @throws ApiError on any non-2xx. A rejected token, a nonce that does not
  * match, an unverified Google mailbox and a deactivated account all arrive as
  * 401; a missing nonce is a 400.
@@ -29,7 +31,7 @@ export async function signInWithGoogle(
   idToken: string,
   nonce: string,
   device: DeviceHeaders = {},
-): Promise<SignedInTokens> {
+): Promise<SignInOutcome> {
   const body: GoogleAuthRequest = { idToken, nonce };
   const response = await request<AuthResponse>("/api/auth/google", {
     method: "POST",
@@ -37,15 +39,5 @@ export async function signInWithGoogle(
     headers: device,
   });
 
-  // A session without a refresh token dies at the first expiry with no way back.
-  if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Google sign-in succeeded but returned no token pair.");
-  }
-
-  return {
-    accessToken: response.token,
-    refreshToken: response.refreshToken,
-    userUid: response.uid ?? "",
-    name: response.name,
-  };
+  return signInOutcome(response, "Google sign-in");
 }

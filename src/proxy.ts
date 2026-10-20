@@ -19,8 +19,9 @@ import {
   createDeviceId,
 } from "@/lib/auth/device";
 import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
-import { SIGNED_IN_HOME } from "@/lib/auth/safe-next";
+import { SIGNED_IN_HOME, TWO_FACTOR_PROMPT } from "@/lib/auth/safe-next";
 import { refreshTokens } from "@/lib/auth/tokens/refresh";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
@@ -44,13 +45,16 @@ const PUBLIC_PATHS = [
   "/verify-email",
   "/forgot-password",
   "/reset-password",
+  TWO_FACTOR_PROMPT,
 ];
 
 // The public paths a session makes pointless. `/` is public but not here: it
 // stays readable while signed in, or the redirect below would loop onto itself.
 // `/reset-password` is not here either: an emailed link has to work even for
 // someone whose browser still holds a session, and finishing the reset kills it.
-const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
+// The prompt is one of them: it finishes a sign-in, so a session has already
+// made it pointless, and it needs the device id the verify call sends.
+const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password", TWO_FACTOR_PROMPT];
 
 // The screens carrying a Google button, which cannot mint their own nonce. The
 // connected accounts page is one, so it keeps a nonce every other path drops.
@@ -95,15 +99,17 @@ async function withGoogleNonce(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Clears a Google nonce that a session has made pointless.
+ * Clears the single-use sign-in credentials a session has made pointless: the
+ * Google nonce, and a challenge whose sign-in ended some other way.
  *
- * Only the Google action spends one, so a password login leaves it behind
+ * Only the Google action spends a nonce, so a password login leaves one behind
  * until it expires. Proxy mints it, so Proxy is where it gets cleaned up.
  *
  * @returns The same response, for use at a return site.
  */
-function dropSpentNonce(request: NextRequest, response: NextResponse): NextResponse {
+function dropSpentCredentials(request: NextRequest, response: NextResponse): NextResponse {
   if (request.cookies.has(NONCE_COOKIE_NAME)) response.cookies.delete(NONCE_COOKIE_NAME);
+  if (request.cookies.has(CHALLENGE_COOKIE_NAME)) response.cookies.delete(CHALLENGE_COOKIE_NAME);
   return response;
 }
 
@@ -115,7 +121,7 @@ function dropSpentNonce(request: NextRequest, response: NextResponse): NextRespo
  */
 async function passThrough(request: NextRequest): Promise<NextResponse> {
   if (matches(GOOGLE_PATHS, request.nextUrl.pathname)) return withGoogleNonce(request);
-  return dropSpentNonce(request, NextResponse.next());
+  return dropSpentCredentials(request, NextResponse.next());
 }
 
 /**
@@ -172,7 +178,10 @@ async function route(
   // Only the auth screens: every other public page, the marketing page
   // included, stays readable while signed in.
   if (matches(AUTH_PATHS, pathname)) {
-    return dropSpentNonce(request, NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)));
+    return dropSpentCredentials(
+      request,
+      NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)),
+    );
   }
 
   if (!accessTokenExpiresWithin(session.accessToken)) {

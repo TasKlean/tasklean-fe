@@ -26,13 +26,12 @@ describe("signInWithGoogle", () => {
       }),
     );
 
-    const tokens = await signInWithGoogle("google-id-token", "raw-nonce");
+    const outcome = await signInWithGoogle("google-id-token", "raw-nonce");
 
     expect(body).toEqual({ idToken: "google-id-token", nonce: "raw-nonce" });
-    expect(tokens).toEqual({
-      accessToken: "access-1",
-      refreshToken: "refresh-1",
-      userUid: "user-uid-1",
+    expect(outcome).toEqual({
+      kind: "session",
+      tokens: { accessToken: "access-1", refreshToken: "refresh-1", userUid: "user-uid-1" },
     });
   });
 
@@ -48,7 +47,24 @@ describe("signInWithGoogle", () => {
     );
 
     await expect(signInWithGoogle("google-id-token", "raw-nonce")).resolves.toMatchObject({
-      userUid: "",
+      tokens: { userUid: "" },
+    });
+  });
+
+  it("returns the challenge when the linked account has two-factor on", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/google`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: { twoFactorRequired: true, challengeToken: "challenge-9", token: null },
+        }),
+      ),
+    );
+
+    await expect(signInWithGoogle("google-id-token", "raw-nonce")).resolves.toEqual({
+      kind: "challenge",
+      challengeToken: "challenge-9",
     });
   });
 

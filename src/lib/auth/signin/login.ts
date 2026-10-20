@@ -7,14 +7,16 @@ import "server-only";
 
 import { request } from "@/lib/api/client";
 import { isApiError } from "@/lib/api/errors";
-import type { AuthResponse, SignedInTokens } from "@/lib/auth/auth.types";
+import type { AuthResponse, SignInOutcome } from "@/lib/auth/auth.types";
 import type { DeviceHeaders } from "@/lib/auth/device";
+import { signInOutcome } from "@/lib/auth/signin/outcome";
 
 /**
  * Logs in with a password.
  *
  * @param device Device headers, so the backend binds this session to a device.
- * @returns The token pair and the user's opaque uid.
+ * @returns A token pair, or the challenge an account with two-factor on gets
+ * instead. The caller must branch before it persists anything.
  * @throws ApiError on any non-2xx. Unknown email and wrong password share one
  * message so neither can be probed for; deactivated, Google-only and unverified
  * each have their own.
@@ -24,24 +26,14 @@ export async function loginWithPassword(
   email: string,
   password: string,
   device: DeviceHeaders = {},
-): Promise<SignedInTokens> {
+): Promise<SignInOutcome> {
   const response = await request<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: { email, password },
     headers: device,
   });
 
-  // A session without a refresh token dies at the first expiry with no way back.
-  if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Login succeeded but returned no token pair.");
-  }
-
-  return {
-    accessToken: response.token,
-    refreshToken: response.refreshToken,
-    userUid: response.uid ?? "",
-    name: response.name,
-  };
+  return signInOutcome(response, "Login");
 }
 
 const UNVERIFIED_CODE = "EMAIL_NOT_VERIFIED";

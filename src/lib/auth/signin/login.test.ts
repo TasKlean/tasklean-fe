@@ -25,9 +25,8 @@ describe("loginWithPassword", () => {
     );
 
     await expect(loginWithPassword("a@b.test", "password123")).resolves.toEqual({
-      accessToken: "access-1",
-      refreshToken: "refresh-1",
-      userUid: "user-abc",
+      kind: "session",
+      tokens: { accessToken: "access-1", refreshToken: "refresh-1", userUid: "user-abc" },
     });
   });
 
@@ -92,7 +91,68 @@ describe("loginWithPassword", () => {
     );
 
     await expect(loginWithPassword("a@b.test", "password123")).resolves.toMatchObject({
-      userUid: "",
+      tokens: { userUid: "" },
+    });
+  });
+
+  it("returns the challenge instead of a pair when the account has two-factor on", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: {
+            twoFactorRequired: true,
+            challengeToken: "challenge-1",
+            token: null,
+            refreshToken: null,
+            uid: null,
+          },
+        }),
+      ),
+    );
+
+    await expect(loginWithPassword("a@b.test", "password123")).resolves.toEqual({
+      kind: "challenge",
+      challengeToken: "challenge-1",
+    });
+  });
+
+  it("rejects a gated 2xx that carries no challenge token", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: { twoFactorRequired: true, token: null, refreshToken: null },
+        }),
+      ),
+    );
+
+    await expect(loginWithPassword("a@b.test", "password123")).rejects.toThrow(
+      /no challenge token/i,
+    );
+  });
+
+  it("reads the token pair when the flag says no second factor", async () => {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: {
+            twoFactorRequired: false,
+            challengeToken: null,
+            token: "t",
+            refreshToken: "r",
+            uid: "u",
+          },
+        }),
+      ),
+    );
+
+    await expect(loginWithPassword("a@b.test", "password123")).resolves.toMatchObject({
+      kind: "session",
     });
   });
 });

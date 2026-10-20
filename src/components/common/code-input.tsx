@@ -16,12 +16,21 @@ type CodeInputProps = {
   value: string;
   onChange: Dispatch<SetStateAction<string>>;
   error?: string;
+  // Focuses the first box on mount, for a screen whose only job is this field.
+  autoFocus?: boolean;
 };
 
 const BOXES = Array.from({ length: CODE_LENGTH }, (_, index) => index);
 
 /** Renders the six-box verification code field. */
-export function CodeInput({ name, label, value, onChange, error }: CodeInputProps) {
+export function CodeInput({
+  name,
+  label,
+  value,
+  onChange,
+  error,
+  autoFocus = false,
+}: CodeInputProps) {
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
   const errorId = `${name}-error`;
 
@@ -99,6 +108,7 @@ export function CodeInput({ name, label, value, onChange, error }: CodeInputProp
             }}
             // On the first box only, or the hint is offered six times over.
             autoComplete={index === 0 ? "one-time-code" : "off"}
+            autoFocus={autoFocus && index === 0}
             inputMode="numeric"
             // Not `number`: it renders spinners and accepts `e` and `-`.
             type="text"

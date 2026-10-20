@@ -12,11 +12,14 @@ is the reference: what exists, where it lives, and the rules.
 Never restate backend internals here — link to them.
 
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
-`/forgot-password`, `/reset-password`, Google sign-in, `/app`, `/app/account`,
+`/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. Register, verification, password login, password
-reset and token rotation have all run against the real backend in Docker; the account, user-settings and
-notification-settings endpoints have run against a stub only; every automated test is MSW.
+and logout exist. Everything else behind the session does not. **Two-factor is half built**: a
+sign-in the backend gates is answered end to end, but nothing enrolls, disables or reissues recovery
+codes yet, so `/api/account/2fa/*` has no caller. Register, verification, password login, password
+reset and token rotation have all run against the real backend in Docker; the account, user-settings,
+notification-settings and two-factor endpoints have run against a stub only; every automated test is
+MSW.
 
 ## Quick reference
 
@@ -136,6 +139,7 @@ src/
       register/        page.tsx, actions.ts
       forgot-password/ page.tsx, actions.ts
       reset-password/  page.tsx, actions.ts
+      two-factor/      page.tsx and actions.ts: the second factor a gated sign-in asks for
     (public)/          site header + footer shell, the one indexable route
       page.tsx         the home page
     error.tsx          the boundary below the root layout, with a retry
@@ -154,8 +158,8 @@ src/
                        unlink-google, deactivate-account, appearance-form, theme-preview,
                        language-form, notifications-form, notification-toggle,
                        switch-track
-    auth/              login-form, register-form, verify-email-form, google-sign-in
-                       (the rule plus the button), google-button, back-link,
+    auth/              login-form, register-form, verify-email-form, two-factor-form,
+                       google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
     marketing/         public-page sections: site-header, site-footer, hero,
                        hero-tilt, how-it-works, feature-grid, comparison, cta-band
@@ -166,14 +170,18 @@ src/
                        retry-phrase.ts (the 429 message),
                        action-failure.ts (what every Server Action shows on a throw)
     auth/
-      signin/          one per credential exchange: login, register, verify-email, google
+      signin/          one per credential exchange: login, register, verify-email, google,
+                       two-factor, plus outcome.ts, which decides whether a login response
+                       is a session or a challenge
       tokens/          access-token.ts (expiry), refresh.ts (single-flight rotation),
                        logout.ts (revokes server-side)
       session.ts       the encrypted cookie; auth.types.ts the wire shapes
       device.ts        the per-browser device id cookie and the headers carrying it
+      two-factor-challenge.ts  the short-lived cookie holding a gated sign-in's challenge
       password-reset.ts  forgot and reset, neither of which returns tokens
       google-nonce.ts  the per-attempt Google nonce: cookie, header, mint and hash
-      safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME
+      safe-next.ts     blocks open redirect via Proxy's ?next=, owns SIGNED_IN_HOME and
+                       the two-factor prompt's path
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
     notifications/     settings.ts (the channels each notification type uses: a GET for the
@@ -186,19 +194,20 @@ src/
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
-                       notification type)
+                       notification type, two-factor code)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
                        change-password, set-password, deactivate-account, appearance,
-                       language, notifications
+                       language, notifications, two-factor
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)
 ```
 
-**Depth follows need, not symmetry** — `signin/` is a directory because four endpoints are coming;
+**Depth follows need, not symmetry**: `signin/` is a directory because five endpoints exchange a
+credential;
 `session.ts` is one file because it stays one. **Server Actions stay with their route**, not in
 `components/`. A component used by one feature starts in that feature's directory. **Tests sit beside
 the code** they cover.
@@ -216,8 +225,8 @@ the code** they cover.
 - **A module reading a server variable or holding a secret imports `server-only`**, and so does
   every feature module that calls `serverApi` or touches a cookie: `config/env.ts`, `api/client.ts`,
   `api/server.ts`, `api/action-failure.ts`, `auth/session.ts`, `auth/device.ts`, `auth/signin/*`,
-  `auth/tokens/refresh.ts`, `account/`, `devices/`, `users/`, `notifications/settings.ts`,
-  `preferences/preferences.ts` and `preferences/theme-cookie.ts`. `validation/` must **not**, since
+  `auth/tokens/refresh.ts`, `auth/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
+  `notifications/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie.ts`. `validation/` must **not**, since
   client components import it, and neither may `preferences/preferences.types.ts`,
   `preferences/theme-attribute.ts` or `notifications/settings.types.ts`, which the forms read.
 - **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
@@ -276,10 +285,12 @@ the code** they cover.
   bare "Something went wrong" when the envelope carried a `message`. A screen that loads data
   catches `ApiError` and renders `LoadError` inline, keeping the rest of the page usable; the route
   boundary is for the failures nobody anticipated, and `SessionExpiredError` redirects to `/login`.
-- **A form whose values live in React state cancels the reset.** React resets a form's DOM once its
-  action answers, and never rewrites a controlled value it did not change, so the control keeps the
-  reset value while state disagrees. `onReset={(event) => event.preventDefault()}` is the fix, and
-  both the language select and the notification switches carry it.
+- **A `select` or a checkbox whose value lives in React state cancels the form reset.** React resets
+  a form's DOM once its action answers, and never rewrites a controlled value it did not change, so
+  the control keeps the reset value while state disagrees. `onReset={(event) => event.preventDefault()}`
+  is the fix, and the language select and the notification switches carry it. **A text input does
+  not need it**: React writes its value into the attribute, which is what a reset restores, so the
+  two-factor code survives a refusal with nothing added.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and
@@ -409,6 +420,29 @@ routes are `noindex` via the `(auth)` layout.
   single use: every outcome of an attempt replaces it, and the action returns the new hash so the
   button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
   first signed-in request.
+- **A sign-in can end in a challenge instead of a session.** `login` and `google` answer with
+  `twoFactorRequired` and a `challengeToken` and no tokens at all when the account has a second
+  factor, so both return a `SignInOutcome` union and `signin/outcome.ts` is the only place that
+  reads either response. Reading `token` without checking the flag first is the one mistake that
+  looks like a successful login and leaves the browser with no session.
+- **The challenge rides in an httpOnly cookie, not the URL or a hidden field.** It is a credential
+  with a five-minute life, so `auth/two-factor-challenge.ts` owns `tasklean_2fa_challenge` and the
+  verify action reads it from there, ignoring anything a form posts under that name. A reload keeps
+  working, and Proxy drops a leftover one the way it drops a spent Google nonce.
+- **`/two-factor` is public, and guarded twice.** A visitor finishing a gated sign-in has no session
+  by definition, so the path is in `PUBLIC_PATHS`; the page redirects to `/login` when there is no
+  challenge to answer, and `AUTH_PATHS` bounces anyone who already has a session. Being in
+  `AUTH_PATHS` is also what mints the device id, which `verify` has to send: the device row and the
+  new-sign-in email are created at that step now, not at login.
+- **A 401 from `/api/auth/2fa/verify` is about the code, not the session.** Two codes end the
+  attempt: `TWO_FACTOR_CHALLENGE_INVALID` clears the cookie and returns to `/login?expired=2fa`,
+  and `ACCOUNT_DEACTIVATED` to the notice login already has. Every other 401 shows against the code
+  field, so a mistyped digit costs a retry and nothing else. **Refresh is not gated**, so a
+  returning browser with a live refresh token is never asked for a code.
+- **One field takes either kind of code.** `twoFactorCodeRule` accepts six digits or an
+  eight-character recovery code and normalises the way the backend matches: spaces and the hyphen
+  stripped, uppercased. The screen offers a toggle because the two look nothing alike to type, not
+  because the endpoint cares.
 - **A password reset ends at the login screen, never in a session.** `POST
   /api/auth/reset-password` returns no tokens and revokes every refresh token the user holds, so the
   action clears our cookie and sends them to `/login?reset=1`. `/forgot-password` answers the same

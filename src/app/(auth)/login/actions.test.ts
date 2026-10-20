@@ -16,6 +16,8 @@ vi.mock("next/headers", () => ({
 }));
 
 import { loginAction, type LoginState } from "@/app/(auth)/login/actions";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
 
 const BASE = "http://api.test";
 const EMPTY: LoginState = { error: null };
@@ -255,5 +257,55 @@ describe("loginAction device binding", () => {
     expect(seen.headers?.get("x-device-id")).toBe("dev-1");
     expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
     expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
+  });
+});
+
+describe("loginAction two-factor", () => {
+  function gated(): void {
+    server.use(
+      http.post(`${BASE}/api/auth/login`, () =>
+        HttpResponse.json({
+          success: true,
+          message: null,
+          data: {
+            twoFactorRequired: true,
+            challengeToken: "challenge-1",
+            token: null,
+            refreshToken: null,
+          },
+        }),
+      ),
+    );
+  }
+
+  it("stores the challenge and asks for a code", async () => {
+    gated();
+
+    const thrown = await loginAction(
+      EMPTY,
+      form({ email: "a@b.test", password: "Chores12!" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((thrown as { digest?: string }).digest)).toContain("/two-factor");
+    expect(jar.get(CHALLENGE_COOKIE_NAME)).toBe("challenge-1");
+  });
+
+  it("starts no session until the code is in", async () => {
+    gated();
+
+    await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" })).catch(() => {});
+
+    expect(jar.has(SESSION_COOKIE_NAME)).toBe(false);
+  });
+
+  it("carries the next path across the extra hop", async () => {
+    gated();
+
+    const thrown = await loginAction(
+      EMPTY,
+      form({ email: "a@b.test", password: "Chores12!", next: "/app/account" }),
+    ).catch((error: unknown) => error);
+
+    expect(String((thrown as { digest?: string }).digest)).toContain("next=%2Fapp%2Faccount");
   });
 });

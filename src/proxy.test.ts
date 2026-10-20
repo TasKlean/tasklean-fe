@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
 import { DEVICE_COOKIE_NAME } from "@/lib/auth/device";
 import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
 import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
 import { server } from "@/test/msw";
 
@@ -191,6 +192,56 @@ describe("proxy password reset paths", () => {
 
     expect(nonceFrom(forgot)).toBeUndefined();
     expect(nonceFrom(reset)).toBeUndefined();
+  });
+});
+
+describe("proxy two-factor prompt", () => {
+  it("lets a visitor with a challenge finish signing in", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("sends a visitor who already has a session away", async () => {
+    const response = await proxy(requestFor("/two-factor", await sessionCookie(3600)));
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+  });
+
+  it("mints a device id, which the verify call has to send", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("mints no Google nonce there", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+
+  it("clears a challenge whose sign-in ended some other way", async () => {
+    const request = new NextRequest(`${SITE}/app`, {
+      headers: {
+        cookie: `${CHALLENGE_COOKIE_NAME}=challenge-1; ${SESSION_COOKIE_NAME}=${await sessionCookie(3600)}`,
+      },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.cookies.get(CHALLENGE_COOKIE_NAME)?.value).toBe("");
+  });
+
+  it("leaves the challenge alone while the visitor is still signed out", async () => {
+    const request = new NextRequest(`${SITE}/two-factor`, {
+      headers: { cookie: `${CHALLENGE_COOKIE_NAME}=challenge-1` },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.cookies.get(CHALLENGE_COOKIE_NAME)).toBeUndefined();
   });
 });
 

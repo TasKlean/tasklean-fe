@@ -4,7 +4,8 @@
  */
 
 // Nothing is marked `required` in openapi.json, and register really does omit
-// the tokens — an unverified account gets none until it verifies.
+// the tokens: an unverified account gets none until it verifies. A gated
+// sign-in omits them too, and sends `challengeToken` in their place.
 export type AuthResponse = {
   token?: string;
   refreshToken?: string;
@@ -12,6 +13,8 @@ export type AuthResponse = {
   email?: string;
   name?: string;
   message?: string;
+  twoFactorRequired?: boolean;
+  challengeToken?: string;
 };
 
 // What a credential exchange yields, whichever endpoint produced it. `name` is
@@ -22,6 +25,11 @@ export type SignedInTokens = {
   userUid: string;
   name?: string;
 };
+
+// What a sign-in produced. Login and Google can end in either, so reading the
+// token pair without checking `kind` is what the backend's change broke.
+export type SignInOutcome =
+  { kind: "session"; tokens: SignedInTokens } | { kind: "challenge"; challengeToken: string };
 
 export type LoginRequest = {
   email: string;
@@ -41,6 +49,13 @@ export type GoogleAuthRequest = {
   idToken: string;
   // The raw nonce. The token carries its SHA-256, which the backend recomputes.
   nonce: string;
+};
+
+export type TwoFactorVerifyRequest = {
+  // The opaque token the gated login response returned, not a session token.
+  challengeToken: string;
+  // An authenticator code or one recovery code: the backend accepts either.
+  code: string;
 };
 
 export type RefreshRequest = {

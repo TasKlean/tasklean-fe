@@ -656,10 +656,58 @@ bounce through Proxy's refusal path. For the same reason `/reset-password` is pu
 browser they are most likely to open it in. `/forgot-password` is in both lists, because a session
 really does make asking for a link pointless.
 
+**Two-factor** - `login` and `google` stop returning tokens for an account that has a second
+factor. They answer `{ twoFactorRequired: true, challengeToken }` with `token`, `refreshToken`,
+`uid`, `email` and `name` all null, and the client posts that challenge with a code to
+`POST /api/auth/2fa/verify`, which answers the ordinary `AuthResponse`. The challenge lives five
+minutes, allows five wrong codes, dies on the first success, and is replaced whenever the user signs
+in again. `code` takes a six-digit authenticator code or one of the ten recovery codes. Refresh is
+**not** gated, so the prompt appears on a real sign-in rather than on every visit, and nothing
+changes for a user who never enrolls.
+
 **A 400 from reset means the two policies have drifted.** The frontend is the spec and the backend
 matches it, so a rejected password should never reach the endpoint. If one does, the message is
 shown against the password field rather than swallowed, since that is the only place it could be
 acted on.
+
+### The second factor is a cookie between two requests
+
+A gated login hands back a challenge token, and the screen that answers it is a separate request. So
+the token has to live somewhere in between, and the handoff suggested component state because it
+assumed a single-page app. Here the login Server Action runs on the server and can write a cookie,
+which is strictly better: `tasklean_2fa_challenge` is httpOnly with a five-minute `maxAge` mirroring
+the backend's own window, so the credential never enters the DOM, never rides a hidden field, never
+reaches page scripts, and a reload leaves the screen usable instead of dumping the visitor back at
+sign-in. The verify action reads the cookie and ignores a `challengeToken` posted with the form, so
+a crafted field cannot substitute one. It is the Google nonce pattern a second time, and Proxy
+cleans up a leftover challenge on the first signed-in request the same way.
+
+**`signInOutcome` is the only reader of a login response.** `AuthResponse` now carries both shapes,
+and reading `token` before checking `twoFactorRequired` silently yields `null`: a user who looks
+signed in with no session. One narrowing function returns a session-or-challenge union, which makes
+the compiler refuse any caller that forgets to branch. It throws on a gated response with no
+challenge token, and still throws on the old failure of a 2xx with no pair, so neither can pass as
+success.
+
+**The verify call carries the device headers.** The backend creates the device row and sends the
+new-sign-in email at that step now, not at login, so a verify without `X-Device-Id` costs this
+browser its identity in the devices list and the account its alert. `/two-factor` is therefore in
+`AUTH_PATHS`, which is what makes Proxy mint the id for a visitor who does not have one yet.
+
+**A 401 here is not the session.** Two error codes end the attempt and nothing else does:
+`TWO_FACTOR_CHALLENGE_INVALID` means expired, spent or out of attempts, so the cookie is cleared and
+the visitor restarts at `/login?expired=2fa`, with one line covering both causes because the backend
+deliberately says only whether the tries ran out. `ACCOUNT_DEACTIVATED` reuses the notice login
+already renders. Everything else a 401 says is shown against the code field, which keeps a mistyped
+digit from looking like a dead end, and a 429 goes through `rateLimitMessage` like every other auth
+call.
+
+**One field, both kinds of code.** The endpoint takes an authenticator code or a recovery code in
+the same field, so the client keeps no mode of its own: `twoFactorCodeRule` accepts six digits or
+eight recovery characters and normalises the way the backend matches, stripping spaces and the
+hyphen and upcasing. The screen still offers a toggle, because six boxes and a hyphenated word are
+nothing alike to type, and it says a recovery code works here, since someone who lost their phone
+will otherwise assume they are locked out.
 
 ### Session cookie implementation
 
@@ -964,6 +1012,13 @@ the reset, `onReset={(event) => event.preventDefault()}`, on any form whose valu
 state. The language select and the notification switches both carry it. A form that wants its fields
 emptied on success, like the password form, still does that from state, where it can be read.
 
+**It is not every controlled field, and the two-factor form proved it.** A reset restores each
+control's default, and React writes a text input's value into the `value` attribute, which is that
+default, so a text field comes back unchanged. A `select` has no `selected` option written and falls
+back to the first one; a checkbox has no `checked` attribute written and falls back to unchecked.
+That is the whole difference, and it is why the code prompt keeps a refused code on screen with
+nothing added, while the language picker could not.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -1008,8 +1063,9 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 
 | Resource          | Path                           | Client notes                                                                                                                                                                                                                                      |
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
+| Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair, except that `login` and `google` return a **challenge** instead for an account with a second factor. `POST /2fa/verify` takes `{ challengeToken, code }` and answers the ordinary pair; it is capped at 10 requests a minute per IP. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
+| Two-factor        | `/api/account/2fa`             | The caller's own second factor, and **no caller yet**. `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -1028,7 +1084,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ---- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 2xx  | Success                                                                 | POSTs really return 201 though the spec says 200 — never branch on the exact code  |
 | 400  | Validation, malformed body, bad enum/param type                         | Render against the field; `message` joins the field errors                         |
-| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account`, it is the credential in the body being refused, so it shows against the field. |
+| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account` and the two-factor endpoints it is the credential in the body being refused, so it shows against the field; `TWO_FACTOR_CODE_INVALID`, `TWO_FACTOR_CHALLENGE_INVALID`, `PASSWORD_INVALID` and `ACCOUNT_DEACTIVATED` tell those cases apart. |
 | 403  | Authenticated but not permitted                                         | Permission message. **Never** log out, never retry. Not predictable from the spec. |
 | 404  | Not found, or unknown route                                             | Not-found state for the resource                                                   |
 | 409  | Duplicate, or a violated rule (last admin, already a member)            | Show the server's `message` verbatim — it's written for humans                     |
@@ -1190,6 +1246,11 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **CI** — landed after phase 2. Two workflows, one `verify` job, Sonar with a coverage gate, and a
   production pipeline that promotes the staging image rather than rebuilding. Reasoning under
   _Continuous integration and deployment_.
+- **Two-factor authentication** - the backend shipped it during phase 3, so it is being matched in
+  pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
+  that enabled a second factor anywhere else could not get into the app at all until it did.
+  Enrollment, disabling and reissuing recovery codes follow as a settings section inside phase 3.
+  Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the
   deployment artifact, which is why it takes no build arguments.

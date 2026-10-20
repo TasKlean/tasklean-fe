@@ -12,7 +12,8 @@ import { rateLimitMessage } from "@/lib/api/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device";
 import { isEmailUnverified, loginWithPassword } from "@/lib/auth/signin/login";
 import { resendVerification } from "@/lib/auth/signin/verify-email";
-import { SIGNED_IN_HOME, safeNext } from "@/lib/auth/safe-next";
+import { SIGNED_IN_HOME, safeNext, twoFactorPrompt } from "@/lib/auth/safe-next";
+import { setChallenge } from "@/lib/auth/two-factor-challenge";
 import { echoLogin, parseLogin } from "@/lib/validation/forms/login.schema";
 import { startSession } from "@/lib/auth/start-session";
 
@@ -41,10 +42,16 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
   const next = safeNext(parsed.values.next);
 
   let unverified = false;
+  let gated = false;
 
   try {
-    const tokens = await loginWithPassword(email, password, await deviceHeaders());
-    await startSession(tokens);
+    const outcome = await loginWithPassword(email, password, await deviceHeaders());
+    if (outcome.kind === "challenge") {
+      await setChallenge(outcome.challengeToken);
+      gated = true;
+    } else {
+      await startSession(outcome.tokens);
+    }
   } catch (error) {
     // Not a failure but a step: send a fresh code and move them on.
     if (isEmailUnverified(error)) {
@@ -66,6 +73,9 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     const carried = next === SIGNED_IN_HOME ? "" : `&next=${encodeURIComponent(next)}`;
     redirect(`/verify-email?email=${encodeURIComponent(email)}&resent=1${carried}`);
   }
+
+  // The password was right, but it is not a session until the code is too.
+  if (gated) redirect(twoFactorPrompt(next));
 
   // Outside the try: redirect() signals by throwing.
   redirect(next);

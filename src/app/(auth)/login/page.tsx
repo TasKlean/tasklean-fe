@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { deactivated, next, reset, signedOut } = await searchParams;
+  const { deactivated, expired, next, reset, signedOut } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
@@ -41,6 +41,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
         >
           Your password is set. Sign in with it, on this device and any other.
+        </p>
+      ) : null}
+
+      {expired === "2fa" ? (
+        <p role="status" className="bg-muted text-foreground text-body-md p-space-md rounded-md">
+          That verification expired or ran out of tries. Sign in again for a new one.
         </p>
       ) : null}
 
