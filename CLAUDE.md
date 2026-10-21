@@ -96,7 +96,9 @@ production   verify -> sonarcloud -> version -> promote -> deploy -> release
   then uploads `coverage/lcov.info`. Splitting them would pay for four runner starts and four
   `npm ci` runs to parallelise gates that take seconds.
 - **Sonar is a separate job** so the scan never shares an environment with `npm ci`, and it is
-  skipped for a fork PR, which gets no `SONAR_TOKEN`. Config lives in `sonar-project.properties`.
+  skipped for a fork PR, which gets no `SONAR_TOKEN`. Config lives in `sonar-project.properties`,
+  which also carries the one rule ignore: **S8776** on `globals.css`, where Tailwind's
+  `@custom-variant` reads to a CSS parser as a nesting selector with no scoping root.
 - **Production promotes, it never rebuilds.** Staging pushes `sha-<short>` plus a moving `staging`
   tag; production finds the `sha-` tag for the commit being released, or for `HEAD^2` when a merge
   commit sits on top, and retags that digest as the version and `latest`. Production runs the bytes

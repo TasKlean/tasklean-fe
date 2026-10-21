@@ -9,7 +9,7 @@
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, ShieldPlus } from "lucide-react";
+import { ShieldPlus } from "lucide-react";
 import {
   enableAction,
   startSetupAction,
@@ -19,14 +19,9 @@ import type {
   SetupState,
 } from "@/app/(app)/app/settings/two-factor/actions/actions.types";
 import { Confirmed } from "@/components/app/two-factor-enroll/confirmed";
-import { Enrollment } from "@/components/app/two-factor-enroll/enrollment";
+import { ConfirmStep } from "@/components/app/two-factor-enroll/confirm-step";
 import { Panel } from "@/components/app/two-factor-enroll/panel";
-import { Resume } from "@/components/app/two-factor-enroll/resume";
 import { Start } from "@/components/app/two-factor-enroll/start";
-import { STEP } from "@/components/app/two-factor-enroll/two-factor-enroll.styles";
-import { CodeInput } from "@/components/common/code-input/code-input";
-import { FormNotice } from "@/components/common/form-notice";
-import { SubmitButton } from "@/components/common/submit-button";
 import { validateTwoFactorEnable } from "@/lib/validation/forms/two-factor-enable.schema/two-factor-enable.schema";
 
 type TwoFactorEnrollProps = {
@@ -117,39 +112,17 @@ export function TwoFactorEnroll({
   if (enrollment || resuming) {
     return (
       <Panel>
-        {enrollment ? <Enrollment enrollment={enrollment} /> : <Resume />}
-
-        {confirmed.error ? <FormNotice tone="error">{confirmed.error}</FormNotice> : null}
-
-        <form action={enable} onSubmit={confirm} className={STEP} noValidate>
-          <CodeInput
-            name="code"
-            label="The code from your app"
-            value={code}
-            onChange={setCode}
-            error={shownCodeError}
-          />
-
-          <FormNotice tone="info">
-            Confirming turns two-factor on, signs your other devices out, and shows your recovery
-            codes. That is the only time they are shown.
-          </FormNotice>
-
-          <SubmitButton pendingLabel="Turning it on…">Turn on two-factor</SubmitButton>
-        </form>
-
-        {/* Starting again replaces the pending secret, so the old entry in the
-            app stops working. */}
-        {resuming ? (
-          <button
-            type="button"
-            onClick={() => setRestarting(true)}
-            className="text-label-md gap-space-xs text-muted-foreground hover:text-foreground flex min-h-11 items-center self-start transition-colors"
-          >
-            <RotateCcw className="size-4 shrink-0" aria-hidden />
-            Start again with a new QR code
-          </button>
-        ) : null}
+        <ConfirmStep
+          enrollment={enrollment}
+          resuming={resuming}
+          error={confirmed.error}
+          action={enable}
+          onSubmit={confirm}
+          code={code}
+          onCode={setCode}
+          codeError={shownCodeError}
+          onRestart={() => setRestarting(true)}
+        />
       </Panel>
     );
   }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { deviceLabel, lastSeen } from "@/app/(app)/app/settings/devices/page.helpers";
 import { BackLink } from "@/components/auth/back-link";
@@ -27,6 +28,38 @@ export default async function DevicesPage() {
     failure = error.message;
   }
 
+  let body: ReactNode;
+  if (failure) {
+    body = <LoadError title="We could not load your devices." message={failure} />;
+  } else if (devices.length === 0) {
+    body = (
+      <p className="text-body-md text-muted-foreground bg-card border-border/60 p-space-lg rounded-xl border">
+        No devices yet. This one appears the next time you sign in.
+      </p>
+    );
+  } else {
+    body = (
+      <>
+        <ul className="gap-space-sm flex flex-col">
+          {devices.map((device) => (
+            <DeviceRow
+              key={device.id ?? deviceLabel(device)}
+              id={device.id ?? null}
+              label={deviceLabel(device)}
+              mobile={isMobileDevice(device)}
+              current={device.currentDevice === true}
+              active={device.activeSession === true}
+              ipAddress={device.ipAddress ?? null}
+              lastUsed={lastSeen(device)}
+            />
+          ))}
+        </ul>
+
+        <SignOutEverywhere />
+      </>
+    );
+  }
+
   return (
     <section className="gap-space-md flex flex-col">
       <div className="gap-space-xs flex flex-col">
@@ -40,32 +73,7 @@ export default async function DevicesPage() {
         </p>
       </div>
 
-      {failure ? (
-        <LoadError title="We could not load your devices." message={failure} />
-      ) : devices.length === 0 ? (
-        <p className="text-body-md text-muted-foreground bg-card border-border/60 p-space-lg rounded-xl border">
-          No devices yet. This one appears the next time you sign in.
-        </p>
-      ) : (
-        <>
-          <ul className="gap-space-sm flex flex-col">
-            {devices.map((device) => (
-              <DeviceRow
-                key={device.id ?? deviceLabel(device)}
-                id={device.id ?? null}
-                label={deviceLabel(device)}
-                mobile={isMobileDevice(device)}
-                current={device.currentDevice === true}
-                active={device.activeSession === true}
-                ipAddress={device.ipAddress ?? null}
-                lastUsed={lastSeen(device)}
-              />
-            ))}
-          </ul>
-
-          <SignOutEverywhere />
-        </>
-      )}
+      {body}
     </section>
   );
 }

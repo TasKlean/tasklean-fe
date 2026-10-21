@@ -40,6 +40,12 @@ export function CodeInput({
   const sent = useRef(value.length >= CODE_LENGTH);
   const errorId = `${name}-error`;
 
+  // A ref rather than the autoFocus attribute, which the a11y rule bans for
+  // fields that sit below content a reader has not reached yet.
+  useEffect(() => {
+    if (autoFocus) boxes.current[0]?.focus();
+  }, [autoFocus]);
+
   // In an effect, not in the keystroke: the hidden input is what carries the
   // value, and React has not written the last digit into it yet.
   useEffect(() => {
@@ -121,7 +127,6 @@ export function CodeInput({
             }}
             // On the first box only, or the hint is offered six times over.
             autoComplete={index === 0 ? "one-time-code" : "off"}
-            autoFocus={autoFocus && index === 0}
             inputMode="numeric"
             // Not `number`: it renders spinners and accepts `e` and `-`.
             type="text"

@@ -269,7 +269,15 @@ root is `@variant dark`, which resolves through the `@custom-variant dark` decla
 of the file, and a CSS parser that stops at Tailwind 4's at-rules cannot follow it. The build
 settles it: the production stylesheet carries the dark palette twice, once inside
 `@media (prefers-color-scheme:dark)` scoped to `:root:not([data-theme=light])` and once under
-`:root[data-theme=dark]`, which is exactly the override the layout writes. Left as is.
+`:root[data-theme=dark]`, which is exactly the override the layout writes.
+
+It was left alone until it started **failing the quality gate**, which a note in a document does
+not fix. There is no way to write the variant without `&`, since the whole point is to position the
+utility's own selector, so the resolution is a one-rule ignore in `sonar-project.properties` rather
+than a human clicking "won't fix" on every rescan. The underlying rule is stylelint's
+`nesting-selector-no-missing-scoping-root`, which Sonar ships as **S8776** and already exempts
+inside SCSS `@mixin` for exactly this reason: a selector that gets its root later. `@custom-variant`
+is the Tailwind analogue and wants the same exemption.
 
 ### Validation
 
@@ -956,10 +964,12 @@ as "not ours", because wrongly logging someone out is worse than wrongly leaving
 check covers removal, which also answers "what if the list empties": the only device you can remove
 last is your own.
 
-The one slot below the heading renders **one of three states as a chained ternary**: the load
-failure, the empty list, or the rows. Sonar reads the chain as nesting, but the three are exclusive
-branches of a single slot, not a condition inside a condition, and the heading above them rules out
-an early return. Extracting a component to hide the chain would buy indirection, not clarity.
+The one slot below the heading renders **one of three exclusive states**: the load failure, the
+empty list, or the rows. That was a chained ternary, defended as three branches of one slot rather
+than a condition inside a condition. It is now an `if`/`else if`/`else` assigning one `ReactNode`,
+which is what `DeviceRow` already does for its own controls, so the two read the same and Sonar has
+nothing to report. The defence was sound and the rewrite is still better: the branches are the same
+three, and the slot is one word.
 
 Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
 Someone pressing it believes every other session is gone, and a silent failure would leave them
@@ -1171,12 +1181,15 @@ The boxes are also **centred rather than spread**. `justify-between` is fine on 
 column it was written for, but a settings card is wide, and six boxes a hand apart stop reading as
 one field.
 
-**The first box takes focus on `/two-factor`, and the accessibility warning does not fit it.**
-Moving focus on load is a real trap when a field sits below content a screen reader has not reached
-yet. That screen is a heading, the code field and nothing else, and answering the challenge is the
-only reason it exists, so there is nothing to skip past. It stays an opt-in prop and that one form
-is the only caller: `/verify-email` leaves it off, because its code arrives prefilled and is a value
-to look over rather than a field to fill.
+**The first box takes focus on `/two-factor`, through a ref rather than the attribute.** Moving
+focus on load is a real trap when a field sits below content a screen reader has not reached yet.
+That screen is a heading, the code field and nothing else, and answering the challenge is the only
+reason it exists, so there is nothing to skip past. The `autoFocus` attribute is what the a11y rule
+bans, and a ref focused in a mount effect is the escape hatch the rule's own guidance names for a
+field that should genuinely take focus, so the behaviour stayed and the attribute went. It is still
+an opt-in prop with one caller: `/verify-email` leaves it off, because its code arrives prefilled
+and is a value to look over rather than a field to fill. The test asserts real focus, not the
+attribute, so it would have caught the behaviour being dropped instead of moved.
 
 ### Roles and access
 
