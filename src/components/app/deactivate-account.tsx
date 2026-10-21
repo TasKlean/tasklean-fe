@@ -49,6 +49,7 @@ export function DeactivateAccount({ passwordSet }: DeactivateAccountProps) {
               placeholder="Enter your password to confirm"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              error={state.fieldErrors?.password}
             />
           ) : null}
 

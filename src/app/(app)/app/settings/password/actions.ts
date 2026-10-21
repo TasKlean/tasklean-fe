@@ -9,6 +9,7 @@
 import { revalidatePath } from "next/cache";
 import { changePassword, setPassword } from "@/lib/account/account";
 import { actionFailureMessage } from "@/lib/api/action-failure";
+import { PASSWORD_INVALID } from "@/lib/api/error-codes";
 import { isApiError } from "@/lib/api/errors";
 import { startSession } from "@/lib/auth/start-session";
 import { parseChangePassword } from "@/lib/validation/forms/change-password.schema";
@@ -26,8 +27,9 @@ const PASSWORD_PATH = "/app/settings/password";
 /**
  * Changes the password and reseals the session with the pair that comes back.
  *
- * The 401 here is the current password being wrong, not the session dying, so
- * it is shown against that field.
+ * Only the code says the password was the problem: this endpoint checks a
+ * credential, so its 401 can still be the session, and a field error would
+ * hide that.
  */
 export async function changePasswordAction(
   _previous: PasswordActionState,
@@ -42,7 +44,7 @@ export async function changePasswordAction(
     const tokens = await changePassword(currentPassword, newPassword);
     await startSession(tokens);
   } catch (error) {
-    if (isApiError(error) && error.status === 401) {
+    if (isApiError(error) && error.code === PASSWORD_INVALID) {
       return { error: null, fieldErrors: { currentPassword: error.message } };
     }
     return { error: actionFailureMessage(error) };

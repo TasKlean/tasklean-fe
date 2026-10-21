@@ -121,6 +121,15 @@ limiter. So a non-JSON or non-envelope body doesn't mean the API failed — it m
 answered: a proxy, or `API_BASE_URL` pointing somewhere wrong. That's a different bug with a
 different fix, so it gets a different type rather than being flattened into a 500.
 
+**A code read by more than one module is a constant, not a literal.** Only some failures carry the
+envelope's `code`, so most checks are local and stay where they are read. `PASSWORD_INVALID` is the
+exception: the password section, deactivation and both two-factor confirmations all branch on it,
+and three copies of one backend string is three chances to misspell it. `api/error-codes.ts` holds
+the shared ones, and nothing else. **The code is also what routes a 401, not the status**, which
+matters precisely where `credentialCheck` is on: those endpoints answer 401 for a refused password
+*and* for a dead session, so blaming the field for every 401 would hide the session dying behind
+"current password is incorrect".
+
 **An empty 2xx body resolves to `undefined`** rather than throwing, so a `204` on a delete is
 ordinary. A 2xx that _does_ carry a body must be the envelope. The leniency is deliberately
 one-sided: absence is plausible, malformed presence is not.
@@ -748,6 +757,34 @@ it finishes the job with no new QR code. The screen offers that first and keeps 
 escape, saying what it costs, since re-running `setup` replaces the stored secret and kills the
 entry already in the app.
 
+**Weakening the factor costs both credentials.** Turning it off and replacing the recovery codes
+are the two operations that make the account easier to get into, so the backend takes one
+`TwoFactorConfirmRequest` for both: the account password, where there is one, and a current second
+factor code. Neither a stolen session nor a stolen password is enough on its own. The frontend
+mirrors that with one schema and one form, because two forms asking the same two things would drift.
+Only `disable` reissues the pair, since it is the one that changes what signing in needs. The code
+may be a recovery code, and it is **spent** either way, so reissuing with one costs a code from the
+set being replaced.
+
+**Turning it off destroys its own confirmation, for the same reason the codes vanished.** `disable`
+answers with a fresh pair, sealing it writes a cookie, and the re-render that follows reads the
+factor as gone, which unmounts the component that asked the question and takes its success notice
+with it. The fix is the rule enrollment already follows: the component renders while it still has
+something to say, not while the server says it is relevant. Nothing irreplaceable is lost here,
+unlike the recovery codes, but a mutation with no visible outcome is still a bug.
+
+**A complete code submits itself, which a second field turns into a trap.** `CodeInput` presses the
+form as soon as six digits are in, and on a form that also wants the password that would send a
+request about a field the person had not reached yet, coming back with "Password is required" for no
+reason. The confirm form therefore blocks its own submit until both fields are filled, and the press
+is what finishes the job once the password arrives.
+
+**One code field, two screens.** The sign-in prompt and the confirm form have to take a recovery code
+identically, and six digit boxes cannot hold one, so the field pair and the toggle between them live
+in `common/two-factor-code-field.tsx` rather than being written twice. What acts on the code is a
+children slot, which keeps the switch the last thing offered on both screens rather than a step on
+the way to the button.
+
 **The methods are a list, and only one of them exists.** The backend's `TwoFactorProviderType` has a
 single value, `LOCAL`, so Email and Text message are listed with a dead "Coming soon" button rather
 than built or hidden. Listing them answers "what else can I use" without anyone having to ask, and
@@ -924,11 +961,18 @@ account**.
 ### Changing a password without losing the session
 
 `POST /api/account/change-password` verifies the current password, and the backend answers a wrong
-one with **401**, the same status an expired token gets, with no code to tell them apart. Our rule
-is that a 401 ends the session, so as written it would have signed someone out for a typo.
-`serverApi` therefore takes `credentialCheck: true`, which keeps the 401 an `ApiError` for the
-handful of endpoints that verify something from the request body. It is opt-in rather than a
-general relaxation: everywhere else, a 401 really is the session.
+one with **401**, the same status an expired token gets. Our rule is that a 401 ends the session, so
+as written it would have signed someone out for a typo. `serverApi` therefore takes
+`credentialCheck: true`, which keeps the 401 an `ApiError` for the handful of endpoints that verify
+something from the request body. It is opt-in rather than a general relaxation: everywhere else, a
+401 really is the session.
+
+**Which of the two it was is in the envelope's code, and the action has to read it.** These
+endpoints answer 401 for a refused password *and* for a session that has died, so
+`credentialCheck: true` buys the chance to tell them apart but does not do the telling.
+`PASSWORD_INVALID` is the password; a 401 carrying no code is not, and must not reach the field.
+Branching on the status alone, which is how this started, showed "current password is incorrect" to
+someone whose session had merely expired.
 
 Changing or setting a password **revokes every refresh token the account holds**, this browser's
 included, and the backend then issues a fresh pair for the device the `X-Device-Id` header names.
@@ -1150,7 +1194,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair, except that `login` and `google` return a **challenge** instead for an account with a second factor. `POST /2fa/verify` takes `{ challengeToken, code }` and answers the ordinary pair; it is capped at 10 requests a minute per IP. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
-| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **`GET`, `POST /setup` and `POST /enable` have callers**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, and only `disable` reissues the pair. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
+| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Every one of them has a caller**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, where the code may be an authenticator or a recovery code and is spent either way; `disable` answers with a fresh pair and `recovery-codes` with the new set alone. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -1169,7 +1213,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ---- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 2xx  | Success                                                                 | POSTs really return 201 though the spec says 200 — never branch on the exact code  |
 | 400  | Validation, malformed body, bad enum/param type                         | Render against the field; `message` joins the field errors                         |
-| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account` and the two-factor endpoints it is the credential in the body being refused, so it shows against the field; `TWO_FACTOR_CODE_INVALID`, `TWO_FACTOR_CHALLENGE_INVALID`, `PASSWORD_INVALID` and `ACCOUNT_DEACTIVATED` tell those cases apart. |
+| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account` and the two-factor endpoints it is the credential in the body being refused, so it shows against the field; `TWO_FACTOR_CODE_INVALID`, `TWO_FACTOR_CHALLENGE_INVALID`, `PASSWORD_INVALID` and `ACCOUNT_DEACTIVATED` tell those cases apart, and it is the **code** that routes it, never the status: a dead session answers 401 from those endpoints too, carrying none. |
 | 403  | Authenticated but not permitted                                         | Permission message. **Never** log out, never retry. Not predictable from the spec. |
 | 404  | Not found, or unknown route                                             | Not-found state for the resource                                                   |
 | 409  | Duplicate, or a violated rule (last admin, already a member)            | Show the server's `message` verbatim — it's written for humans                     |
@@ -1334,8 +1378,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **Two-factor authentication** - the backend shipped it during phase 3, so it is being matched in
   pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
   that enabled a second factor anywhere else could not get into the app at all until it did.
-  The settings card that reports the state came next, then enrollment. Disabling and reissuing
-  recovery codes follow in the same section.
+  The settings card that reports the state came next, then enrollment, then turning it off and
+  reissuing recovery codes. That completes the one provider the backend has.
   Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the
@@ -1386,4 +1430,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   against nothing and Next warns at build.
 - **Offline behaviour** — read caching is straightforward; queuing mutations is a real
   distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be waved
-  at.
+  at. **Logout is the first known victim and the clearest argument for a queue**: it is best effort
+  at the backend and certain in the browser, so a logout with the API unreachable clears the cookie
+  while the refresh token stays live for up to 14 days, and because rotation resets that window, a
+  token that keeps being used never ages out. Nothing holds the token afterwards, since its only
+  copy was the cookie we deleted, but the row is still an active session in the devices list. The
+  fix belongs with the PWA in phase 10: a durable queue, in IndexedDB rather than memory, that
+  replays the calls that never landed. A revoke is the easy end of that problem, being idempotent
+  in effect and safe to replay late.

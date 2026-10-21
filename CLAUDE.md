@@ -14,13 +14,13 @@ Never restate backend internals here — link to them.
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. **Two-factor is most of the way
-built**: a sign-in the backend gates is answered end to end, the settings page lists the methods,
-and enrolling in an authenticator app works, but nothing turns it off or reissues recovery codes
-yet, so `GET /api/account/2fa` plus its `setup` and `enable` posts are the only callers. Register,
-verification, password login, password reset and token rotation have all run against the real
-backend in Docker, and two-factor setup and enable against a local one; the account, user-settings
-and notification-settings endpoints have run against a stub only; every automated test is MSW.
+and logout exist. Everything else behind the session does not. **Two-factor is complete for the one
+provider the backend has**: a sign-in the backend gates is answered end to end, the settings page
+lists the methods, and enrolling, turning it off and reissuing recovery codes all work, so every
+`/api/account/2fa` endpoint has a caller. Register, verification, password login, password reset and
+token rotation have all run against the real backend in Docker, and the whole two-factor section
+against a local one; the account, user-settings and notification-settings endpoints have run against
+a stub only; every automated test is MSW.
 
 ## Quick reference
 
@@ -130,8 +130,8 @@ src/
           appearance/  page.tsx and actions.ts: the colour scheme
           language/    page.tsx and actions.ts: the UI language
           notifications/  page.tsx and actions.ts: the channels each notification uses
-          two-factor/  page.tsx and actions.ts: the methods on offer, and enrolling in
-                       an authenticator app
+          two-factor/  page.tsx and actions.ts: the methods on offer, enrolling in an
+                       authenticator app, turning it off and reissuing recovery codes
           devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
@@ -154,14 +154,16 @@ src/
   components/
     common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
                        masked-email, load-error, form-notice, brand-mark, text-field,
-                       password-field, code-input, password-strength-meter, submit-button,
+                       password-field, code-input, two-factor-code-field (either kind of
+                       code, and the switch), password-strength-meter, submit-button,
                        or-divider, greeting, copy-button, qr-image
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
                        language-form, notifications-form, notification-toggle,
                        switch-track, two-factor-method (the shell every method shares),
-                       two-factor-card, two-factor-enroll, recovery-codes
+                       two-factor-card, two-factor-enroll, two-factor-manage,
+                       two-factor-confirm, recovery-codes
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -171,6 +173,7 @@ src/
     account/           account.ts (the caller's own password, connections and deactivation)
                        and two-factor.ts, which reads the second factor's state and turns it on
     api/               client.ts (the only module that knows the envelope), errors.ts,
+                       error-codes.ts (the envelope codes more than one module reads),
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message),
                        action-failure.ts (what every Server Action shows on a throw)
@@ -206,7 +209,7 @@ src/
                        google-signin, forgot-password, reset-password, device-action,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
-                       two-factor-enable
+                       two-factor-enable, two-factor-confirm
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -467,6 +470,14 @@ routes are `noindex` via the `(auth)` layout.
   `credentialCheck: true`, since their 401 is the password or the code and not the session, and
   `enable` carries the device headers so the new pair stays on this browser. Running `setup` again
   replaces a setup nobody confirmed, so the entry already in the app stops working.
+- **Turning it off and reissuing codes ask for both credentials.** `POST /2fa/disable` and `POST
+  /2fa/recovery-codes` take one `{ password?, code }` body, so one schema and one form serve both.
+  The code may be an authenticator or a recovery code and is **spent** either way. Only `disable`
+  answers with a fresh pair, which the action seals, and that write re-renders the page with the
+  factor off, so the component holding the confirmation has to outlive it.
+- **A 401 from `/api/account` is routed by its code, not its status.** Only `PASSWORD_INVALID`
+  reaches the password field. Those endpoints answer 401 for a dead session too, carrying no code,
+  and blaming the field for that would hide it.
 - **Only an authenticator code can confirm a setup.** `/2fa/enable` has no recovery codes to fall
   back on yet, so that form uses `codeRule`, the plain six digits, not `twoFactorCodeRule`.
 - **The QR code is encoded on the server.** `lib/qr/qr-code.ts` turns the URI into one SVG path, so
@@ -499,6 +510,9 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **Every response is an envelope**: `{ success, message, code?, data }`, on failure too, never
   HTML. `api/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No
   field is marked `required` in `openapi.json`, so narrow rather than trust.
+- **A code more than one module reads lives in `api/error-codes.ts`.** `PASSWORD_INVALID` is the
+  only one so far: the password section, deactivation and both two-factor confirmations branch on
+  it. A code only one module reads stays a constant in that module.
 - **Branch on `ApiError.code`, never on the message.** Only some failures carry one
   (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
   where an older backend build is plausible.

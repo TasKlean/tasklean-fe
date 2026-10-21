@@ -5,6 +5,7 @@ import { getConnectedAccounts } from "@/lib/account/account";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { TwoFactorCard } from "@/components/app/two-factor-card";
 import { TwoFactorEnroll } from "@/components/app/two-factor-enroll";
+import { TwoFactorManage } from "@/components/app/two-factor-manage";
 import { TwoFactorMethod } from "@/components/app/two-factor-method";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
@@ -73,6 +74,14 @@ export default async function TwoFactorPage() {
                 enabled={status.enabled}
                 passwordSet={connectedAccounts.passwordSet === true}
                 pendingSetup={status.pendingSetup}
+                doneHref={PATH}
+              />
+
+              {/* The other half of the same story, and rendered on the same
+                  terms: turning the factor off re-renders this page too. */}
+              <TwoFactorManage
+                enabled={status.enabled}
+                passwordSet={connectedAccounts.passwordSet === true}
                 doneHref={PATH}
               />
             </TwoFactorCard>

@@ -89,7 +89,11 @@ describe("changePasswordAction", () => {
     server.use(
       http.post(`${BASE}/api/account/change-password`, () =>
         HttpResponse.json(
-          { success: false, message: "Current password is incorrect" },
+          {
+            success: false,
+            message: "Current password is incorrect",
+            code: "PASSWORD_INVALID",
+          },
           { status: 401 },
         ),
       ),
@@ -100,6 +104,19 @@ describe("changePasswordAction", () => {
       fieldErrors: { currentPassword: "Current password is incorrect" },
     });
     expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("does not blame the field for a 401 that said nothing about the password", async () => {
+    server.use(
+      http.post(`${BASE}/api/account/change-password`, () =>
+        HttpResponse.json({ success: false, message: "Unauthorized" }, { status: 401 }),
+      ),
+    );
+
+    const state = await changePasswordAction(EMPTY, GOOD);
+
+    expect(state.fieldErrors).toBeUndefined();
+    expect(state.error).toBe("Unauthorized");
   });
 
   it("reports what the backend objected to when there is nothing to change", async () => {

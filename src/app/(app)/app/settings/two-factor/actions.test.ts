@@ -29,8 +29,11 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
+  type ConfirmState,
+  disableAction,
   enableAction,
   type EnableState,
+  regenerateCodesAction,
   type SetupState,
   startSetupAction,
 } from "@/app/(app)/app/settings/two-factor/actions";
@@ -40,6 +43,8 @@ const BASE = "http://api.test";
 const NO_SETUP: SetupState = { error: null };
 
 const NO_ENABLE: EnableState = { error: null };
+
+const NOTHING: ConfirmState = { error: null };
 
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXP",
@@ -80,6 +85,19 @@ function answers(path: string, data: unknown, status = 200, message: string | nu
   return http.post(`${BASE}/api/account/2fa/${path}`, () =>
     HttpResponse.json({ success: status === 200, message, data }, { status }),
   );
+}
+
+function refuses(path: string, code: string, message: string) {
+  return http.post(`${BASE}/api/account/2fa/${path}`, () =>
+    HttpResponse.json({ success: false, message, code, data: null }, { status: 401 }),
+  );
+}
+
+function records(path: string, data: unknown, seen: { body?: unknown }) {
+  return http.post(`${BASE}/api/account/2fa/${path}`, async ({ request }) => {
+    seen.body = await request.json().catch(() => undefined);
+    return HttpResponse.json({ success: true, message: null, data }, { status: 200 });
+  });
 }
 
 describe("startSetupAction", () => {
@@ -188,5 +206,125 @@ describe("enableAction", () => {
       error: null,
       fieldErrors: { code: "Enter all 6 digits." },
     });
+  });
+});
+
+describe("disableAction", () => {
+  it("seals the fresh pair and reports the factor off", async () => {
+    server.use(answers("disable", { token: "at-9", refreshToken: "rt-9" }));
+
+    await expect(
+      disableAction(NOTHING, form({ password: "Chores12!", code: "123456" })),
+    ).resolves.toEqual({ error: null, done: true });
+    expect(setSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends both credentials as the backend wants them", async () => {
+    const seen: { body?: unknown } = {};
+    server.use(records("disable", { token: "at-9", refreshToken: "rt-9" }, seen));
+
+    await disableAction(NOTHING, form({ password: "Chores12!", code: " aaaa-1111 " }));
+
+    expect(seen.body).toEqual({ password: "Chores12!", code: "AAAA1111" });
+  });
+
+  it("sends no password for an account that has none", async () => {
+    const seen: { body?: unknown } = {};
+    server.use(records("disable", { token: "at-9", refreshToken: "rt-9" }, seen));
+
+    await disableAction(NOTHING, form({ password: "", code: "123456" }));
+
+    expect(seen.body).toEqual({ code: "123456" });
+  });
+
+  it("shows a refused password against its own field", async () => {
+    server.use(refuses("disable", "PASSWORD_INVALID", "Current password is incorrect"));
+
+    await expect(
+      disableAction(NOTHING, form({ password: "wrong", code: "123456" })),
+    ).resolves.toEqual({ error: null, fieldErrors: { password: "Current password is incorrect" } });
+  });
+
+  it("shows a refused code against the code instead", async () => {
+    server.use(refuses("disable", "TWO_FACTOR_CODE_INVALID", "That code is not valid."));
+
+    await expect(
+      disableAction(NOTHING, form({ password: "Chores12!", code: "000000" })),
+    ).resolves.toEqual({ error: null, fieldErrors: { code: "That code is not valid." } });
+  });
+
+  it("keeps the session for either refusal, since neither is about it", async () => {
+    server.use(refuses("disable", "PASSWORD_INVALID", "Current password is incorrect"));
+
+    await disableAction(NOTHING, form({ password: "wrong", code: "123456" }));
+
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("refuses a code of the wrong shape before it costs a call", async () => {
+    const state = await disableAction(NOTHING, form({ password: "Chores12!", code: "123" }));
+
+    expect(state.fieldErrors?.code).toBe("Enter the 6 digits from your app, or a recovery code.");
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("marks the page stale when the backend says there is nothing to turn off", async () => {
+    server.use(answers("disable", null, 409, "Two-factor is not on for this account."));
+
+    const state = await disableAction(NOTHING, form({ password: "Chores12!", code: "123456" }));
+
+    expect(state.error).toBe("Two-factor is not on for this account.");
+    expect(revalidatePath).toHaveBeenCalledWith("/app/settings/two-factor");
+  });
+});
+
+describe("regenerateCodesAction", () => {
+  it("hands back the new set", async () => {
+    server.use(answers("recovery-codes", { recoveryCodes: ["CCCC3333", "DDDD4444"] }));
+
+    await expect(
+      regenerateCodesAction(NOTHING, form({ password: "Chores12!", code: "123456" })),
+    ).resolves.toEqual({ error: null, done: true, recoveryCodes: ["CCCC3333", "DDDD4444"] });
+  });
+
+  it("leaves the page alone, so the codes outlive the call that made them", async () => {
+    server.use(answers("recovery-codes", { recoveryCodes: ["CCCC3333"] }));
+
+    await regenerateCodesAction(NOTHING, form({ password: "Chores12!", code: "123456" }));
+
+    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
+  it("shows a refused code against the code field", async () => {
+    server.use(refuses("recovery-codes", "TWO_FACTOR_CODE_INVALID", "That code is not valid."));
+
+    await expect(
+      regenerateCodesAction(NOTHING, form({ password: "Chores12!", code: "000000" })),
+    ).resolves.toEqual({ error: null, fieldErrors: { code: "That code is not valid." } });
+  });
+
+  it("reports an empty set as a failure, not as codes to save", async () => {
+    server.use(answers("recovery-codes", { recoveryCodes: [] }));
+
+    const state = await regenerateCodesAction(
+      NOTHING,
+      form({ password: "Chores12!", code: "123456" }),
+    );
+
+    expect(state.recoveryCodes).toBeUndefined();
+    expect(state.error).toBe("Something went wrong. Please try again.");
+  });
+
+  it("marks the page stale when the backend says there is no factor", async () => {
+    server.use(answers("recovery-codes", null, 409, "Two-factor is not on for this account."));
+
+    const state = await regenerateCodesAction(
+      NOTHING,
+      form({ password: "Chores12!", code: "123456" }),
+    );
+
+    expect(revalidatePath).toHaveBeenCalledWith("/app/settings/two-factor");
+    expect(state.error).toBe("Two-factor is not on for this account.");
   });
 });

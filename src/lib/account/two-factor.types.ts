@@ -59,6 +59,17 @@ export type TwoFactorEnabled = {
   tokens: SignedInTokens;
 };
 
+// One body for both operations that weaken an active factor. The code may be an
+// authenticator one or a recovery code, and the backend spends either.
+export type TwoFactorConfirmRequest = {
+  password?: string;
+  code: string;
+};
+
+export type RecoveryCodesResponse = {
+  recoveryCodes?: string[];
+};
+
 /** Few enough codes left that the screen says so before they run out. */
 export const RECOVERY_CODES_LOW = 3;
 

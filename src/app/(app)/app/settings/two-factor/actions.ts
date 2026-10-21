@@ -1,19 +1,26 @@
 /**
- * The two-factor section's Server Actions: starting enrollment, and confirming
- * it. Neither revalidates on success. The first hands back a secret the screen
- * has to keep showing, and the second hands back recovery codes that exist
- * nowhere else, so a re-render would take them away before they were saved.
+ * The two-factor section's Server Actions: starting enrollment, confirming it,
+ * turning the factor off and replacing its recovery codes. None revalidates on
+ * success, because each hands back something the screen has to keep showing,
+ * and the codes exist nowhere else at all.
  */
 
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { enableTwoFactor, startTwoFactorSetup } from "@/lib/account/two-factor";
+import {
+  disableTwoFactor,
+  enableTwoFactor,
+  regenerateRecoveryCodes,
+  startTwoFactorSetup,
+} from "@/lib/account/two-factor";
 import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
+import { PASSWORD_INVALID } from "@/lib/api/error-codes";
 import { isApiError } from "@/lib/api/errors";
 import { startSession } from "@/lib/auth/start-session";
 import { encodeQr } from "@/lib/qr/qr-code";
 import type { QrCode } from "@/lib/qr/qr-code.types";
+import { parseTwoFactorConfirm } from "@/lib/validation/forms/two-factor-confirm.schema";
 import { parseTwoFactorEnable } from "@/lib/validation/forms/two-factor-enable.schema";
 import { parseTwoFactorSetup } from "@/lib/validation/forms/two-factor-setup.schema";
 
@@ -33,6 +40,16 @@ export type EnableState = {
   fieldErrors?: Partial<Record<"code", string>>;
   // The factor is on. Separate from the codes, which can come back empty.
   done?: boolean;
+  recoveryCodes?: string[];
+};
+
+// What the state of an operation that weakens the factor can be. One shape for
+// both, since they ask the same two things and differ only in what comes back.
+export type ConfirmState = {
+  error: string | null;
+  fieldErrors?: Partial<Record<"password" | "code", string>>;
+  done?: boolean;
+  // Only reissuing hands these back, and only this once.
   recoveryCodes?: string[];
 };
 
@@ -98,6 +115,79 @@ export async function enableAction(
     if (isApiError(error) && error.status === 401) {
       return { error: null, fieldErrors: { code: error.message } };
     }
+    refreshOnConflict(error);
+    return { error: actionFailureMessage(error) };
+  }
+}
+
+/**
+ * Routes a refused credential to the field it is about.
+ *
+ * Both credentials answer 401, so the envelope's code is the only thing that
+ * tells them apart. Anything else lands on the code, which is the field every
+ * one of these forms has.
+ *
+ * @returns The state to show, or null when this failure was something else.
+ */
+function credentialFailure(error: unknown): ConfirmState | null {
+  if (!isApiError(error) || error.status !== 401) return null;
+
+  const field = error.code === PASSWORD_INVALID ? "password" : "code";
+  return { error: null, fieldErrors: { [field]: error.message } };
+}
+
+/**
+ * Turns the factor off and reseals the session with the pair that comes back.
+ *
+ * Disabling revokes every other refresh token, so the new pair has to replace
+ * the one in the cookie. That write re-renders this page with the factor off.
+ */
+export async function disableAction(
+  _previous: ConfirmState,
+  formData: FormData,
+): Promise<ConfirmState> {
+  const parsed = parseTwoFactorConfirm(Object.fromEntries(formData));
+  if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
+
+  try {
+    // Empty means a Google-only account, which the session alone confirms.
+    const tokens = await disableTwoFactor(parsed.values.code, parsed.values.password || undefined);
+    await startSession(tokens);
+
+    return { error: null, done: true };
+  } catch (error) {
+    const refused = credentialFailure(error);
+    if (refused) return refused;
+
+    refreshOnConflict(error);
+    return { error: actionFailureMessage(error) };
+  }
+}
+
+/**
+ * Replaces the recovery codes and hands back the new set.
+ *
+ * Nothing is revalidated: the codes it returns are stored nowhere else, so the
+ * screen holding them has to outlive the call that produced them.
+ */
+export async function regenerateCodesAction(
+  _previous: ConfirmState,
+  formData: FormData,
+): Promise<ConfirmState> {
+  const parsed = parseTwoFactorConfirm(Object.fromEntries(formData));
+  if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
+
+  try {
+    const recoveryCodes = await regenerateRecoveryCodes(
+      parsed.values.code,
+      parsed.values.password || undefined,
+    );
+
+    return { error: null, done: true, recoveryCodes };
+  } catch (error) {
+    const refused = credentialFailure(error);
+    if (refused) return refused;
+
     refreshOnConflict(error);
     return { error: actionFailureMessage(error) };
   }

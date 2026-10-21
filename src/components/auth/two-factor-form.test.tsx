@@ -100,7 +100,6 @@ describe("TwoFactorForm", () => {
     render(<TwoFactorForm />);
 
     await user.type(screen.getByLabelText("Digit 1"), "000000");
-    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     expect(await screen.findByText("That code is not valid.")).toBeVisible();
   });
@@ -114,7 +113,6 @@ describe("TwoFactorForm", () => {
     render(<TwoFactorForm />);
 
     await user.type(screen.getByLabelText("Digit 1"), "000000");
-    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     expect(await screen.findByText("That code is not valid.")).toBeVisible();
     expect(codeValue()).toBe("000000");
@@ -130,7 +128,6 @@ describe("TwoFactorForm", () => {
     render(<TwoFactorForm />);
 
     await user.type(screen.getByLabelText("Digit 1"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Too many attempts.");
   });
@@ -140,7 +137,6 @@ describe("TwoFactorForm", () => {
     render(<TwoFactorForm next="/app/account" />);
 
     await user.type(screen.getByLabelText("Digit 1"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify and continue" }));
 
     expect(verifyTwoFactorAction.mock.calls[0]?.[1]?.get("next")).toBe("/app/account");
   });

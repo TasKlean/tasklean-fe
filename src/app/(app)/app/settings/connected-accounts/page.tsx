@@ -11,7 +11,7 @@ import { isSessionExpiredError } from "@/lib/api/server";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
 
 export const metadata: Metadata = {
-  title: "Connected Accounts",
+  title: "Connected accounts",
 };
 
 /** Renders the accounts that can sign in to this one. */
@@ -38,7 +38,7 @@ export default async function ConnectedAccountsPage() {
           <BackLink href="/app/settings" label="Back to settings" />
         </div>
 
-        <h2 className="text-headline-sm text-foreground">Connected Accounts</h2>
+        <h2 className="text-headline-sm text-foreground">Connected accounts</h2>
         <p className="text-body-md text-muted-foreground">
           The accounts you can sign in with, alongside your email address.
         </p>
@@ -47,7 +47,7 @@ export default async function ConnectedAccountsPage() {
       {/* Unlinking is refused without a password, so both flags are needed before anything renders. */}
       {failure || !connectedAccounts ? (
         <LoadError
-          title="We could not load your connections."
+          title="We could not load your connected accounts."
           message={failure ?? "Please try again."}
         />
       ) : (

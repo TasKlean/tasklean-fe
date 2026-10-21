@@ -6,13 +6,11 @@
 
 "use client";
 
-import { KeyRound } from "lucide-react";
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
 import { type TwoFactorState, verifyTwoFactorAction } from "@/app/(auth)/two-factor/actions";
-import { CodeInput } from "@/components/common/code-input";
 import { SubmitButton } from "@/components/common/submit-button";
-import { TextField } from "@/components/common/text-field";
+import { TwoFactorCodeField } from "@/components/common/two-factor-code-field";
 import { validateTwoFactor } from "@/lib/validation/forms/two-factor.schema";
 
 type TwoFactorFormProps = {
@@ -22,12 +20,9 @@ type TwoFactorFormProps = {
 
 const INITIAL: TwoFactorState = { error: null };
 
-const RECOVERY_HINT = "One of the codes you saved. The hyphen and the case do not matter.";
-
 /** Renders the code entry and the switch between the two kinds of code. */
 export function TwoFactorForm({ next }: TwoFactorFormProps) {
   const [state, formAction] = useActionState(verifyTwoFactorAction, INITIAL);
-  const [recovery, setRecovery] = useState(false);
   const [code, setCode] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [touched, setTouched] = useState(false);
@@ -39,10 +34,8 @@ export function TwoFactorForm({ next }: TwoFactorFormProps) {
   const liveError = submitted || (touched && code !== "");
   const shownError = (liveError ? codeError : undefined) ?? state.fieldErrors?.code;
 
-  /** Swaps the field, dropping a code that belongs to the other kind. */
-  function switchTo(useRecovery: boolean) {
-    setRecovery(useRecovery);
-    setCode("");
+  /** Forgets what was known about the code the switch just dropped. */
+  function switched() {
     setSubmitted(false);
     setTouched(false);
   }
@@ -71,42 +64,17 @@ export function TwoFactorForm({ next }: TwoFactorFormProps) {
         </p>
       ) : null}
 
-      {recovery ? (
-        <TextField
-          label="Recovery code"
-          name="code"
-          required
-          autoComplete="one-time-code"
-          autoCapitalize="none"
-          spellCheck={false}
-          placeholder="abcd-efgh"
-          icon={<KeyRound className="size-5" />}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          onBlur={() => setTouched(true)}
-          error={shownError}
-          hint={RECOVERY_HINT}
-        />
-      ) : (
-        <CodeInput
-          name="code"
-          label="6-digit code"
-          value={code}
-          onChange={setCode}
-          error={shownError}
-          autoFocus
-        />
-      )}
-
-      <SubmitButton pendingLabel="Checking your code…">Verify and continue</SubmitButton>
-
-      <button
-        type="button"
-        onClick={() => switchTo(!recovery)}
-        className="text-link hover:text-primary-strong text-body-md focus-visible:ring-ring min-h-11 self-center rounded-full px-4 font-semibold underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+      <TwoFactorCodeField
+        name="code"
+        value={code}
+        onChange={setCode}
+        error={shownError}
+        onBlur={() => setTouched(true)}
+        onSwitch={switched}
+        autoFocus
       >
-        {recovery ? "Use your authenticator app instead" : "Use a recovery code instead"}
-      </button>
+        <SubmitButton pendingLabel="Checking your code…">Verify and continue</SubmitButton>
+      </TwoFactorCodeField>
     </form>
   );
 }

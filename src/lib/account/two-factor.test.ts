@@ -16,7 +16,13 @@ vi.mock("@/lib/auth/session", () => ({
   }),
 }));
 
-import { enableTwoFactor, getTwoFactorStatus, startTwoFactorSetup } from "@/lib/account/two-factor";
+import {
+  disableTwoFactor,
+  enableTwoFactor,
+  getTwoFactorStatus,
+  regenerateRecoveryCodes,
+  startTwoFactorSetup,
+} from "@/lib/account/two-factor";
 import { isSessionExpiredError } from "@/lib/api/server";
 
 const BASE = "http://api.test";
@@ -243,5 +249,104 @@ describe("enableTwoFactor", () => {
     server.use(records("enable", null, {}, 409, "Start two-factor setup before turning it on."));
 
     await expect(enableTwoFactor("123456")).rejects.toThrow("Start two-factor setup");
+  });
+});
+
+describe("disableTwoFactor", () => {
+  it("returns the fresh pair for this device", async () => {
+    server.use(records("disable", { token: "at-3", refreshToken: "rt-3", uid: "u1" }, {}));
+
+    await expect(disableTwoFactor("123456", "pw")).resolves.toEqual({
+      accessToken: "at-3",
+      refreshToken: "rt-3",
+    });
+  });
+
+  it("sends both credentials and the device headers, so the pair stays on this device", async () => {
+    const seen: Seen = {};
+    server.use(records("disable", { token: "at-3", refreshToken: "rt-3" }, seen));
+
+    await disableTwoFactor("123456", "pw");
+
+    expect(seen.body).toEqual({ password: "pw", code: "123456" });
+    expect(seen.headers?.get("x-device-id")).toBe("dev-1");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
+  });
+
+  it("sends no password for an account that has none", async () => {
+    const seen: Seen = {};
+    server.use(records("disable", { token: "at-3", refreshToken: "rt-3" }, seen));
+
+    await disableTwoFactor("AAAA1111");
+
+    expect(seen.body).toEqual({ code: "AAAA1111" });
+  });
+
+  it("refuses a response with half a pair, since the old one is already revoked", async () => {
+    server.use(records("disable", { token: "at-3" }, {}));
+
+    await expect(disableTwoFactor("123456", "pw")).rejects.toThrow("no new token pair");
+  });
+
+  it("treats a 401 as the credentials being wrong, not the session dying", async () => {
+    server.use(records("disable", null, {}, 401, "That code is not valid."));
+
+    const error = await disableTwoFactor("000000", "pw").catch((reason: unknown) => reason);
+
+    expect(isSessionExpiredError(error)).toBe(false);
+    expect(error).toHaveProperty("status", 401);
+  });
+
+  it("surfaces a 409 as the backend's own message", async () => {
+    server.use(records("disable", null, {}, 409, "Two-factor is not on for this account."));
+
+    await expect(disableTwoFactor("123456", "pw")).rejects.toThrow("Two-factor is not on");
+  });
+});
+
+describe("regenerateRecoveryCodes", () => {
+  it("returns the new set", async () => {
+    server.use(records("recovery-codes", { recoveryCodes: ["CCCC3333", "DDDD4444"] }, {}));
+
+    await expect(regenerateRecoveryCodes("123456", "pw")).resolves.toEqual([
+      "CCCC3333",
+      "DDDD4444",
+    ]);
+  });
+
+  it("sends both credentials", async () => {
+    const seen: Seen = {};
+    server.use(records("recovery-codes", { recoveryCodes: ["CCCC3333"] }, seen));
+
+    await regenerateRecoveryCodes("123456", "pw");
+
+    expect(seen.body).toEqual({ password: "pw", code: "123456" });
+  });
+
+  it("drops an entry in the list that is not a code", async () => {
+    server.use(records("recovery-codes", { recoveryCodes: ["CCCC3333", null, 7] }, {}));
+
+    await expect(regenerateRecoveryCodes("123456", "pw")).resolves.toEqual(["CCCC3333"]);
+  });
+
+  it("refuses an empty set, because the codes it replaced are already gone", async () => {
+    server.use(records("recovery-codes", { recoveryCodes: [] }, {}));
+
+    await expect(regenerateRecoveryCodes("123456", "pw")).rejects.toThrow("no new ones came back");
+  });
+
+  it("treats a 401 as the credentials being wrong, not the session dying", async () => {
+    server.use(records("recovery-codes", null, {}, 401, "That code is not valid."));
+
+    const error = await regenerateRecoveryCodes("000000", "pw").catch((reason: unknown) => reason);
+
+    expect(isSessionExpiredError(error)).toBe(false);
+    expect(error).toHaveProperty("status", 401);
+  });
+
+  it("surfaces a 409 as the backend's own message", async () => {
+    server.use(records("recovery-codes", null, {}, 409, "Two-factor is not on for this account."));
+
+    await expect(regenerateRecoveryCodes("123456", "pw")).rejects.toThrow("Two-factor is not on");
   });
 });
