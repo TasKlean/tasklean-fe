@@ -8,8 +8,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
-import { LoginForm } from "@/components/auth/login-form";
-import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
+import { LoginForm } from "@/components/auth/login-form/login-form";
+import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
   title: "Log in",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next, reset } = await searchParams;
+  const { deactivated, expired, next, reset, signedOut } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
@@ -36,12 +36,29 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </header>
 
       {reset === "1" ? (
-        <p
-          role="status"
-          className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md rounded-md"
-        >
+        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
           Your password is set. Sign in with it, on this device and any other.
-        </p>
+        </output>
+      ) : null}
+
+      {expired === "2fa" ? (
+        <output className="bg-muted text-foreground text-body-md p-space-md block rounded-md">
+          That verification expired or ran out of tries. Sign in again for a new one.
+        </output>
+      ) : null}
+
+      {deactivated === "1" ? (
+        <output className="bg-muted text-foreground text-body-md p-space-md block rounded-md">
+          Your account is deactivated. Write to us if you ever want it back.
+        </output>
+      ) : null}
+
+      {signedOut === "all" || signedOut === "device" ? (
+        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
+          {signedOut === "all"
+            ? "You are signed out everywhere. Sign in again to carry on here."
+            : "You signed this device out. Sign in again to carry on here."}
+        </output>
       ) : null}
 
       <LoginForm next={nextPath} />

@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import { Comparison } from "@/components/marketing/comparison";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
-import { Hero } from "@/components/marketing/hero";
+import { Hero } from "@/components/marketing/hero/hero";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 
 // No `title`: the root layout's `default` renders "TasKlean", where a title

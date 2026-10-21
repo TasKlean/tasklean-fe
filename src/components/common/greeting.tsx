@@ -4,7 +4,7 @@ type GreetingProps = {
 };
 
 /** Renders a greeting, or nothing when the session carries no name. */
-export function Greeting({ name, className }: GreetingProps) {
+export function Greeting({ name, className }: Readonly<GreetingProps>) {
   if (!name) return null;
 
   return (

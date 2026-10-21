@@ -3,8 +3,19 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
-import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
-import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
+import { DEVICE_COOKIE_NAME } from "@/lib/auth/device/device";
+import {
+  NONCE_COOKIE_NAME,
+  NONCE_HEADER_NAME,
+  hashNonce,
+} from "@/lib/auth/google-nonce/google-nonce";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
+import {
+  SESSION_COOKIE_NAME,
+  type Session,
+  sealSession,
+  unsealSession,
+} from "@/lib/auth/session/session";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";
@@ -193,6 +204,56 @@ describe("proxy password reset paths", () => {
   });
 });
 
+describe("proxy two-factor prompt", () => {
+  it("lets a visitor with a challenge finish signing in", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("sends a visitor who already has a session away", async () => {
+    const response = await proxy(requestFor("/two-factor", await sessionCookie(3600)));
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+  });
+
+  it("mints a device id, which the verify call has to send", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("mints no Google nonce there", async () => {
+    const response = await proxy(requestFor("/two-factor"));
+
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+
+  it("clears a challenge whose sign-in ended some other way", async () => {
+    const request = new NextRequest(`${SITE}/app`, {
+      headers: {
+        cookie: `${CHALLENGE_COOKIE_NAME}=challenge-1; ${SESSION_COOKIE_NAME}=${await sessionCookie(3600)}`,
+      },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.cookies.get(CHALLENGE_COOKIE_NAME)?.value).toBe("");
+  });
+
+  it("leaves the challenge alone while the visitor is still signed out", async () => {
+    const request = new NextRequest(`${SITE}/two-factor`, {
+      headers: { cookie: `${CHALLENGE_COOKIE_NAME}=challenge-1` },
+    });
+
+    const response = await proxy(request);
+
+    expect(response.cookies.get(CHALLENGE_COOKIE_NAME)).toBeUndefined();
+  });
+});
+
 describe("proxy google nonce", () => {
   it("mints one for the login screen", async () => {
     const response = await proxy(requestFor("/login"));
@@ -238,7 +299,7 @@ describe("proxy google nonce", () => {
   it("leaves the other public screens alone", async () => {
     const response = await proxy(requestFor("/verify-email"));
 
-    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(NONCE_COOKIE_NAME);
   });
 
   it("does not leak the header name into a signed-in render", async () => {
@@ -280,9 +341,140 @@ describe("proxy nonce cleanup", () => {
     expect(clearsNonce(response)).toBe(false);
   });
 
-  it("writes no cookie at all when a signed-in visitor carries no nonce", async () => {
+  it("writes no nonce cookie when a signed-in visitor carries no nonce", async () => {
     const response = await proxy(requestFor("/", await sessionCookie(3600)));
 
-    expect(response.headers.get("set-cookie")).toBeNull();
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(NONCE_COOKIE_NAME);
+  });
+});
+
+describe("proxy google nonce while signed in", () => {
+  it("mints one for the security section, where a link needs a credential", async () => {
+    const response = await proxy(
+      requestFor("/app/settings/connected-accounts", await sessionCookie(3600)),
+    );
+
+    const minted = nonceFrom(response);
+    expect(minted).toMatch(/^[0-9a-f]{64}$/);
+    expect(forwardedHash(response)).toBe(await hashNonce(minted ?? ""));
+  });
+
+  it("keeps the one it already handed out there, rather than dropping it", async () => {
+    const existing = "a".repeat(64);
+    const response = await proxy(
+      requestWithNonce("/app/settings/connected-accounts", existing, await sessionCookie(3600)),
+    );
+
+    expect(clearsNonce(response)).toBe(false);
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+  });
+
+  it("keeps it on the response that also rotates the token pair", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+    const existing = "b".repeat(64);
+
+    const response = await proxy(
+      requestWithNonce(
+        "/app/settings/connected-accounts",
+        existing,
+        await sessionCookie(10, "rt-linking"),
+      ),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(clearsNonce(response)).toBe(false);
+    expect(forwardedHash(response)).toBe(await hashNonce(existing));
+    expect(response.headers.get("set-cookie") ?? "").toContain(SESSION_COOKIE_NAME);
+  });
+
+  it("sends an anonymous visitor to login instead of minting one", async () => {
+    const response = await proxy(requestFor("/app/settings/connected-accounts"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain("/login");
+    expect(nonceFrom(response)).toBeUndefined();
+  });
+});
+
+function requestWithDevice(path: string, deviceId?: string, session?: string): NextRequest {
+  const cookies = [
+    deviceId ? `${DEVICE_COOKIE_NAME}=${deviceId}` : "",
+    session ? `${SESSION_COOKIE_NAME}=${session}` : "",
+  ].filter(Boolean);
+
+  return new NextRequest(`${SITE}${path}`, {
+    headers: {
+      ...(cookies.length ? { cookie: cookies.join("; ") } : {}),
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0)",
+      "x-forwarded-for": "203.0.113.9",
+    },
+  });
+}
+
+describe("proxy device id", () => {
+  it("mints one on an auth screen, where a sign-in can happen", async () => {
+    const response = await proxy(requestFor("/login"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("mints one for a signed-in visitor", async () => {
+    const response = await proxy(requestFor("/", await sessionCookie(3600)));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  it("mints none for an anonymous reader of the public site", async () => {
+    const response = await proxy(requestFor("/"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("keeps the id a browser already has", async () => {
+    const response = await proxy(requestWithDevice("/login", "device-kept"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("sends the id and the real browser user agent on refresh", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/refresh`, async ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({
+          success: true,
+          data: { token: await accessToken(900), refreshToken: "rt-rotated", uid: "u1" },
+        });
+      }),
+    );
+
+    await proxy(requestWithDevice("/tasks", "device-9", await sessionCookie(10, "rt-fresh")));
+
+    expect(seen.headers?.get("x-device-id")).toBe("device-9");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Mozilla/5.0 (Windows NT 10.0)");
+    expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
+  });
+});
+
+describe("proxy device id rolling", () => {
+  it("rolls the existing id forward when it rotates the session", async () => {
+    const counter = { calls: 0 };
+    server.use(refreshHandler(counter));
+
+    const response = await proxy(
+      requestWithDevice("/tasks", "device-kept", await sessionCookie(10, "rt-rolling")),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toBe("device-kept");
+  });
+
+  it("does not touch the cookie on a pass-through request", async () => {
+    const response = await proxy(
+      requestWithDevice("/tasks", "device-kept", await sessionCookie(3600)),
+    );
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
   });
 });

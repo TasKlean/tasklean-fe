@@ -11,21 +11,30 @@ import {
   NONCE_HEADER_NAME,
   createNonce,
   hashNonce,
-} from "@/lib/auth/google-nonce";
-import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
-import { SIGNED_IN_HOME } from "@/lib/auth/safe-next";
-import { refreshTokens } from "@/lib/auth/tokens/refresh";
+} from "@/lib/auth/google-nonce/google-nonce";
+import {
+  DEVICE_COOKIE_NAME,
+  DEVICE_COOKIE_OPTIONS,
+  buildDeviceHeaders,
+  createDeviceId,
+} from "@/lib/auth/device/device";
+import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token/access-token";
+import { SIGNED_IN_HOME, TWO_FACTOR_PROMPT } from "@/lib/auth/safe-next/safe-next";
+import { refreshTokens } from "@/lib/auth/tokens/refresh/refresh";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
   type Session,
   sealSession,
   unsealSession,
-} from "@/lib/auth/session";
+} from "@/lib/auth/session/session";
 
 export const config = {
   // `/api` excluded: Route Handlers must answer 401, not redirect to HTML.
   matcher: [
+    // An escaped string, not String.raw: Next reads this export statically, and a
+    // tagged template fails the build as an invalid segment config.
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
   ],
 };
@@ -38,16 +47,20 @@ const PUBLIC_PATHS = [
   "/verify-email",
   "/forgot-password",
   "/reset-password",
+  TWO_FACTOR_PROMPT,
 ];
 
 // The public paths a session makes pointless. `/` is public but not here: it
 // stays readable while signed in, or the redirect below would loop onto itself.
 // `/reset-password` is not here either: an emailed link has to work even for
 // someone whose browser still holds a session, and finishing the reset kills it.
-const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password"];
+// The prompt is one of them: it finishes a sign-in, so a session has already
+// made it pointless, and it needs the device id the verify call sends.
+const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password", TWO_FACTOR_PROMPT];
 
-// The screens carrying a Google button, which cannot mint their own nonce.
-const GOOGLE_PATHS = ["/login", "/register"];
+// The screens carrying a Google button, which cannot mint their own nonce. The
+// connected accounts page is one, so it keeps a nonce every other path drops.
+const GOOGLE_PATHS = ["/login", "/register", "/app/settings/connected-accounts"];
 
 /**
  * Reports whether a path is in a list, by exact match or as a path prefix.
@@ -88,16 +101,29 @@ async function withGoogleNonce(request: NextRequest): Promise<NextResponse> {
 }
 
 /**
- * Clears a Google nonce that a session has made pointless.
+ * Clears the single-use sign-in credentials a session has made pointless: the
+ * Google nonce, and a challenge whose sign-in ended some other way.
  *
- * Only the Google action spends one, so a password login leaves it behind
+ * Only the Google action spends a nonce, so a password login leaves one behind
  * until it expires. Proxy mints it, so Proxy is where it gets cleaned up.
  *
  * @returns The same response, for use at a return site.
  */
-function dropSpentNonce(request: NextRequest, response: NextResponse): NextResponse {
+function dropSpentCredentials(request: NextRequest, response: NextResponse): NextResponse {
   if (request.cookies.has(NONCE_COOKIE_NAME)) response.cookies.delete(NONCE_COOKIE_NAME);
+  if (request.cookies.has(CHALLENGE_COOKIE_NAME)) response.cookies.delete(CHALLENGE_COOKIE_NAME);
   return response;
+}
+
+/**
+ * Builds the pass-through response for a path a visitor may stay on.
+ *
+ * @returns One carrying a nonce where a Google widget needs one, and a plain
+ * one everywhere else, dropping whatever nonce was left behind.
+ */
+async function passThrough(request: NextRequest): Promise<NextResponse> {
+  if (matches(GOOGLE_PATHS, request.nextUrl.pathname)) return withGoogleNonce(request);
+  return dropSpentCredentials(request, NextResponse.next());
 }
 
 /**
@@ -113,39 +139,66 @@ function redirectToLogin(request: NextRequest): NextResponse {
 }
 
 /**
+ * Reports whether this request is one that should carry a device id.
+ *
+ * The marketing page is deliberately excluded: an id minted for an anonymous
+ * reader would be a tracking cookie that no sign-in ever asks for.
+ */
+function needsDeviceId(pathname: string, session: Session | null): boolean {
+  return session !== null || matches(AUTH_PATHS, pathname);
+}
+
+/**
  * Guards every matched route: redirects anonymous visitors to `/login`,
  * refreshes a near-expiry token pair and persists the rotation, and drops the
  * session when refresh is refused.
  */
-export default async function proxy(request: NextRequest): Promise<NextResponse> {
+async function route(
+  request: NextRequest,
+  session: Session | null,
+  deviceId: string,
+): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
-  const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
   if (!session) {
-    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
-    if (isPublic(pathname)) return NextResponse.next();
-
-    const response = redirectToLogin(request);
-    // A cookie that exists but no longer unseals would otherwise be resent on
-    // every request forever.
-    if (request.cookies.has(SESSION_COOKIE_NAME)) {
-      response.cookies.delete(SESSION_COOKIE_NAME);
+    // Before the nonce, since a Google path behind the session is not one an
+    // anonymous visitor may linger on.
+    if (!isPublic(pathname)) {
+      const response = redirectToLogin(request);
+      // A cookie that exists but no longer unseals would otherwise be resent on
+      // every request forever.
+      if (request.cookies.has(SESSION_COOKIE_NAME)) {
+        response.cookies.delete(SESSION_COOKIE_NAME);
+      }
+      return response;
     }
-    return response;
+
+    if (matches(GOOGLE_PATHS, pathname)) return withGoogleNonce(request);
+    return NextResponse.next();
   }
 
   // Only the auth screens: every other public page, the marketing page
   // included, stays readable while signed in.
   if (matches(AUTH_PATHS, pathname)) {
-    return dropSpentNonce(request, NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)));
+    return dropSpentCredentials(
+      request,
+      NextResponse.redirect(new URL(SIGNED_IN_HOME, request.nextUrl)),
+    );
   }
 
   if (!accessTokenExpiresWithin(session.accessToken)) {
-    return dropSpentNonce(request, NextResponse.next());
+    return passThrough(request);
   }
 
   try {
-    const refreshed = await refreshTokens(session.refreshToken);
+    const refreshed = await refreshTokens(
+      session.refreshToken,
+      buildDeviceHeaders({
+        deviceId,
+        userAgent: request.headers.get("user-agent"),
+        forwardedFor: request.headers.get("x-forwarded-for"),
+      }),
+    );
     const rotated: Session = {
       ...session,
       accessToken: refreshed.accessToken,
@@ -154,15 +207,39 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
       name: refreshed.name || session.name,
     };
 
-    const response = NextResponse.next();
+    const response = await passThrough(request);
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);
-    return dropSpentNonce(request, response);
+    // Rolled on the same beat, so a browser in regular use never ages out of
+    // its own device identity and gets listed as a stranger.
+    response.cookies.set(DEVICE_COOKIE_NAME, deviceId, DEVICE_COOKIE_OPTIONS);
+    return response;
   } catch {
-    // Spent, revoked, or refused — there is no recovery from here.
+    // Spent, revoked, or refused: there is no recovery from here.
     const response = redirectToLogin(request);
     response.cookies.delete(SESSION_COOKIE_NAME);
     return response;
   }
+}
+
+/**
+ * Runs the auth boundary, and mints the device id the backend binds sessions to.
+ *
+ * Minting lives here because a cookie can only be written in Proxy, a Route
+ * Handler or a Server Action, and the id has to exist before the sign-in that
+ * uses it. One mint serves whichever response the boundary produced.
+ */
+export default async function proxy(request: NextRequest): Promise<NextResponse> {
+  const session = await unsealSession(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const existingDeviceId = request.cookies.get(DEVICE_COOKIE_NAME)?.value;
+  const deviceId = existingDeviceId || createDeviceId();
+
+  const response = await route(request, session, deviceId);
+
+  if (!existingDeviceId && needsDeviceId(request.nextUrl.pathname, session)) {
+    response.cookies.set(DEVICE_COOKIE_NAME, deviceId, DEVICE_COOKIE_OPTIONS);
+  }
+
+  return response;
 }

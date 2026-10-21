@@ -1,9 +1,9 @@
 /**
- * Three bars rating a password, filled left to right. Advisory only — the form
+ * Three bars rating a password, filled left to right. Advisory only: the form
  * accepts any password the backend accepts.
  */
 
-import { scorePassword, type PasswordStrength } from "@/lib/validation/password/strength";
+import { scorePassword, type PasswordStrength } from "@/lib/validation/password/strength/strength";
 
 type PasswordStrengthMeterProps = {
   password: string;
@@ -19,7 +19,7 @@ const LEVELS: Record<
 };
 
 /** Renders the strength bars, or nothing while the field is empty. */
-export function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps) {
+export function PasswordStrengthMeter({ password }: Readonly<PasswordStrengthMeterProps>) {
   if (!password) return null;
 
   const level = LEVELS[scorePassword(password)];

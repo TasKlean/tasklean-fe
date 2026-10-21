@@ -77,6 +77,7 @@ Decisions that have no section of their own. Everything below gets one.
 | **No Node version manager** | Installed from the signed MSI via winget. With one JS project there is nothing to switch between, so a manager is added attack surface — nvm-windows' `src/web/web.go` verifies **no checksum or signature** on downloaded Node binaries, inverts `InsecureSkipVerify` on its proxy path, and falls back to `http://` for scheme-less mirrors. Revisit only if we need per-project versions. |
 | **npm is whatever Node bundles** | Node's `npm` shim prefers a global npm over the bundled one, so a stale `install -g npm` silently pins it while Node moves on — which is what we found here (10.9.1 shadowing 11.19.0). |
 | **Containerized on the standalone output** | The only way to exercise the real API was to run beside the backend and the database, so the frontend got a `Dockerfile`. `output: "standalone"` bundles a minimal server plus only the `node_modules` actually used, so the runtime stage copies two directories rather than installing anything. Build and runtime are separate stages because `NEXT_PUBLIC_*` has to exist at build time while the secrets must not. The compose file lives in the parent directory, outside both repos: it describes three services, so it belongs to neither. |
+| **A module with companions is a directory** | A sub-component extracted only to shorten a function is findable only by scrolling, so each one is its own file, and anything about one module, its test included, lives in `<module>/` with it. No `index` files: a bare directory import hides which file serves it, and two `index.tsx` tabs open side by side say nothing. Splitting a file's *contents* stops at `src/lib`, where a module's several exports are its API (`loginSchema` with `parseLogin` and `validateLogin`, `parseApiDate` with `toApiDate`) rather than one unit split into parts; the directories still apply there. Helpers for one owner collect into `<module>.helpers.ts` rather than one file each, which would trade a long file for a drawer of one-function modules. |
 | **LF line endings pinned in the repo** | `.gitattributes`, so the rule travels to every machine. A CRLF checkout fails `format:check` on every file and reads as a formatting problem. |
 
 ### Data fetching
@@ -102,7 +103,7 @@ client is fine; a group's task list in a shared cache leaks between households.
 
 ### API client
 
-`src/lib/api/client.ts` exposes a single `request<T>()`. Four choices in it are worth the reasoning:
+`src/lib/api/client/client.ts` exposes a single `request<T>()`. Four choices in it are worth the reasoning:
 
 **Auth is a parameter, not a session lookup.** `request()` takes an `accessToken` and knows nothing
 about cookies, sessions or refresh. The session layer and single-flight refresh _wrap_ it. Folding
@@ -121,13 +122,22 @@ limiter. So a non-JSON or non-envelope body doesn't mean the API failed — it m
 answered: a proxy, or `API_BASE_URL` pointing somewhere wrong. That's a different bug with a
 different fix, so it gets a different type rather than being flattened into a 500.
 
+**A code read by more than one module is a constant, not a literal.** Only some failures carry the
+envelope's `code`, so most checks are local and stay where they are read. `PASSWORD_INVALID` is the
+exception: the password section, deactivation and both two-factor confirmations all branch on it,
+and three copies of one backend string is three chances to misspell it. `api/error-codes.ts` holds
+the shared ones, and nothing else. **The code is also what routes a 401, not the status**, which
+matters precisely where `credentialCheck` is on: those endpoints answer 401 for a refused password
+*and* for a dead session, so blaming the field for every 401 would hide the session dying behind
+"current password is incorrect".
+
 **An empty 2xx body resolves to `undefined`** rather than throwing, so a `204` on a delete is
 ordinary. A 2xx that _does_ carry a body must be the envelope. The leniency is deliberately
 one-sided: absence is plausible, malformed presence is not.
 
 ### Time
 
-`src/lib/time/api-date.ts` is the only crossing point between API timestamps and `Date`.
+`src/lib/time/api-date/api-date.ts` is the only crossing point between API timestamps and `Date`.
 
 **Reading** is the known problem: unmarked UTC strings parse as local, so `parseApiDate` appends `Z`
 unless a zone marker is already there.
@@ -254,6 +264,21 @@ list and not a landing page. Marketing bands at 36px read as cramped, so `space-
 `space-3xl` (5rem) continue the scale's roughly 1.5× ratio. Marked derived in `globals.css` like the
 sage and coral tones; nothing inside the app uses them.
 
+**Sonar reports the dark token block as having no scoping root, and that is a parser gap.** The
+root is `@variant dark`, which resolves through the `@custom-variant dark` declared once at the top
+of the file, and a CSS parser that stops at Tailwind 4's at-rules cannot follow it. The build
+settles it: the production stylesheet carries the dark palette twice, once inside
+`@media (prefers-color-scheme:dark)` scoped to `:root:not([data-theme=light])` and once under
+`:root[data-theme=dark]`, which is exactly the override the layout writes.
+
+It was left alone until it started **failing the quality gate**, which a note in a document does
+not fix. There is no way to write the variant without `&`, since the whole point is to position the
+utility's own selector, so the resolution is a one-rule ignore in `sonar-project.properties` rather
+than a human clicking "won't fix" on every rescan. The underlying rule is stylelint's
+`nesting-selector-no-missing-scoping-root`, which Sonar ships as **S8776** and already exempts
+inside SCSS `@mixin` for exactly this reason: a selector that gets its root later. `@custom-variant`
+is the Tailwind analogue and wants the same exemption.
+
 ### Validation
 
 **Every form is a `zod/mini` schema, the three auth validators included.** The first decision here
@@ -283,6 +308,16 @@ pieces, `parse.ts` runs a schema and keeps one message per field, `forms/<form>.
 per screen, `password/` is the policy and its meter. Echoing back a rejected submission is a second,
 lenient schema per form with every field optional — never the password.
 
+**A rule bounds its input before a pattern sees it.** An action parses whatever was posted, not
+what the field allowed, so every regex in `rules.ts` can be handed megabytes. `emailRule` checks
+`maxLength` first, at RFC 5321's 254 characters, and `isGuessable` slices to one over the password
+maximum, which is enough: a password that long has already failed the length rule, and a field
+shows only its first unmet rule. The password stem also stopped being a regex, because an anchored
+repeat like `/[\d\W_]+$/` backtracks quadratically over a long run that does not reach the end,
+where a scan backwards from the last character is linear. Measured rather than argued: the old
+stem took 53.6 seconds on 100k characters and the scan takes milliseconds, while the email pattern
+was never actually slow, so its bound is there for the shape of the rule and not for a fix.
+
 **What stays custom**: `isGuessable`, the leet and stem checks, and `passwordRequirements` — the
 strength meter needs per-rule booleans a schema does not expose.
 
@@ -307,7 +342,7 @@ right answer, the first unmet rule in `rules.ts`, because that is the order a us
 things. Verified by loosening the minimum length and by swapping two checks: each breaks a vector.
 
 
-**The frontend is the spec here, not the mirror.** `validation/password/policy.ts` holds it and the
+**The frontend is the spec here, not the mirror.** `validation/password/policy/policy.ts` holds it and the
 backend is being changed to match, so that file is the thing to read and any disagreement is a
 backend bug.
 
@@ -656,10 +691,133 @@ bounce through Proxy's refusal path. For the same reason `/reset-password` is pu
 browser they are most likely to open it in. `/forgot-password` is in both lists, because a session
 really does make asking for a link pointless.
 
+**Two-factor** - `login` and `google` stop returning tokens for an account that has a second
+factor. They answer `{ twoFactorRequired: true, challengeToken }` with `token`, `refreshToken`,
+`uid`, `email` and `name` all null, and the client posts that challenge with a code to
+`POST /api/auth/2fa/verify`, which answers the ordinary `AuthResponse`. The challenge lives five
+minutes, allows five wrong codes, dies on the first success, and is replaced whenever the user signs
+in again. `code` takes a six-digit authenticator code or one of the ten recovery codes. Refresh is
+**not** gated, so the prompt appears on a real sign-in rather than on every visit, and nothing
+changes for a user who never enrolls.
+
 **A 400 from reset means the two policies have drifted.** The frontend is the spec and the backend
 matches it, so a rejected password should never reach the endpoint. If one does, the message is
 shown against the password field rather than swallowed, since that is the only place it could be
 acted on.
+
+### The second factor is a cookie between two requests
+
+A gated login hands back a challenge token, and the screen that answers it is a separate request. So
+the token has to live somewhere in between, and the handoff suggested component state because it
+assumed a single-page app. Here the login Server Action runs on the server and can write a cookie,
+which is strictly better: `tasklean_2fa_challenge` is httpOnly with a five-minute `maxAge` mirroring
+the backend's own window, so the credential never enters the DOM, never rides a hidden field, never
+reaches page scripts, and a reload leaves the screen usable instead of dumping the visitor back at
+sign-in. The verify action reads the cookie and ignores a `challengeToken` posted with the form, so
+a crafted field cannot substitute one. It is the Google nonce pattern a second time, and Proxy
+cleans up a leftover challenge on the first signed-in request the same way.
+
+**`signInOutcome` is the only reader of a login response.** `AuthResponse` now carries both shapes,
+and reading `token` before checking `twoFactorRequired` silently yields `null`: a user who looks
+signed in with no session. One narrowing function returns a session-or-challenge union, which makes
+the compiler refuse any caller that forgets to branch. It throws on a gated response with no
+challenge token, and still throws on the old failure of a 2xx with no pair, so neither can pass as
+success.
+
+**The verify call carries the device headers.** The backend creates the device row and sends the
+new-sign-in email at that step now, not at login, so a verify without `X-Device-Id` costs this
+browser its identity in the devices list and the account its alert. `/two-factor` is therefore in
+`AUTH_PATHS`, which is what makes Proxy mint the id for a visitor who does not have one yet.
+
+**A 401 here is not the session.** Two error codes end the attempt and nothing else does:
+`TWO_FACTOR_CHALLENGE_INVALID` means expired, spent or out of attempts, so the cookie is cleared and
+the visitor restarts at `/login?expired=2fa`, with one line covering both causes because the backend
+deliberately says only whether the tries ran out. `ACCOUNT_DEACTIVATED` reuses the notice login
+already renders. Everything else a 401 says is shown against the code field, which keeps a mistyped
+digit from looking like a dead end, and a 429 goes through `rateLimitMessage` like every other auth
+call.
+
+**`enabled` and `pendingSetup` are different states, and the card says so.** A setup nobody
+confirmed leaves a stored secret behind but does **not** gate a sign-in, so showing it as on would
+tell the reader their account is protected when it is not. The card reads it as a third state,
+Unfinished, and says plainly that nothing extra is asked for yet. It also treats an unreadable
+`recoveryCodesRemaining` as none left rather than as a number, warns at three or fewer, and gives
+zero its own sentence: with no codes and no phone there is no way back into the account, and the
+backend has no admin reset.
+
+**One field, both kinds of code.** The endpoint takes an authenticator code or a recovery code in
+the same field, so the client keeps no mode of its own: `twoFactorCodeRule` accepts six digits or
+eight recovery characters and normalises the way the backend matches, stripping spaces and the
+hyphen and upcasing. The screen still offers a toggle, because six boxes and a hyphenated word are
+nothing alike to type, and it says a recovery code works here, since someone who lost their phone
+will otherwise assume they are locked out. **Confirming a setup is the exception**: `/2fa/enable`
+has no recovery codes to fall back on yet, so that one form takes the plain six digits.
+
+**The QR code is encoded on the server, and travels as a path.** `otpauthUri` has to become a
+picture somewhere. Doing it in the browser puts an encoder in the client bundle for a screen most
+people visit once; doing it in a Server Component is impossible, because the secret only exists
+after a Server Action has run. So the action encodes it and hands the client `{ size, path }`: one
+SVG path with horizontal runs merged, rather than a few thousand booleans over the wire, and
+`uqr` stays server side. The component draws it with `fill-qr-ink` on `bg-qr-paper`, two tokens
+deliberately not redeclared under `dark` for the same reason the picker's swatches are not: a
+scanner expects dark modules on a light field, and an inverted code is read less reliably. A test
+rasterises the path back into a grid and compares it against the encoder's own matrix, so a run
+merged one module short fails rather than producing a code that merely looks right.
+
+**Nothing that is shown once may depend on a render surviving.** `enable` returns the recovery codes
+and the backend keeps only their hashes, so they exist in exactly one place: the action's answer. It
+would be natural to `revalidatePath` after turning the factor on, and that is precisely what must
+not happen, because the page would re-render with the factor enabled, the conditional around the
+enrollment component would evaluate false, React would unmount it, and the codes would be gone
+before they were read. This was not caught by reasoning but by testing: sealing the new session
+writes a cookie, and **writing a cookie in a Server Action re-renders the route just as
+`revalidatePath` does**. The component therefore stays mounted whatever the status says, as long as
+it is holding codes, and the page no longer decides for it. Dismissing them is separate state, and
+"I have saved them" calls `router.refresh()` rather than linking to the page it is already on, which
+the App Router treats as a no-op. The `href` stays on the anchor as the no-script path.
+
+**A pending setup can be resumed, and a resume is not a restart.** The status says `pendingSetup`
+but no endpoint hands the secret back, so the obvious reading is that the only way on is to start
+again. It is not: the pending secret still verifies, so if the entry is still in the app a code from
+it finishes the job with no new QR code. The screen offers that first and keeps "start again" as the
+escape, saying what it costs, since re-running `setup` replaces the stored secret and kills the
+entry already in the app.
+
+**Weakening the factor costs both credentials.** Turning it off and replacing the recovery codes
+are the two operations that make the account easier to get into, so the backend takes one
+`TwoFactorConfirmRequest` for both: the account password, where there is one, and a current second
+factor code. Neither a stolen session nor a stolen password is enough on its own. The frontend
+mirrors that with one schema and one form, because two forms asking the same two things would drift.
+Only `disable` reissues the pair, since it is the one that changes what signing in needs. The code
+may be a recovery code, and it is **spent** either way, so reissuing with one costs a code from the
+set being replaced.
+
+**Turning it off destroys its own confirmation, for the same reason the codes vanished.** `disable`
+answers with a fresh pair, sealing it writes a cookie, and the re-render that follows reads the
+factor as gone, which unmounts the component that asked the question and takes its success notice
+with it. The fix is the rule enrollment already follows: the component renders while it still has
+something to say, not while the server says it is relevant. Nothing irreplaceable is lost here,
+unlike the recovery codes, but a mutation with no visible outcome is still a bug.
+
+**A complete code submits itself, which a second field turns into a trap.** `CodeInput` presses the
+form as soon as six digits are in, and on a form that also wants the password that would send a
+request about a field the person had not reached yet, coming back with "Password is required" for no
+reason. The confirm form therefore blocks its own submit until both fields are filled, and the press
+is what finishes the job once the password arrives.
+
+**One code field, two screens.** The sign-in prompt and the confirm form have to take a recovery code
+identically, and six digit boxes cannot hold one, so the field pair and the toggle between them live
+in `common/two-factor-code-field/two-factor-code-field.tsx` rather than being written twice. What acts on the code is a
+children slot, which keeps the switch the last thing offered on both screens rather than a step on
+the way to the button.
+
+**The methods are a list, and only one of them exists.** The backend's `TwoFactorProviderType` has a
+single value, `LOCAL`, so Email and Text message are listed with a dead "Coming soon" button rather
+than built or hidden. Listing them answers "what else can I use" without anyone having to ask, and
+the shared `TwoFactorMethod` shell is what makes adding a real one a matter of listing it. The shell
+refuses to render children for a method marked unavailable, so a form cannot appear behind one by
+accident. The authenticator entry owns its own enrollment, collapsed behind a button, which keeps
+the page a set of choices rather than one open form between two headings.
 
 ### Session cookie implementation
 
@@ -689,6 +847,21 @@ otherwise silently expand to 32 bytes.
 Rotating `SESSION_SECRET` invalidates every session at once. That is the emergency revoke-all lever,
 and the reason it must differ per environment.
 
+### `uqr` for the QR code, not `qrcode`
+
+QR encoding is Reed-Solomon plus mask selection, so it is the rare case where a dependency beats
+writing it. `qrcode` is the obvious pick by downloads and was the one the plan named, but it brings
+`pngjs`, `dijkstrajs` and **`yargs`** as runtime dependencies, for a web app that needs none of
+them, and its types live in a separate `@types` package. `uqr` has **zero dependencies**, ships its
+own types, and exposes exactly the one function we want: text in, module matrix out, with the
+drawing left to us. Same reasoning as `jose`: in a seven-dependency project, transitive cost is the
+deciding factor. It is pinned loosely like everything else, and the one call is wrapped in
+`lib/qr/qr-code/qr-code.ts`, so replacing it touches a single file.
+
+Error correction is left at **L**, the lowest. Measured on a real `otpauth://` URI, L needs a 49
+module grid where M needs 57: the same picture on screen means smaller modules for a camera to
+resolve. Redundancy is for a printed code that gets creased, and this one is read off a screen.
+
 ### Refresh lives in Proxy, not in the API client
 
 **Cookies cannot be written during a Server Component render.** Next is explicit that `.set` and
@@ -707,6 +880,316 @@ alternative caps every session at the access-token lifetime.
 
 Single-flight de-duplication is **per-process and best-effort**. Two instances can still refresh
 concurrently; solving that properly needs a shared lock, which is not worth it at this scale.
+
+### Device identity lives in a cookie, not in browser storage
+
+The backend binds each refresh token to a device, resolved from an `X-Device-Id` header it expects
+us to keep stable per browser. The obvious implementation is a UUID in `localStorage`, and it is the
+one the backend's own notes suggest. **It cannot work here.** Refresh does not happen in the
+browser; it happens in Proxy, on the server, which has no access to `localStorage` at all. A rotation
+would therefore arrive with no device, and the session would lose the identity the whole feature
+exists to give it.
+
+So Proxy mints the id into `tasklean_device`, an httpOnly cookie, exactly as it already mints the
+Google nonce, and for the same underlying reason: a cookie is the only client state the server can
+read on every request, and Proxy is one of the three places allowed to write one. `localStorage`
+also loses on browser policy: Safari wipes script-writable storage after 7 days of inactivity, so an
+id kept there would churn weekly on that browser, while a server-set httpOnly cookie does not.
+
+**The id is rolled, not just minted.** Its life is 400 days, the ceiling Chrome has enforced since
+104, and Proxy re-writes it whenever it rotates the session, which is already a cookie write. A
+browser in regular use therefore keeps its identity indefinitely; only a dormant one ages out.
+
+Losing the cookie means a new device, with no way around it: `resolveLoginDevice` matches on the
+client id alone, with no fallback on user agent, so an unseen id always takes the `isNew` branch.
+That costs a fresh device row, a new-sign-in email, and an old row left listed with no live session
+until the user removes it. Clearing site data, a private window and a second browser profile all do
+the same thing. A user-agent fallback would hide the duplicates at the price of merging two profiles
+on one machine into one device, which is the worse error.
+
+Two consequences worth stating. The **user agent must be forwarded explicitly** as
+`X-Device-User-Agent`, because on the BFF-to-backend hop the ordinary `User-Agent` is Node's, so a
+device would otherwise be named after our server rather than the browser. And the id is minted
+**only on the auth screens and for signed-in requests**: stamping a stable identifier on an anonymous
+reader of the marketing page would be a tracking cookie that no sign-in ever needs.
+
+The headers are built in one place, `auth/device/device.ts`, and passed as a parameter rather than looked up
+inside each call, mirroring `client.ts`'s rule that auth is a parameter and not a session lookup.
+Proxy reads them off the `NextRequest`; a Server Action reads them through `next/headers`.
+
+### The avatar costs one call at sign-in, not one per page
+
+The chrome shows a profile photo, and `AuthResponse` does not carry one: it has `token`,
+`refreshToken`, `uid`, `email`, `name` and `message`, nothing more. Only `GET /api/users/me` knows
+the `photoUrl`, which the backend fills from Google's `picture` claim.
+
+Three ways to get it to the chrome, and the cheap one wins. Fetching the profile in both layouts
+would put a backend call on every signed-in page render, including the marketing page. Asking the
+backend to add the field is the cleanest answer and the one to take if it ever becomes easy, since
+`name` is already there for exactly this reason. Until then `startSession` reads the profile once,
+right after a credential exchange, and seals the photo into the cookie beside the name.
+
+It inherits the same contract as the name: **display only, and allowed to be stale.** A photo
+changed elsewhere shows up at the next sign-in. The call is best effort and its failure swallowed,
+because an avatar is never worth failing a login over.
+
+The consequence worth remembering: **every sign-in path must go through `startSession`**. Calling
+`setSession` directly still works and still signs the user in, which is exactly why a path that
+skipped it would lose the avatar quietly rather than loudly.
+
+Remote photos also break the project's image rule, which assumes a static import with a build-time
+size. `next.config.ts` therefore allowlists the hosts the optimizer may fetch, currently only
+Google's, and `Avatar` checks the host before drawing: an unlisted one falls back to initials.
+Without that check `next/image` throws on an unconfigured host and takes the whole page down, and
+allowlisting every host instead would turn our optimizer into an open image proxy.
+
+### What the devices screen offers, and what it refuses to
+
+Three operations exist on the backend and all three are worth exposing: end one device's session,
+remove a device, and end every session. There is **no bulk delete**, and the screen does not fake
+one by looping requests: a half-failed loop leaves a mess nobody can see, and "sign out everywhere"
+already covers the case that matters, losing a device.
+
+A dead session dims its row but **keeps its Remove button at full strength**, since that is exactly
+when removal is the useful action. Its sign-out button disappears instead, because ending a session
+that has already ended does nothing.
+
+**Ending this browser's own session has to clear the cookie.** The backend revokes refresh tokens
+and nothing else, so the access token sealed in our cookie keeps working until it expires, which in
+dev is a **year**. Without clearing it the screen would cheerfully report you were still signed in.
+The action therefore asks the backend which row is the current device, and if it is the one being
+ended, clears the session and redirects to `/login`. Asking the backend rather than trusting a
+hidden form field means a tampered field cannot sign anyone out, and an unreadable answer is treated
+as "not ours", because wrongly logging someone out is worse than wrongly leaving them in. The same
+check covers removal, which also answers "what if the list empties": the only device you can remove
+last is your own.
+
+The one slot below the heading renders **one of three exclusive states**: the load failure, the
+empty list, or the rows. That was a chained ternary, defended as three branches of one slot rather
+than a condition inside a condition. It is now an `if`/`else if`/`else` assigning one `ReactNode`,
+which is what `DeviceRow` already does for its own controls, so the two read the same and Sonar has
+nothing to report. The defence was sound and the rewrite is still better: the branches are the same
+three, and the slot is one word.
+
+Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
+Someone pressing it believes every other session is gone, and a silent failure would leave them
+believing it wrongly.
+
+### Settings is grouped, and each section is a route
+
+The sections are grouped rather than listed flat, because they already split along a real line:
+**Preferences** holds appearance, language and notifications, **Security** holds the password, the
+connected accounts and the devices, and **Account** holds what ends the account. One list in `sections.ts`
+feeds both the desktop rail and the mobile index, so the two cannot drift, and each section stays a
+real route that deep links.
+
+Preferences sits **first**: it is the harmless group, the one people come back to, and settings
+should not open on a lock. Account sits **after** Security while deactivation is the only thing in
+it. A group with one
+destructive link in it has no business being the first thing settings offers; it fills out when a
+profile section exists. Nothing is called "Security" at page level, since that word now names the
+group: the pages are **Password**, **Connected accounts**, **Devices and sessions** and **Deactivate
+account**.
+
+### Changing a password without losing the session
+
+`POST /api/account/change-password` verifies the current password, and the backend answers a wrong
+one with **401**, the same status an expired token gets. Our rule is that a 401 ends the session, so
+as written it would have signed someone out for a typo. `serverApi` therefore takes
+`credentialCheck: true`, which keeps the 401 an `ApiError` for the handful of endpoints that verify
+something from the request body. It is opt-in rather than a general relaxation: everywhere else, a
+401 really is the session.
+
+**Which of the two it was is in the envelope's code, and the action has to read it.** These
+endpoints answer 401 for a refused password *and* for a session that has died, so
+`credentialCheck: true` buys the chance to tell them apart but does not do the telling.
+`PASSWORD_INVALID` is the password; a 401 carrying no code is not, and must not reach the field.
+Branching on the status alone, which is how this started, showed "current password is incorrect" to
+someone whose session had merely expired.
+
+Changing or setting a password **revokes every refresh token the account holds**, this browser's
+included, and the backend then issues a fresh pair for the device the `X-Device-Id` header names.
+Two consequences the UI cannot skip. The pair has to be sealed into our cookie, or the session we
+are standing in is already dead. And the device headers have to ride along, or the backend resolves
+a device it has never seen, writes a new row, and emails a new-sign-in notice for the browser the
+person is sitting at.
+
+**Linking Google needs a nonce on a page you reach while signed in.** Proxy minted one only on
+`/login` and `/register`, and deleted any leftover on every signed-in request, so the connected
+accounts page is now the one signed-in response that keeps its nonce. Nothing else about the exchange changes: the
+page still gets only the hash, and the action still sends the raw value.
+
+The backend verifies the Google token, the nonce and that Google says the mailbox is verified. It
+does **not** check that the Google address matches the account's, so the copy does not claim it
+does. Unlinking is refused when no password is set, because Google would be the only way back in.
+The UI does not offer the attempt and then relay the refusal: it says to set a password first, which
+is the thing that would make unlinking possible.
+
+**Deactivation asks for the password in place**, in the same confirm-in-place pattern as removing a
+device, because that password is also what the backend re-authenticates with. A Google-only account
+has none to give and is confirmed by the session alone. Afterwards every session is gone, so the
+action clears our cookie and lands on `/login?deactivated=1` rather than leaving a cookie that
+authenticates nothing.
+
+Editing the profile is still **not built**: `PUT /api/users/{uid}` is a full replace that requires
+`email`, so a name change would be a rewrite of the record with whatever fields the form happened to
+carry.
+
+### The theme is the account's, and the cookie is this browser's copy of it
+
+`GET`/`PUT /api/user-settings` store a theme and a language per user, so the choice follows the
+person to any browser they sign in from. That is the right place for it, and it creates the one
+problem worth solving carefully: a render cannot wait for an API call before the first paint, and a
+theme applied after the paint is a flash of the wrong one.
+
+So the theme is **cached in a cookie**, `tasklean_theme`, and the root layout reads it and writes
+`data-theme` on `<html>`. No client JavaScript is involved, so the scheme is correct in the first
+byte of HTML and correct with scripting off. `startSession` fills the cookie from the API at every
+sign-in, beside the profile call that fetches the avatar, and always writes it, even when the read
+failed, so a shared browser never keeps painting the previous account's theme. The API stays the
+authority; the cookie is a cache, rewritten whenever the picker saves. The honest cost: a change
+made on another device does not reach this one until the next sign-in. For a colour scheme that is
+a fair trade against an API call on every render.
+
+**The dark palette is still written once.** `globals.css` declares the condition as a
+`@custom-variant dark` with two branches, the OS preference unless `data-theme="light"` overrides
+it, and the explicit `data-theme="dark"`. The token block then sits inside `:root` under
+`@variant dark`, and Tailwind emits both branches from that one source; every `dark:` utility
+resolves through the same variant, so the logo swap follows a chosen theme too. Duplicating fifty
+token values to support an override would have broken the rule that each colour is defined once.
+
+Four `swatch-*` tokens are deliberately **not** redeclared in the dark branch. The picker's squares
+have to show what light and dark look like while wearing whichever one is active, so those four are
+fixed in both schemes.
+
+**The picker is three submit buttons, not a radio group with a save.** A `name`/`value` pair on a
+submit button is ordinary HTML, so one click saves with or without JavaScript and there is no second
+control to explain. The repaint happens in the click handler rather than waiting for the answer,
+because `data-theme` lives on `<html>`, above this route, where a Server Action's re-render cannot
+reach it; a refused save puts the saved theme back. `generateViewport` reads the same cookie, or an
+explicit choice would leave the browser chrome painted by the OS while the page disagreed.
+
+**The PUT replaces both fields.** Appearance and language are separate pages editing one field each,
+so each action reads the current pair and sends the other value back unchanged. Reading before
+writing costs one call and is always right; a hidden field carrying the other value would silently
+overwrite a change made elsewhere.
+
+**Language is stored, and nothing is translated yet.** The backend offers `EN`, `DE` and `SL`, the
+page saves the choice, and `<html lang>` stays `en` on purpose: a `lang` the copy does not match
+tells a screen reader to pronounce English in German. The page says plainly that English is the only
+one so far, so the control is honest rather than decorative. Translating the interface is its own
+phase, and the saved preference is what it will read.
+
+### Notification channels are saved long before anything is sent
+
+`GET /api/notification-settings` and `PUT /api/notification-settings/batch` store, per user, which
+of four events reach them in the app and by email. **Nothing delivers them yet**: no mail goes out,
+no in-app row is written, and there is no push channel in the contract even though the device table
+holds push tokens. The page says so in a line of its own, because a switch that silently does
+nothing is worse than no switch at all.
+
+**The page edits a draft and saves it in one press.** Every switch is a real checkbox holding its
+own state, Save posts one list of type names per channel, and the action writes only the types that
+differ. The first design saved on each press, which was one call per switch and up to four for a
+column: cheap to write, expensive to use, and impossible to change your mind in. A reminder appears
+the moment the draft differs from what is saved, and a refused save keeps the draft so it can be
+sent again rather than being thrown away.
+
+**The batch endpoint exists because of atomicity, not request count.** Writing a type at a time
+meant a save could stop half way, leaving the account in a state neither the page nor the person
+chose. `PUT /batch` runs the whole list in one transaction, so a refused save has applied nothing
+and the page on screen is still true: the action reports the message and leaves the page alone. Its
+two 400s cannot reach us: the list is never **empty**, since every type is sent, and a **duplicate
+type** is impossible in a matrix keyed by type.
+
+**The response is a re-read, not an echo**, so what comes back includes a type another device wrote
+while this save was in flight. That is what the page then shows, which is why the form takes the
+answer over its own draft.
+
+**Revalidating is for pages whose truth only the server holds.** A device row disappears, a
+password flips the card from "set" to "change", a Google account shows as linked: none of that is in
+the action's answer, so those three actions call `revalidatePath` and the re-render is what the
+person sees. The three preference pages are the opposite. They render the value the action already
+returned, so the call added a fetch and nothing else, and all three now skip it.
+
+**The save reads nothing, before or after, and revalidates nothing.** The form carries every type,
+so there is no missing value a read could supply, and the batch answers with the backend's own
+re-read, so there is nothing to fetch afterwards either. `revalidatePath` was there at first and did
+nothing measurable: the route is dynamic because it reads the session cookie, `request()` sends
+`cache: "no-store"`, and a dynamic segment is stale in the client router cache the moment it lands,
+so every visit refetches anyway. One request per save. Appearance and language still read first because
+their endpoint replaces a pair while each page edits one half of it; here the page holds the whole
+thing. The price is that the matrix is written whole: a type changed on another device since this
+page loaded is replaced by what the person in front of it chose, which is the behaviour a Save
+button promises anyway.
+
+**The column switches are the same control as the rows.** Each sits at the head of its channel, is
+on while anything in that column is on, and turning it off empties the column in the draft. They are
+the one control that needs JavaScript: everything else works with scripting off, because checkboxes
+and a submit button are what the form actually is.
+
+**Sections are collapsed until they are opened.** Each group is a `<details>` card, so hiding and
+showing costs no state and works without scripting, and a closed one still reports how many of its
+types are on per channel. Every type names its section in a `Record`, so a type added later fails to
+compile until it has one rather than quietly falling off the page.
+
+**The matrix is keyed by our own list of types, not by the response.** The backend promises all four
+entries, but no field in the spec is `required`, so the four rows are built from our enum and each
+one takes the entry that matches or the backend's own default. A missing row is then impossible
+rather than handled, and a type we do not offer is ignored instead of rendered blank.
+
+### A form action resets the DOM, and a controlled value does not come back
+
+React resets a form once its action answers. For an uncontrolled field that is the point. For a
+controlled one it is a trap: the reset puts the DOM back to what the page loaded with, and React
+never rewrites a value its own render did not change, so the control keeps showing the old choice
+while state holds the new one. It looked like a stale read from the API, and it was not: the data
+was right and only the DOM was wrong.
+
+Remounting the field does not fix it, because the reset lands after the commit. The fix is to cancel
+the reset, `onReset={(event) => event.preventDefault()}`, on any form whose values live in React
+state. The language select and the notification switches both carry it. A form that wants its fields
+emptied on success, like the password form, still does that from state, where it can be read.
+
+**It is not every controlled field, and the two-factor form proved it.** A reset restores each
+control's default, and React writes a text input's value into the `value` attribute, which is that
+default, so a text field comes back unchanged. A `select` has no `selected` option written and falls
+back to the first one; a checkbox has no `checked` attribute written and falls back to unchecked.
+That is the whole difference, and it is why the code prompt keeps a refused code on screen with
+nothing added, while the language picker could not.
+
+### A finished code submits itself
+
+Six digits and then a press is a press nobody means to withhold, so `CodeInput` submits its own form
+once the last box is filled, on every screen that uses it: sign-in, verify-email and enrollment. Two
+details decide whether it works.
+
+**It submits from an effect, not from the keystroke.** The value that travels is the hidden input's,
+and at keystroke time React has not written the last digit into it yet, so submitting there posts
+five digits. The effect runs after that commit. It goes through `requestSubmit()` rather than
+`submit()`, which is what keeps each form's own `onSubmit` validation and its action in play, and a
+ref guards against submitting twice for one completion while still re-arming when a digit is
+corrected.
+
+**A code that arrived with the component does not count as typed.** The verify-email link carries
+the code in the URL and prefills it, and a test has always asserted that nothing fires on mount: the
+address may be wrong and a page that posts the moment it loads gives nobody a chance to look. So the
+guard starts spent whenever the initial value is already complete, and a typed or pasted code is the
+only thing that triggers a submit. The press remains for the no-script path and for a retry.
+
+The boxes are also **centred rather than spread**. `justify-between` is fine on the narrow auth
+column it was written for, but a settings card is wide, and six boxes a hand apart stop reading as
+one field.
+
+**The first box takes focus on `/two-factor`, through a ref rather than the attribute.** Moving
+focus on load is a real trap when a field sits below content a screen reader has not reached yet.
+That screen is a heading, the code field and nothing else, and answering the challenge is the only
+reason it exists, so there is nothing to skip past. The `autoFocus` attribute is what the a11y rule
+bans, and a ref focused in a mount effect is the escape hatch the rule's own guidance names for a
+field that should genuinely take focus, so the behaviour stayed and the attribute went. It is still
+an opt-in prop with one caller: `/verify-email` leaves it off, because its code arrives prefilled
+and is a value to look over rather than a field to fill. The test asserts real focus, not the
+attribute, so it would have caught the behaviour being dropped instead of moved.
 
 ### Roles and access
 
@@ -752,7 +1235,9 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 
 | Resource          | Path                           | Client notes                                                                                                                                                                                                                                      |
 | ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
+| Auth              | `/api/auth/*`                  | Public. `register` returns no tokens. `login`, `verify-email`, `refresh`, `google` return the pair, except that `login` and `google` return a **challenge** instead for an account with a second factor. `POST /2fa/verify` takes `{ challengeToken, code }` and answers the ordinary pair; it is capped at 10 requests a minute per IP. `logout` and `refresh` take `{ refreshToken }` in the body.                                                                                   |
+| Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
+| Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Every one of them has a caller**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, where the code may be an authenticator or a recovery code and is spent either way; `disable` answers with a fresh pair and `recovery-codes` with the new set alone. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
 | Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
@@ -760,7 +1245,9 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Task completions  | `/api/task-completions`        | `GET` needs `?taskId=`, or `/member/{groupMemberId}`. Append-only — there's no delete, so "undo a completion" isn't available.                                                                                                                    |
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group → `409`.                                                                                                                                                                        |
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge.                                                                                                                                 |
-| Devices           | `/api/devices`                 | Push token registration. `GET` needs `?userId=`.                                                                                                                                                                                                  |
+| User settings     | `/api/user-settings`           | The caller's own theme and language. `GET` answers the defaults (`SYSTEM`, `EN`) when nothing was ever saved, so there is no empty state. `PUT` is a **full replace** and `@NotNull` on both fields, so a screen editing one sends the other back unchanged.                                                            |
+| Notification settings | `/api/notification-settings` | The caller's own channels. `GET` always answers one entry per type, defaults included, so there is no empty state. `PUT /batch` replaces the types it is sent, in one transaction, and answers with the whole matrix **re-read** after the writes; an empty list or a duplicate type is a `400`. `PUT /{type}` does one type and we no longer call it. Nothing reads these yet. |
+| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it.                                                   |
 | Audit logs        | `/api/audit-logs`              | `?groupId=`, or `/entity?entityType=&entityId=`, or `/member/{id}`. Could power a group activity feed.                                                                                                                                            |
 
 ### Status codes and what the UI does
@@ -769,14 +1256,14 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | ---- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | 2xx  | Success                                                                 | POSTs really return 201 though the spec says 200 — never branch on the exact code  |
 | 400  | Validation, malformed body, bad enum/param type                         | Render against the field; `message` joins the field errors                         |
-| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message.                |
+| 401  | Missing/expired/invalid token, bad credentials, deactivated, unverified | Refresh once, then log out. On the login form, one generic message. On `/api/account` and the two-factor endpoints it is the credential in the body being refused, so it shows against the field; `TWO_FACTOR_CODE_INVALID`, `TWO_FACTOR_CHALLENGE_INVALID`, `PASSWORD_INVALID` and `ACCOUNT_DEACTIVATED` tell those cases apart, and it is the **code** that routes it, never the status: a dead session answers 401 from those endpoints too, carrying none. |
 | 403  | Authenticated but not permitted                                         | Permission message. **Never** log out, never retry. Not predictable from the spec. |
 | 404  | Not found, or unknown route                                             | Not-found state for the resource                                                   |
 | 409  | Duplicate, or a violated rule (last admin, already a member)            | Show the server's `message` verbatim — it's written for humans                     |
 | 429  | Rate limited                                                            | Message plus the `Retry-After` window. No auto-retry loop.                         |
 | 500  | Unhandled                                                               | Generic message; the server never leaks detail                                     |
 
-**The retry window is composed in one place.** `api/retry-phrase.ts` exports `rateLimitMessage`,
+**The retry window is composed in one place.** `api/retry-phrase/retry-phrase.ts` exports `rateLimitMessage`,
 which takes the `ApiError` rather than the seconds, because every call site wants the same sentence:
 the backend's own prose plus the window. Login and Google sign-in were missing it entirely, which
 the backend's catch-all `auth` tier makes easy to hit at ten requests a minute per IP: a mistyped
@@ -840,7 +1327,7 @@ workaround **before** the feature depending on it gets built.
 1. **API timestamps have no `Z`.** They're UTC, but `new Date("2026-09-28T10:00:00")` parses as
    _local_. Every date bug in this app will be this bug. The write direction is the mirror: the
    DTOs are `LocalDateTime` with no Jackson config, so `ISO_LOCAL_DATE_TIME` applies and a trailing
-   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date.ts`.
+   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date/api-date.ts`.
 2. **Three id namespaces in one payload** — `uid` (string, external), numeric `id` (per entity), and
    GroupMember ids masquerading as person references.
 3. **Local dev issues year-long access tokens**, so refresh, rotation and the `401` path are
@@ -861,7 +1348,7 @@ workaround **before** the feature depending on it gets built.
    and validate at the boundary; a typo is a `400` at runtime, not a compile error.
 10. **Notifications reference `userId`, not group membership**, and carry denormalized `taskId` and
     `groupId`. One can arrive for a group the user isn't a member of.
-11. **A `NEXT_PUBLIC_*` variable that `config/env.ts` validates must be set at runtime too.** Next
+11. **A `NEXT_PUBLIC_*` variable that `config/env/env.ts` validates must be set at runtime too.** Next
     inlines `process.env.NEXT_PUBLIC_X` only at a literal reference, and `readEnv` reads it in a
     loop, so a built server bundle sees `undefined` unless the container is given the value. In
     Docker that means both a build arg (for the browser bundle) and a runtime env (for the server
@@ -896,6 +1383,12 @@ workaround **before** the feature depending on it gets built.
     first paint always looks right and a later resize is what breaks it. The slot pins the iframe to
     `color-scheme: light`. Reproducing it needs a real browser at two widths; jsdom and a single
     screenshot both show a clean pill.
+20. **Moving `proxy.ts` into a directory removes the auth boundary, and the build says nothing.**
+    Next looks for it only at `src/proxy.ts` or the project root. From `src/proxy/proxy.ts` the
+    build still succeeds, prints no `Proxy (Middleware)` line and writes no
+    `functions-config-manifest.json`, so every protected route is simply open. Measured by moving
+    it and rebuilding, not assumed. The same pinning applies to `page.tsx`, `layout.tsx`,
+    `route.ts` and `error.tsx`, where the cost of being wrong is only a missing page.
 
 ---
 
@@ -912,15 +1405,16 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Group onboarding** ← _current_ | `/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
-| 4     | **Tasks — the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
-| 5     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
-| 6     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
-| 7     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 4 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
-| 8     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
-| 9     | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell.                                                                                                    | Deliberately late: it's a capability layered onto a working app, and an offline shell for screens that don't exist yet is wasted work.                                                                      |
-| 10    | **Push notifications**     | Device registration, permission flow, device management screen.                                                                                                    | Needs the PWA service worker from phase 9.                                                                                                                                                                  |
-| 11    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Blocked on API gap 3_ — there's no upload endpoint on the backend.                                                                                                                                         |
+| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
+| 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
+| 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
+| 7     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
+| 8     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 5 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
+| 9     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
+| 10    | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell.                                                                                                    | Deliberately late: it's a capability layered onto a working app, and an offline shell for screens that don't exist yet is wasted work.                                                                      |
+| 11    | **Push notifications**     | Device registration and the permission flow. The device list itself landed in phase 3.                                                                                                    | Needs the PWA service worker from phase 9.                                                                                                                                                                  |
+| 12    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Blocked on API gap 3_ — there's no upload endpoint on the backend.                                                                                                                                         |
 
 **Cross-cutting work**, slotted where it earns its place rather than done up front:
 
@@ -930,6 +1424,12 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 - **CI** — landed after phase 2. Two workflows, one `verify` job, Sonar with a coverage gate, and a
   production pipeline that promotes the staging image rather than rebuilding. Reasoning under
   _Continuous integration and deployment_.
+- **Two-factor authentication** - the backend shipped it during phase 3, so it is being matched in
+  pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
+  that enabled a second factor anywhere else could not get into the app at all until it did.
+  The settings card that reports the state came next, then enrollment, then turning it off and
+  reissuing recovery codes. That completes the one provider the backend has.
+  Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the
   deployment artifact, which is why it takes no build arguments.
@@ -956,6 +1456,12 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 - **Error tracking** — nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into
   error reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.
+- **Translating the interface**: the backend stores `EN`, `DE` and `SL` per user and the language
+  page saves the choice, but every string in the app is still English in the component that renders
+  it. The decision is the library and the shape: `next-intl` with message catalogs and a locale
+  read from the saved preference rather than from the URL, since the preference is account state and
+  the routes are already decided. Until then `<html lang>` stays `en`, because a `lang` the copy
+  does not match is worse than none.
 - **End-to-end testing** — whether, with what, and where it runs. Async Server Components and the
   httpOnly session both fall outside Vitest's reach. Not urgent until a flow spans several pages.
 - **Cache Components** — Next 16's newer rendering model (`cacheComponents: true`), under which
@@ -973,4 +1479,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   against nothing and Next warns at build.
 - **Offline behaviour** — read caching is straightforward; queuing mutations is a real
   distributed-systems problem (ordering, conflicts, auth expiry while queued) and shouldn't be waved
-  at.
+  at. **Logout is the first known victim and the clearest argument for a queue**: it is best effort
+  at the backend and certain in the browser, so a logout with the API unreachable clears the cookie
+  while the refresh token stays live for up to 14 days, and because rotation resets that window, a
+  token that keeps being used never ages out. Nothing holds the token afterwards, since its only
+  copy was the cookie we deleted, but the row is still an active session in the devices list. The
+  fix belongs with the PWA in phase 10: a durable queue, in IndexedDB rather than memory, that
+  replays the calls that never landed. A revoke is the easy end of that problem, being idempotent
+  in effect and safe to replay late.

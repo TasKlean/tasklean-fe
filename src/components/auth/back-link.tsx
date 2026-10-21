@@ -12,7 +12,7 @@ type BackLinkProps = {
 };
 
 /** Renders the back arrow, pointing at the public home page by default. */
-export function BackLink({ href = "/", label = "Back to home" }: BackLinkProps) {
+export function BackLink({ href = "/", label = "Back to home" }: Readonly<BackLinkProps>) {
   return (
     <Link
       href={href}
