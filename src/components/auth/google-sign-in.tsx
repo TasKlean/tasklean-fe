@@ -4,10 +4,10 @@
  * handed down rather than reaching the browser on its own.
  */
 
-import { googleSignInAction } from "@/app/(auth)/actions";
-import { GoogleButton } from "@/components/auth/google-button";
+import { googleSignInAction } from "@/app/(auth)/actions/actions";
+import { GoogleButton } from "@/components/auth/google-button/google-button";
 import { OrDivider } from "@/components/common/or-divider";
-import { getEnv } from "@/lib/config/env";
+import { getEnv } from "@/lib/config/env/env";
 
 type GoogleSignInProps = {
   intent: "signin" | "signup";
@@ -18,7 +18,7 @@ type GoogleSignInProps = {
 };
 
 /** Renders the Google alternative, or nothing when no nonce was issued. */
-export function GoogleSignIn({ intent, nonceHash, next }: GoogleSignInProps) {
+export function GoogleSignIn({ intent, nonceHash, next }: Readonly<GoogleSignInProps>) {
   if (!nonceHash) return null;
 
   return (

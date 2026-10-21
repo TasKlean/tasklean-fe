@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LanguageForm } from "@/components/app/language-form";
+import { LanguageForm } from "@/components/app/language-form/language-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { isSessionExpiredError } from "@/lib/api/server/server";
 import { getPreferences } from "@/lib/preferences/preferences";
 import type { Preferences } from "@/lib/preferences/preferences.types";
 

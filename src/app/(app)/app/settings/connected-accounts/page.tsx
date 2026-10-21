@@ -7,8 +7,8 @@ import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { getConnectedAccounts } from "@/lib/account/account";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
-import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
+import { isSessionExpiredError } from "@/lib/api/server/server";
+import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
   title: "Connected accounts",

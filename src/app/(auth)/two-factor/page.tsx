@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BackLink } from "@/components/auth/back-link";
-import { TwoFactorForm } from "@/components/auth/two-factor-form";
-import { readChallenge } from "@/lib/auth/two-factor-challenge";
+import { TwoFactorForm } from "@/components/auth/two-factor-form/two-factor-form";
+import { readChallenge } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
 
 export const metadata: Metadata = {
   title: "Two-factor code",

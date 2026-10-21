@@ -1,35 +1,17 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { deviceLabel, lastSeen } from "@/app/(app)/app/settings/devices/page.helpers";
 import { BackLink } from "@/components/auth/back-link";
-import { DeviceRow } from "@/components/app/device-row";
+import { DeviceRow } from "@/components/app/device-row/device-row";
 import { SignOutEverywhere } from "@/components/app/sign-out-everywhere";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
-import { type MyDevice, isMobileDevice, listMyDevices } from "@/lib/devices/devices";
-import { parseApiDateOrNull } from "@/lib/time/api-date";
+import { isSessionExpiredError } from "@/lib/api/server/server";
+import { isMobileDevice, listMyDevices, type MyDevice } from "@/lib/devices/devices";
 
 export const metadata: Metadata = {
   title: "Devices and sessions",
 };
-
-/** Names a device, falling back through what the backend managed to detect. */
-function deviceLabel(device: MyDevice): string {
-  if (device.deviceName) return device.deviceName;
-
-  const detected = [device.browserInfo, device.osVersion].filter(Boolean).join(" on ");
-  return detected || "Unknown device";
-}
-
-/** Renders when a device was last seen, or nothing when it never said. */
-function lastSeen(device: MyDevice): string | null {
-  const used = parseApiDateOrNull(device.lastUsed);
-  if (!used) return null;
-
-  // Fixed locale: this renders on the server, where the system one is the
-  // container's rather than the reader's.
-  return used.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
-}
 
 /** Renders every device the account has signed in from. */
 export default async function DevicesPage() {

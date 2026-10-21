@@ -11,28 +11,30 @@ import {
   NONCE_HEADER_NAME,
   createNonce,
   hashNonce,
-} from "@/lib/auth/google-nonce";
+} from "@/lib/auth/google-nonce/google-nonce";
 import {
   DEVICE_COOKIE_NAME,
   DEVICE_COOKIE_OPTIONS,
   buildDeviceHeaders,
   createDeviceId,
-} from "@/lib/auth/device";
-import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token";
-import { SIGNED_IN_HOME, TWO_FACTOR_PROMPT } from "@/lib/auth/safe-next";
-import { refreshTokens } from "@/lib/auth/tokens/refresh";
-import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
+} from "@/lib/auth/device/device";
+import { accessTokenExpiresWithin } from "@/lib/auth/tokens/access-token/access-token";
+import { SIGNED_IN_HOME, TWO_FACTOR_PROMPT } from "@/lib/auth/safe-next/safe-next";
+import { refreshTokens } from "@/lib/auth/tokens/refresh/refresh";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
 import {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_OPTIONS,
   type Session,
   sealSession,
   unsealSession,
-} from "@/lib/auth/session";
+} from "@/lib/auth/session/session";
 
 export const config = {
   // `/api` excluded: Route Handlers must answer 401, not redirect to HTML.
   matcher: [
+    // An escaped string, not String.raw: Next reads this export statically, and a
+    // tagged template fails the build as an invalid segment config.
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)",
   ],
 };

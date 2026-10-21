@@ -2,14 +2,14 @@ import { http, HttpResponse } from "msw";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
 import { ApiError } from "@/lib/api/errors";
-import { SessionExpiredError } from "@/lib/api/server";
+import { SessionExpiredError } from "@/lib/api/server/server";
 
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
-vi.mock("@/lib/auth/session", () => ({
+vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({
     accessToken: "at-1",
     refreshToken: "rt-1",

@@ -5,10 +5,10 @@
 
 "use server";
 
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
+import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
 import { getPreferences, savePreferences } from "@/lib/preferences/preferences";
-import { writeTheme } from "@/lib/preferences/theme-cookie";
-import { parseAppearance } from "@/lib/validation/forms/appearance.schema";
+import { writeTheme } from "@/lib/preferences/theme-cookie/theme-cookie";
+import { parseAppearance } from "@/lib/validation/forms/appearance.schema/appearance.schema";
 
 export type AppearanceActionState = {
   error: string | null;

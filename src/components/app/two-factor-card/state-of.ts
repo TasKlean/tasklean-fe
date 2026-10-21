@@ -1,0 +1,38 @@
+/**
+ * The state the authenticator factor is in, described once for everything that
+ * shows it: the icon, the sentence and the badge.
+ */
+
+import { Shield, ShieldAlert, ShieldCheck } from "lucide-react";
+import type { TwoFactorStatus } from "@/lib/account/two-factor/two-factor.types";
+
+/**
+ * Describes the state the factor is in.
+ *
+ * A pending setup is not an on state: it does not gate a sign-in until a code
+ * confirms it, so showing it as on would promise protection that is not there.
+ */
+export function stateOf({ enabled, pendingSetup }: TwoFactorStatus) {
+  if (enabled) {
+    return {
+      icon: ShieldCheck,
+      description: "Signing in asks for a code from your app, or one of your recovery codes.",
+      badge: { label: "On", tone: "on" },
+    } as const;
+  }
+
+  if (pendingSetup) {
+    return {
+      icon: ShieldAlert,
+      description:
+        "You started setting this up and never confirmed it, so nothing extra is asked for yet.",
+      badge: { label: "Unfinished", tone: "pending" },
+    } as const;
+  }
+
+  return {
+    icon: Shield,
+    description: "A code from an app on your phone, on top of how you sign in now.",
+    badge: { label: "Off", tone: "off" },
+  } as const;
+}

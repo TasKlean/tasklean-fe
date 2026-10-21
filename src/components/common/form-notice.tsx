@@ -18,15 +18,25 @@ const TONES = {
 } as const;
 
 /** Renders a form's answer, announced to a screen reader as it appears. */
-export function FormNotice({ tone, children }: FormNoticeProps) {
-  return (
-    <p
-      role={tone === "error" ? "alert" : "status"}
-      className={`text-body-md p-space-md gap-space-xs flex items-center rounded-md ${TONES[tone]}`}
-    >
+export function FormNotice({ tone, children }: Readonly<FormNoticeProps>) {
+  const className = `text-body-md p-space-md gap-space-xs flex items-center rounded-md ${TONES[tone]}`;
+  const body = (
+    <>
       {tone === "success" ? <CheckCircle2 className="size-4 shrink-0" aria-hidden /> : null}
       {tone === "info" ? <Info className="size-4 shrink-0" aria-hidden /> : null}
       {children}
-    </p>
+    </>
   );
+
+  // A failure interrupts, so it stays an alert. Everything else is a status,
+  // which is what <output> carries natively.
+  if (tone === "error") {
+    return (
+      <p role="alert" className={className}>
+        {body}
+      </p>
+    );
+  }
+
+  return <output className={className}>{body}</output>;
 }

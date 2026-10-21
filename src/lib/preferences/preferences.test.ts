@@ -1,9 +1,9 @@
 import { http, HttpResponse } from "msw";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
-import { SessionExpiredError } from "@/lib/api/server";
+import { SessionExpiredError } from "@/lib/api/server/server";
 
-vi.mock("@/lib/auth/session", () => ({
+vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({
     accessToken: "at-1",
     refreshToken: "rt-1",

@@ -5,7 +5,7 @@
  */
 
 import { AppHeader } from "@/components/app/app-header";
-import { getSession } from "@/lib/auth/session";
+import { getSession } from "@/lib/auth/session/session";
 
 /** Renders the signed-in chrome around a page. */
 export default async function AppLayout({ children }: LayoutProps<"/">) {

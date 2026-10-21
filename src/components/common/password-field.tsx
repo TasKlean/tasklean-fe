@@ -8,7 +8,7 @@
 import { Eye, EyeOff, Lock } from "lucide-react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { useState } from "react";
-import { TextField } from "@/components/common/text-field";
+import { TextField } from "@/components/common/text-field/text-field";
 
 type PasswordFieldProps = {
   label: string;
@@ -39,7 +39,7 @@ export function PasswordField({
   value,
   onChange,
   onBlur,
-}: PasswordFieldProps) {
+}: Readonly<PasswordFieldProps>) {
   const [visible, setVisible] = useState(false);
 
   return (

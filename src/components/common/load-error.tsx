@@ -12,7 +12,7 @@ type LoadErrorProps = {
 };
 
 /** Renders a failed load inline, keeping the rest of the page usable. */
-export function LoadError({ title, message }: LoadErrorProps) {
+export function LoadError({ title, message }: Readonly<LoadErrorProps>) {
   return (
     <div
       role="alert"

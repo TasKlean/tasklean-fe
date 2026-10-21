@@ -5,10 +5,10 @@
  */
 
 import { BadgeCheck } from "lucide-react";
-import { linkGoogleAction } from "@/app/(app)/app/settings/connected-accounts/actions";
-import { UnlinkGoogle } from "@/components/app/unlink-google";
-import { GoogleButton } from "@/components/auth/google-button";
-import { getEnv } from "@/lib/config/env";
+import { linkGoogleAction } from "@/app/(app)/app/settings/connected-accounts/actions/actions";
+import { UnlinkGoogle } from "@/components/app/unlink-google/unlink-google";
+import { GoogleButton } from "@/components/auth/google-button/google-button";
+import { getEnv } from "@/lib/config/env/env";
 
 type GoogleConnectionProps = {
   linked: boolean;
@@ -20,7 +20,11 @@ type GoogleConnectionProps = {
 };
 
 /** Renders the Google connection, linked or not. */
-export function GoogleConnection({ linked, passwordSet, nonceHash }: GoogleConnectionProps) {
+export function GoogleConnection({
+  linked,
+  passwordSet,
+  nonceHash,
+}: Readonly<GoogleConnectionProps>) {
   if (linked) {
     return (
       <div className="gap-space-sm flex flex-col">

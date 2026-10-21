@@ -3,8 +3,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
-import { RegisterForm } from "@/components/auth/register-form";
-import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce";
+import { RegisterForm } from "@/components/auth/register-form/register-form";
+import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
   title: "Sign up",

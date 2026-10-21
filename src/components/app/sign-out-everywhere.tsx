@@ -10,7 +10,7 @@ import { Loader2, ShieldX } from "lucide-react";
 import {
   type DeviceActionState,
   signOutEverywhereAction,
-} from "@/app/(app)/app/settings/devices/actions";
+} from "@/app/(app)/app/settings/devices/actions/actions";
 
 const INITIAL: DeviceActionState = { error: null };
 

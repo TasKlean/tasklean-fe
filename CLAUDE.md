@@ -130,9 +130,10 @@ src/
           appearance/  page.tsx and actions.ts: the colour scheme
           language/    page.tsx and actions.ts: the UI language
           notifications/  page.tsx and actions.ts: the channels each notification uses
-          two-factor/  page.tsx and actions.ts: the methods on offer, enrolling in an
+          two-factor/  page.tsx and actions/: the methods on offer, enrolling in an
                        authenticator app, turning it off and reissuing recovery codes
-          devices/     page.tsx and actions.ts: list, sign out, remove, sign out everywhere
+          devices/     page.tsx with page.helpers.ts, and actions/: list, sign out,
+                       remove, sign out everywhere
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
           deactivate/  page.tsx and actions.ts: closing the account
@@ -216,31 +217,34 @@ src/
                        (mirrored from the backend, run by policy.contract.test.ts)
 ```
 
-**Depth follows need, not symmetry**: `signin/` is a directory because five endpoints exchange a
-credential;
-`session.ts` is one file because it stays one. **Server Actions stay with their route**, not in
-`components/`. A component used by one feature starts in that feature's directory. **Tests sit beside
-the code** they cover.
+**Depth follows need, not symmetry**: `signin/` groups five modules because five endpoints exchange
+a credential, where `session/` is one module and stays one. **Server Actions stay with their route**,
+not in `components/`. Every name above that has a test, a `.types.ts` or parts of its own is a
+directory holding them, so `client.ts` is `api/client/client.ts`. A component used by one feature
+starts in that feature's directory. **Tests sit beside the code** they cover.
 
 ## Conventions
 
 - **TypeScript strict, no `any`** — `unknown` plus a narrowing guard at boundaries.
+- **Props are read-only at the signature**: `}: Readonly<FooProps>)`. The type itself stays a plain
+  `type FooProps`, so one declaration still serves anything that composes the component, and
+  nothing in the tree can write to the object it was handed.
 - **Server Components by default.** `'use client'` only for state, effects, handlers or browser APIs,
   pushed as far down the tree as possible.
 - **A client component never reads the environment.** A Server Component calls `getEnv()` and passes
   the value down as a prop. That is how the Google client id reaches the browser, and it keeps
-  `config/env.ts`'s validation as the only gate.
-- **Components never call `fetch`.** All HTTP goes through `request()` in `api/client.ts`, which takes
+  `config/env/env.ts`'s validation as the only gate.
+- **Components never call `fetch`.** All HTTP goes through `request()` in `api/client/client.ts`, which takes
   the access token as a parameter and knows nothing about sessions.
 - **A module reading a server variable or holding a secret imports `server-only`**, and so does
-  every feature module that calls `serverApi` or touches a cookie: `config/env.ts`, `api/client.ts`,
-  `api/server.ts`, `api/action-failure.ts`, `auth/session.ts`, `auth/device.ts`, `auth/signin/*`,
-  `auth/tokens/refresh.ts`, `auth/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
-  `qr/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
-  `notifications/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie.ts`. `validation/` must **not**, since
-  client components import it, and neither may `qr/qr-code.types.ts`, `preferences/preferences.types.ts`,
-  `preferences/theme-attribute.ts` or `notifications/settings.types.ts`, which the forms read.
-- **Environment comes from `config/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
+  every feature module that calls `serverApi` or touches a cookie: `config/env/env.ts`, `api/client/client.ts`,
+  `api/server/server.ts`, `api/action-failure/action-failure.ts`, `auth/session/session.ts`, `auth/device/device.ts`, `auth/signin/*`,
+  `auth/tokens/refresh/refresh.ts`, `auth/two-factor-challenge/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
+  `qr/qr-code/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
+  `notifications/settings/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie/theme-cookie.ts`. `validation/` must **not**, since
+  client components import it, and neither may `qr/qr-code/qr-code.types.ts`, `preferences/preferences.types.ts`,
+  `preferences/theme-attribute/theme-attribute.ts` or `notifications/settings/settings.types.ts`, which the forms read.
+- **Environment comes from `config/env/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
   genuinely dynamic value. Extract a component, not an `@apply` class.
@@ -274,12 +278,12 @@ the code** they cover.
   are **controlled** — React resets an uncontrolled form after its action returns.
 - **Every form is a `zod/mini` schema** in `validation/forms/<form>.schema.ts`, named `<form>Schema`
   and exported. A new form composes `rules.ts`, parses through `parseWith`, and exposes `parseX` for
-  its action and `validateX` for the component. `zod/mini` not `zod`. Nothing in `password/policy.ts` becomes a
+  its action and `validateX` for the component. `zod/mini` not `zod`. Nothing in `password/policy/policy.ts` becomes a
   schema: the strength meter needs per-rule booleans. Reasoning in the bible.
 - **An action parses `Object.fromEntries(formData)`**, never `formData.get` by hand — the schema owns
   trimming, so a password reaches the backend exactly as typed while text fields do not. The one
   exception is a **checkbox group**, where the name repeats and `fromEntries` would keep only the
-  last box: those fields are read with `getAll` into a list, as `notifications/actions.ts` does.
+  last box: those fields are read with `getAll` into a list, as `notifications/actions/actions.ts` does.
 - **A field shows only its first unmet rule.** Zod reports every failed check; the order in
   `rules.ts` is therefore the order a user is asked to fix things.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
@@ -338,6 +342,25 @@ content. All module-level constants and state go in the variables block, not bet
 `metadata`/`viewport` and `proxy.ts`'s `config` count as config and go above the implementation.
 One blank line between sections — Prettier collapses more and offers no option.
 
+**A module with companion files is a directory.** The moment anything else is about one module, its
+test included, the whole set moves into `<module>/` and the module keeps its own name:
+`login-form/login-form.tsx` beside `login-form.test.tsx`, `client/client.ts` beside `client.test.ts`
+and `client.types.ts`. There are no `index` files, so a path still says which file it means. That
+holds everywhere, `src/lib` included.
+
+**Some files stay flat, because the framework fixes where they are**: `src/proxy.ts` and the
+router's own `page.tsx`, `layout.tsx`, `route.ts` and `error.tsx`. Companions sit beside them
+instead, the way `devices/page.helpers.ts` does. `proxy.ts` is the dangerous one, so read the
+gotcha in the bible before trying to move it.
+
+**One component per file, and a component's parts live with it.** A sub-component is its own file
+named after what it exports, so nothing is found only by scrolling. What several parts share is
+named after the owner: `<module>.types.ts`, `<module>.styles.ts`, `<module>.helpers.ts`. **Helpers
+collect into that one file** rather than one file each, so a directory lists a component and its
+parts instead of a drawer of one-function modules. Two functions stay in one file where the second
+is private to the first, as `clock` is to `expiryNote`, or where they share module state, as the
+Google helpers do.
+
 **Types move out at two.** A module declaring more than one type keeps them in a sibling
 `<module>.types.ts`, which is then the single import source — never re-export them from the module.
 A type derived from a value in the module stays with it (`env.ts` keeps `RequiredKey`), and
@@ -371,7 +394,7 @@ routes are `noindex` via the `(auth)` layout.
 
 - **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a **JWE** (not
   signed — a signed payload is readable base64url and ours carries the refresh token). Holds the
-  token pair, `userUid`, `activeGroupId`. `auth/session.ts` exports the name and options so
+  token pair, `userUid`, `activeGroupId`. `auth/session/session.ts` exports the name and options so
   `proxy.ts` can't drift. **There is no server-side store**; the sealed tokens live in the browser.
 - **The chrome knows whether you are signed in, and that costs `/` its static render.** Both
   layouts read the session once and pass `signedIn` and `name` down, so the header and footer stay
@@ -401,7 +424,7 @@ routes are `noindex` via the `(auth)` layout.
 - **Every browser carries a device id, minted by Proxy into `tasklean_device`.** The backend binds
   a refresh token to it, so a session has a stable identity across rotation and can be listed and
   revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which
-  cannot reach `localStorage`. `auth/device.ts` owns the cookie and builds the three headers the
+  cannot reach `localStorage`. `auth/device/device.ts` owns the cookie and builds the three headers the
   backend reads: `X-Device-Id`, `X-Device-User-Agent` (the real browser UA, since the transport one
   on this hop is Node's) and `X-Forwarded-For`. They ride on login, Google, verify-email, refresh
   and every `/api/devices` call, the last because `currentDevice` is resolved from the header. Logout
@@ -442,11 +465,11 @@ routes are `noindex` via the `(auth)` layout.
   first signed-in request.
 - **A sign-in can end in a challenge instead of a session.** `login` and `google` answer with
   `twoFactorRequired` and a `challengeToken` and no tokens at all when the account has a second
-  factor, so both return a `SignInOutcome` union and `signin/outcome.ts` is the only place that
+  factor, so both return a `SignInOutcome` union and `signin/outcome/outcome.ts` is the only place that
   reads either response. Reading `token` without checking the flag first is the one mistake that
   looks like a successful login and leaves the browser with no session.
 - **The challenge rides in an httpOnly cookie, not the URL or a hidden field.** It is a credential
-  with a five-minute life, so `auth/two-factor-challenge.ts` owns `tasklean_2fa_challenge` and the
+  with a five-minute life, so `auth/two-factor-challenge/two-factor-challenge.ts` owns `tasklean_2fa_challenge` and the
   verify action reads it from there, ignoring anything a form posts under that name. A reload keeps
   working, and Proxy drops a leftover one the way it drops a spent Google nonce.
 - **`/two-factor` is public, and guarded twice.** A visitor finishing a gated sign-in has no session
@@ -480,7 +503,7 @@ routes are `noindex` via the `(auth)` layout.
   and blaming the field for that would hide it.
 - **Only an authenticator code can confirm a setup.** `/2fa/enable` has no recovery codes to fall
   back on yet, so that form uses `codeRule`, the plain six digits, not `twoFactorCodeRule`.
-- **The QR code is encoded on the server.** `lib/qr/qr-code.ts` turns the URI into one SVG path, so
+- **The QR code is encoded on the server.** `lib/qr/qr-code/qr-code.ts` turns the URI into one SVG path, so
   `uqr` never reaches the browser bundle and the client gets a string rather than a few thousand
   booleans. `qr-ink` and `qr-paper` are the two tokens that never follow the colour scheme: a camera
   reads dark modules on a light field in either one.
@@ -495,7 +518,7 @@ routes are `noindex` via the `(auth)` layout.
   so the screen keeps its notice neutral and never redirects. `/reset-password` is public and
   deliberately **not** in `AUTH_PATHS`: an emailed link has to work even for a browser that still
   holds a session.
-- **Password policy** lives in `validation/password/policy.ts` and the **frontend is the spec**;
+- **Password policy** lives in `validation/password/policy/policy.ts` and the **frontend is the spec**;
   the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
   guessable password is rejected. Enforced at register, never at login. Both sides run the same
   vectors: `src/test/password-policy-vectors.json` is a verbatim mirror of the backend's canonical
@@ -508,7 +531,7 @@ Consequences of the backend's design, not preferences. Breaking them produces bu
 backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 
 - **Every response is an envelope**: `{ success, message, code?, data }`, on failure too, never
-  HTML. `api/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No
+  HTML. `api/client/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No
   field is marked `required` in `openapi.json`, so narrow rather than trust.
 - **A code more than one module reads lives in `api/error-codes.ts`.** `PASSWORD_INVALID` is the
   only one so far: the password section, deactivation and both two-factor confirmations branch on
@@ -522,13 +545,13 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
   them `memberId`, never `userId`. Resolve yours from `GET /api/group-members?groupId=`.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
-  goes through `time/api-date.ts` — `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
+  goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
   (the backend parses `ISO_LOCAL_DATE_TIME`).
 - **`401` ends a session, `403` never does.** `401` → one silent refresh, then clear and `/login`.
   `403` → show a permission message, never log out, never retry. The exception is an endpoint that
   checks a credential from the request body, where `401` is that credential's verdict.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
-  `api/retry-phrase.ts` composes the two into one message and every auth action uses it.
+  `api/retry-phrase/retry-phrase.ts` composes the two into one message and every auth action uses it.
 - **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
   `400`, not an empty list.
 - **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping
@@ -552,7 +575,7 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   `react-server` condition, which Vitest doesn't apply. The production guard is unaffected.
 - **The suite runs in a pinned non-UTC timezone** (`TZ = "Europe/Ljubljana"`). On a UTC machine a
   naive `new Date(apiString)` is right by accident and the timestamp tests would pass against the bug
-  they exist to catch. `time/api-date.test.ts` asserts the pin.
+  they exist to catch. `time/api-date/api-date.test.ts` asserts the pin.
 - **jsdom implements no `ResizeObserver`**, so `vitest.setup.ts` stubs it. A component that
   measures itself would otherwise throw on mount; the stub never fires, so a measured size simply
   stays absent.
@@ -568,7 +591,7 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 | `SESSION_SECRET`               | server  | Key for the encrypted session cookie, unique per environment, ≥32 chars     |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must match** the backend's `GOOGLE_CLIENT_ID`  |
 
-All three are required and validated by `config/env.ts`; whitespace-only counts as missing. Our
+All three are required and validated by `config/env/env.ts`; whitespace-only counts as missing. Our
 origin must be in the backend's `CORS_ALLOWED_ORIGINS` and the Google client's authorized origins —
 though the browser never calls Spring directly, so a CORS error means something is calling from the
 wrong side.

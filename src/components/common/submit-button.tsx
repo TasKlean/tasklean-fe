@@ -18,7 +18,11 @@ type SubmitButtonProps = {
 };
 
 /** Renders a full-width pill submit button that shows progress while pending. */
-export function SubmitButton({ children, pendingLabel, disabled = false }: SubmitButtonProps) {
+export function SubmitButton({
+  children,
+  pendingLabel,
+  disabled = false,
+}: Readonly<SubmitButtonProps>) {
   const { pending } = useFormStatus();
 
   return (

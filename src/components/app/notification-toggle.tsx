@@ -4,8 +4,11 @@
  * submits exactly what the boxes show.
  */
 
-import { SwitchTrack } from "@/components/app/switch-track";
-import type { NotificationChannel, NotificationType } from "@/lib/notifications/settings.types";
+import { SwitchTrack } from "@/components/app/switch-track/switch-track";
+import type {
+  NotificationChannel,
+  NotificationType,
+} from "@/lib/notifications/settings/settings.types";
 
 type NotificationToggleProps = {
   // The field name is the channel, and the value is the type, so the form
@@ -27,7 +30,7 @@ export function NotificationToggle({
   on,
   disabled,
   onFlip,
-}: NotificationToggleProps) {
+}: Readonly<NotificationToggleProps>) {
   return (
     <label className="has-[:focus-visible]:ring-ring flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md has-[:focus-visible]:ring-2">
       <input

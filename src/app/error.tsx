@@ -17,7 +17,7 @@ type ErrorPageProps = {
 };
 
 /** Renders the error page, offering a retry before sending the user home. */
-export default function ErrorPage({ error, reset }: ErrorPageProps) {
+export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
   useEffect(() => {
     console.error(error);
   }, [error]);

@@ -1,16 +1,28 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { PasswordForm } from "@/components/app/password-form";
+import { PasswordForm } from "@/components/app/password-form/password-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { getConnectedAccounts } from "@/lib/account/account";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { isSessionExpiredError } from "@/lib/api/server/server";
 
 export const metadata: Metadata = {
   title: "Password",
 };
+
+/**
+ * Says what this section does, which depends on whether there is a password.
+ *
+ * @param connectedAccounts Null when the read failed, where the line has to
+ * stay true without knowing which case it is.
+ */
+function leadFor(connectedAccounts: ConnectedAccounts | null, passwordSet: boolean): string {
+  if (!connectedAccounts) return "Your password for signing in with your email address.";
+  if (passwordSet) return "Changing it signs out every other device. This one stays signed in.";
+  return "You signed up with Google. A password lets you sign in with your email address as well.";
+}
 
 /** Renders the password section: changing one, or setting the first. */
 export default async function PasswordPage() {
@@ -28,6 +40,7 @@ export default async function PasswordPage() {
   }
 
   const passwordSet = connectedAccounts?.passwordSet === true;
+  const lead = leadFor(connectedAccounts, passwordSet);
 
   return (
     <section className="gap-space-md flex flex-col">
@@ -37,13 +50,7 @@ export default async function PasswordPage() {
         </div>
 
         <h2 className="text-headline-sm text-foreground">Password</h2>
-        <p className="text-body-md text-muted-foreground">
-          {!connectedAccounts
-            ? "Your password for signing in with your email address."
-            : passwordSet
-              ? "Changing it signs out every other device. This one stays signed in."
-              : "You signed up with Google. A password lets you sign in with your email address as well."}
-        </p>
+        <p className="text-body-md text-muted-foreground">{lead}</p>
       </div>
 
       {/* Without the flags there is no telling a change from a first password, so the form stays away. */}

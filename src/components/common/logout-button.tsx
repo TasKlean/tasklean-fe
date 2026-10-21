@@ -13,7 +13,7 @@ type LogoutButtonProps = {
 };
 
 /** Renders the sign-out control, disabled while the action is in flight. */
-export function LogoutButton({ className }: LogoutButtonProps) {
+export function LogoutButton({ className }: Readonly<LogoutButtonProps>) {
   const { pending } = useFormStatus();
 
   return (

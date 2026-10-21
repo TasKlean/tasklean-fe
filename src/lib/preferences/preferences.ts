@@ -5,8 +5,8 @@
 
 import "server-only";
 
-import { request } from "@/lib/api/client";
-import { serverApi } from "@/lib/api/server";
+import { request } from "@/lib/api/client/client";
+import { serverApi } from "@/lib/api/server/server";
 import {
   asLocale,
   asTheme,

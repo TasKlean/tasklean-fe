@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
-import { DeactivateAccount } from "@/components/app/deactivate-account";
+import { DeactivateAccount } from "@/components/app/deactivate-account/deactivate-account";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { getConnectedAccounts } from "@/lib/account/account";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { isSessionExpiredError } from "@/lib/api/server/server";
 
 export const metadata: Metadata = {
   title: "Deactivate account",

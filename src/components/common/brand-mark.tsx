@@ -19,7 +19,7 @@ const SIZES = {
 };
 
 /** Renders the logo and wordmark as a single inline unit. */
-export function BrandMark({ size = "md" }: BrandMarkProps) {
+export function BrandMark({ size = "md" }: Readonly<BrandMarkProps>) {
   const { px, className } = SIZES[size];
 
   return (

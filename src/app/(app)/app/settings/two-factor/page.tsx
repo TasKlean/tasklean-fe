@@ -3,16 +3,16 @@ import { redirect } from "next/navigation";
 import { Mail, MessageSquare } from "lucide-react";
 import { getConnectedAccounts } from "@/lib/account/account";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
-import { TwoFactorCard } from "@/components/app/two-factor-card";
-import { TwoFactorEnroll } from "@/components/app/two-factor-enroll";
-import { TwoFactorManage } from "@/components/app/two-factor-manage";
-import { TwoFactorMethod } from "@/components/app/two-factor-method";
+import { TwoFactorCard } from "@/components/app/two-factor-card/two-factor-card";
+import { TwoFactorEnroll } from "@/components/app/two-factor-enroll/two-factor-enroll";
+import { TwoFactorManage } from "@/components/app/two-factor-manage/two-factor-manage";
+import { TwoFactorMethod } from "@/components/app/two-factor-method/two-factor-method";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
-import { getTwoFactorStatus } from "@/lib/account/two-factor";
-import type { TwoFactorStatus } from "@/lib/account/two-factor.types";
+import { getTwoFactorStatus } from "@/lib/account/two-factor/two-factor";
+import type { TwoFactorStatus } from "@/lib/account/two-factor/two-factor.types";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
+import { isSessionExpiredError } from "@/lib/api/server/server";
 
 export const metadata: Metadata = {
   title: "Two-factor authentication",

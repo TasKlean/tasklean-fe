@@ -8,12 +8,12 @@
 
 import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
-import type { ConfirmState } from "@/app/(app)/app/settings/two-factor/actions";
+import type { ConfirmState } from "@/app/(app)/app/settings/two-factor/actions/actions.types";
 import { FormNotice } from "@/components/common/form-notice";
 import { PasswordField } from "@/components/common/password-field";
 import { SubmitButton } from "@/components/common/submit-button";
-import { TwoFactorCodeField } from "@/components/common/two-factor-code-field";
-import { validateTwoFactorConfirm } from "@/lib/validation/forms/two-factor-confirm.schema";
+import { TwoFactorCodeField } from "@/components/common/two-factor-code-field/two-factor-code-field";
+import { validateTwoFactorConfirm } from "@/lib/validation/forms/two-factor-confirm.schema/two-factor-confirm.schema";
 
 type TwoFactorConfirmProps = {
   state: ConfirmState;
@@ -39,7 +39,7 @@ export function TwoFactorConfirm({
   pendingLabel,
   notice,
   onCancel,
-}: TwoFactorConfirmProps) {
+}: Readonly<TwoFactorConfirmProps>) {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [submitted, setSubmitted] = useState(false);

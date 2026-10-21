@@ -7,7 +7,7 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
-vi.mock("@/lib/auth/session", () => ({
+vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({
     accessToken: "at-1",
     refreshToken: "rt-1",

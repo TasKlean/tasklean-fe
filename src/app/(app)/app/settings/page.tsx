@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { SETTINGS_GROUPS } from "@/app/(app)/app/settings/sections";
+import { SETTINGS_GROUPS } from "@/app/(app)/app/settings/sections/sections";
 
 /**
  * Renders the settings index: the grouped section list on a phone, and a

@@ -5,9 +5,9 @@
 
 "use server";
 
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure";
+import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
 import { getPreferences, savePreferences } from "@/lib/preferences/preferences";
-import { parseLanguage } from "@/lib/validation/forms/language.schema";
+import { parseLanguage } from "@/lib/validation/forms/language.schema/language.schema";
 
 export type LanguageActionState = {
   error: string | null;

@@ -4,7 +4,7 @@
  */
 
 import Link from "next/link";
-import { AccountMenu } from "@/components/common/account-menu";
+import { AccountMenu } from "@/components/common/account-menu/account-menu";
 import { BrandMark } from "@/components/common/brand-mark";
 import { Greeting } from "@/components/common/greeting";
 
@@ -14,7 +14,7 @@ type AppHeaderProps = {
 };
 
 /** Renders the signed-in header. */
-export function AppHeader({ name, photoUrl }: AppHeaderProps) {
+export function AppHeader({ name, photoUrl }: Readonly<AppHeaderProps>) {
   return (
     <header className="bg-background/85 border-border/60 sticky top-0 z-50 w-full border-b backdrop-blur-xl">
       <div className="max-w-app px-margin md:px-margin-tablet lg:px-margin-desktop gap-gutter mx-auto flex h-16 items-center justify-between md:h-20">

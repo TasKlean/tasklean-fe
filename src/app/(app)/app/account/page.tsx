@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BadgeCheck, MailWarning, Settings } from "lucide-react";
-import { Avatar } from "@/components/common/avatar";
+import { Avatar } from "@/components/common/avatar/avatar";
 import { LoadError } from "@/components/common/load-error";
-import { MaskedEmail } from "@/components/common/masked-email";
+import { MaskedEmail } from "@/components/common/masked-email/masked-email";
 import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server";
-import { parseApiDateOrNull } from "@/lib/time/api-date";
-import { type CurrentUser, getCurrentUser } from "@/lib/users/me";
-import { fullName } from "@/lib/users/name";
+import { isSessionExpiredError } from "@/lib/api/server/server";
+import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
+import { type CurrentUser, getCurrentUser } from "@/lib/users/me/me";
+import { fullName } from "@/lib/users/name/name";
 
 export const metadata: Metadata = {
   title: "Account",

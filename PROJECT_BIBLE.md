@@ -77,6 +77,7 @@ Decisions that have no section of their own. Everything below gets one.
 | **No Node version manager** | Installed from the signed MSI via winget. With one JS project there is nothing to switch between, so a manager is added attack surface — nvm-windows' `src/web/web.go` verifies **no checksum or signature** on downloaded Node binaries, inverts `InsecureSkipVerify` on its proxy path, and falls back to `http://` for scheme-less mirrors. Revisit only if we need per-project versions. |
 | **npm is whatever Node bundles** | Node's `npm` shim prefers a global npm over the bundled one, so a stale `install -g npm` silently pins it while Node moves on — which is what we found here (10.9.1 shadowing 11.19.0). |
 | **Containerized on the standalone output** | The only way to exercise the real API was to run beside the backend and the database, so the frontend got a `Dockerfile`. `output: "standalone"` bundles a minimal server plus only the `node_modules` actually used, so the runtime stage copies two directories rather than installing anything. Build and runtime are separate stages because `NEXT_PUBLIC_*` has to exist at build time while the secrets must not. The compose file lives in the parent directory, outside both repos: it describes three services, so it belongs to neither. |
+| **A module with companions is a directory** | A sub-component extracted only to shorten a function is findable only by scrolling, so each one is its own file, and anything about one module, its test included, lives in `<module>/` with it. No `index` files: a bare directory import hides which file serves it, and two `index.tsx` tabs open side by side say nothing. Splitting a file's *contents* stops at `src/lib`, where a module's several exports are its API (`loginSchema` with `parseLogin` and `validateLogin`, `parseApiDate` with `toApiDate`) rather than one unit split into parts; the directories still apply there. Helpers for one owner collect into `<module>.helpers.ts` rather than one file each, which would trade a long file for a drawer of one-function modules. |
 | **LF line endings pinned in the repo** | `.gitattributes`, so the rule travels to every machine. A CRLF checkout fails `format:check` on every file and reads as a formatting problem. |
 
 ### Data fetching
@@ -102,7 +103,7 @@ client is fine; a group's task list in a shared cache leaks between households.
 
 ### API client
 
-`src/lib/api/client.ts` exposes a single `request<T>()`. Four choices in it are worth the reasoning:
+`src/lib/api/client/client.ts` exposes a single `request<T>()`. Four choices in it are worth the reasoning:
 
 **Auth is a parameter, not a session lookup.** `request()` takes an `accessToken` and knows nothing
 about cookies, sessions or refresh. The session layer and single-flight refresh _wrap_ it. Folding
@@ -136,7 +137,7 @@ one-sided: absence is plausible, malformed presence is not.
 
 ### Time
 
-`src/lib/time/api-date.ts` is the only crossing point between API timestamps and `Date`.
+`src/lib/time/api-date/api-date.ts` is the only crossing point between API timestamps and `Date`.
 
 **Reading** is the known problem: unmarked UTC strings parse as local, so `parseApiDate` appends `Z`
 unless a zone marker is already there.
@@ -263,6 +264,13 @@ list and not a landing page. Marketing bands at 36px read as cramped, so `space-
 `space-3xl` (5rem) continue the scale's roughly 1.5× ratio. Marked derived in `globals.css` like the
 sage and coral tones; nothing inside the app uses them.
 
+**Sonar reports the dark token block as having no scoping root, and that is a parser gap.** The
+root is `@variant dark`, which resolves through the `@custom-variant dark` declared once at the top
+of the file, and a CSS parser that stops at Tailwind 4's at-rules cannot follow it. The build
+settles it: the production stylesheet carries the dark palette twice, once inside
+`@media (prefers-color-scheme:dark)` scoped to `:root:not([data-theme=light])` and once under
+`:root[data-theme=dark]`, which is exactly the override the layout writes. Left as is.
+
 ### Validation
 
 **Every form is a `zod/mini` schema, the three auth validators included.** The first decision here
@@ -292,6 +300,16 @@ pieces, `parse.ts` runs a schema and keeps one message per field, `forms/<form>.
 per screen, `password/` is the policy and its meter. Echoing back a rejected submission is a second,
 lenient schema per form with every field optional — never the password.
 
+**A rule bounds its input before a pattern sees it.** An action parses whatever was posted, not
+what the field allowed, so every regex in `rules.ts` can be handed megabytes. `emailRule` checks
+`maxLength` first, at RFC 5321's 254 characters, and `isGuessable` slices to one over the password
+maximum, which is enough: a password that long has already failed the length rule, and a field
+shows only its first unmet rule. The password stem also stopped being a regex, because an anchored
+repeat like `/[\d\W_]+$/` backtracks quadratically over a long run that does not reach the end,
+where a scan backwards from the last character is linear. Measured rather than argued: the old
+stem took 53.6 seconds on 100k characters and the scan takes milliseconds, while the email pattern
+was never actually slow, so its bound is there for the shape of the rule and not for a fix.
+
 **What stays custom**: `isGuessable`, the leet and stem checks, and `passwordRequirements` — the
 strength meter needs per-rule booleans a schema does not expose.
 
@@ -316,7 +334,7 @@ right answer, the first unmet rule in `rules.ts`, because that is the order a us
 things. Verified by loosening the minimum length and by swapping two checks: each breaks a vector.
 
 
-**The frontend is the spec here, not the mirror.** `validation/password/policy.ts` holds it and the
+**The frontend is the spec here, not the mirror.** `validation/password/policy/policy.ts` holds it and the
 backend is being changed to match, so that file is the thing to read and any disagreement is a
 backend bug.
 
@@ -781,7 +799,7 @@ is what finishes the job once the password arrives.
 
 **One code field, two screens.** The sign-in prompt and the confirm form have to take a recovery code
 identically, and six digit boxes cannot hold one, so the field pair and the toggle between them live
-in `common/two-factor-code-field.tsx` rather than being written twice. What acts on the code is a
+in `common/two-factor-code-field/two-factor-code-field.tsx` rather than being written twice. What acts on the code is a
 children slot, which keeps the switch the last thing offered on both screens rather than a step on
 the way to the button.
 
@@ -830,7 +848,7 @@ them, and its types live in a separate `@types` package. `uqr` has **zero depend
 own types, and exposes exactly the one function we want: text in, module matrix out, with the
 drawing left to us. Same reasoning as `jose`: in a seven-dependency project, transitive cost is the
 deciding factor. It is pinned loosely like everything else, and the one call is wrapped in
-`lib/qr/qr-code.ts`, so replacing it touches a single file.
+`lib/qr/qr-code/qr-code.ts`, so replacing it touches a single file.
 
 Error correction is left at **L**, the lowest. Measured on a real `otpauth://` URI, L needs a 49
 module grid where M needs 57: the same picture on screen means smaller modules for a camera to
@@ -887,7 +905,7 @@ device would otherwise be named after our server rather than the browser. And th
 **only on the auth screens and for signed-in requests**: stamping a stable identifier on an anonymous
 reader of the marketing page would be a tracking cookie that no sign-in ever needs.
 
-The headers are built in one place, `auth/device.ts`, and passed as a parameter rather than looked up
+The headers are built in one place, `auth/device/device.ts`, and passed as a parameter rather than looked up
 inside each call, mirroring `client.ts`'s rule that auth is a parameter and not a session lookup.
 Proxy reads them off the `NextRequest`; a Server Action reads them through `next/headers`.
 
@@ -937,6 +955,11 @@ hidden form field means a tampered field cannot sign anyone out, and an unreadab
 as "not ours", because wrongly logging someone out is worse than wrongly leaving them in. The same
 check covers removal, which also answers "what if the list empties": the only device you can remove
 last is your own.
+
+The one slot below the heading renders **one of three states as a chained ternary**: the load
+failure, the empty list, or the rows. Sonar reads the chain as nesting, but the three are exclusive
+branches of a single slot, not a condition inside a condition, and the heading above them rules out
+an early return. Extracting a component to hide the chain would buy indirection, not clarity.
 
 Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
 Someone pressing it believes every other session is gone, and a silent failure would leave them
@@ -1148,6 +1171,13 @@ The boxes are also **centred rather than spread**. `justify-between` is fine on 
 column it was written for, but a settings card is wide, and six boxes a hand apart stop reading as
 one field.
 
+**The first box takes focus on `/two-factor`, and the accessibility warning does not fit it.**
+Moving focus on load is a real trap when a field sits below content a screen reader has not reached
+yet. That screen is a heading, the code field and nothing else, and answering the challenge is the
+only reason it exists, so there is nothing to skip past. It stays an opt-in prop and that one form
+is the only caller: `/verify-email` leaves it off, because its code arrives prefilled and is a value
+to look over rather than a field to fill.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -1220,7 +1250,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | 429  | Rate limited                                                            | Message plus the `Retry-After` window. No auto-retry loop.                         |
 | 500  | Unhandled                                                               | Generic message; the server never leaks detail                                     |
 
-**The retry window is composed in one place.** `api/retry-phrase.ts` exports `rateLimitMessage`,
+**The retry window is composed in one place.** `api/retry-phrase/retry-phrase.ts` exports `rateLimitMessage`,
 which takes the `ApiError` rather than the seconds, because every call site wants the same sentence:
 the backend's own prose plus the window. Login and Google sign-in were missing it entirely, which
 the backend's catch-all `auth` tier makes easy to hit at ten requests a minute per IP: a mistyped
@@ -1284,7 +1314,7 @@ workaround **before** the feature depending on it gets built.
 1. **API timestamps have no `Z`.** They're UTC, but `new Date("2026-09-28T10:00:00")` parses as
    _local_. Every date bug in this app will be this bug. The write direction is the mirror: the
    DTOs are `LocalDateTime` with no Jackson config, so `ISO_LOCAL_DATE_TIME` applies and a trailing
-   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date.ts`.
+   `Z` is a **parse failure**, not a tolerated extra. Both directions go through `src/lib/time/api-date/api-date.ts`.
 2. **Three id namespaces in one payload** — `uid` (string, external), numeric `id` (per entity), and
    GroupMember ids masquerading as person references.
 3. **Local dev issues year-long access tokens**, so refresh, rotation and the `401` path are
@@ -1305,7 +1335,7 @@ workaround **before** the feature depending on it gets built.
    and validate at the boundary; a typo is a `400` at runtime, not a compile error.
 10. **Notifications reference `userId`, not group membership**, and carry denormalized `taskId` and
     `groupId`. One can arrive for a group the user isn't a member of.
-11. **A `NEXT_PUBLIC_*` variable that `config/env.ts` validates must be set at runtime too.** Next
+11. **A `NEXT_PUBLIC_*` variable that `config/env/env.ts` validates must be set at runtime too.** Next
     inlines `process.env.NEXT_PUBLIC_X` only at a literal reference, and `readEnv` reads it in a
     loop, so a built server bundle sees `undefined` unless the container is given the value. In
     Docker that means both a build arg (for the browser bundle) and a runtime env (for the server
@@ -1340,6 +1370,12 @@ workaround **before** the feature depending on it gets built.
     first paint always looks right and a later resize is what breaks it. The slot pins the iframe to
     `color-scheme: light`. Reproducing it needs a real browser at two widths; jsdom and a single
     screenshot both show a clean pill.
+20. **Moving `proxy.ts` into a directory removes the auth boundary, and the build says nothing.**
+    Next looks for it only at `src/proxy.ts` or the project root. From `src/proxy/proxy.ts` the
+    build still succeeds, prints no `Proxy (Middleware)` line and writes no
+    `functions-config-manifest.json`, so every protected route is simply open. Measured by moving
+    it and rebuilding, not assumed. The same pinning applies to `page.tsx`, `layout.tsx`,
+    `route.ts` and `error.tsx`, where the cost of being wrong is only a missing page.
 
 ---
 

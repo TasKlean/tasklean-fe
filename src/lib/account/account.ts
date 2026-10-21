@@ -6,7 +6,7 @@
 
 import "server-only";
 
-import { serverApi } from "@/lib/api/server";
+import { serverApi } from "@/lib/api/server/server";
 import type {
   ChangePasswordRequest,
   ConnectedAccounts,
@@ -14,7 +14,7 @@ import type {
   SetPasswordRequest,
 } from "@/lib/account/account.types";
 import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth/auth.types";
-import { deviceHeaders } from "@/lib/auth/device";
+import { deviceHeaders } from "@/lib/auth/device/device";
 
 const CONNECTED_ACCOUNTS_PATH = "/api/account/connected-accounts";
 

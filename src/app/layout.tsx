@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
-import { themeAttribute } from "@/lib/preferences/theme-attribute";
-import { readTheme } from "@/lib/preferences/theme-cookie";
+import { themeAttribute } from "@/lib/preferences/theme-attribute/theme-attribute";
+import { readTheme } from "@/lib/preferences/theme-cookie/theme-cookie";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,6 +24,13 @@ const SYSTEM_CHROME = [
   { media: "(prefers-color-scheme: dark)", color: DARK_CHROME },
 ];
 
+// What each saved theme paints the browser chrome, including SYSTEM's pair.
+const CHROME = {
+  SYSTEM: SYSTEM_CHROME,
+  DARK: DARK_CHROME,
+  LIGHT: LIGHT_CHROME,
+} as const;
+
 // latin-ext is required for Slovenian diacritics.
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
@@ -43,7 +50,7 @@ export async function generateViewport(): Promise<Viewport> {
     // No maximumScale or userScalable: pinch-zoom must stay available.
     width: "device-width",
     initialScale: 1,
-    themeColor: theme === "SYSTEM" ? SYSTEM_CHROME : theme === "DARK" ? DARK_CHROME : LIGHT_CHROME,
+    themeColor: CHROME[theme],
   };
 }
 

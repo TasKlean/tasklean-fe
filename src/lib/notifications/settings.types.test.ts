@@ -6,7 +6,7 @@ import {
   type NotificationMatrix,
   toggled,
   withChannel,
-} from "@/lib/notifications/settings.types";
+} from "@/lib/notifications/settings/settings.types";
 
 const MATRIX: NotificationMatrix = {
   TASK_ASSIGNED: { inApp: true, email: true },

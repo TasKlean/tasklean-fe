@@ -3,10 +3,19 @@ import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
 import { beforeAll, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
-import { DEVICE_COOKIE_NAME } from "@/lib/auth/device";
-import { NONCE_COOKIE_NAME, NONCE_HEADER_NAME, hashNonce } from "@/lib/auth/google-nonce";
-import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge";
-import { SESSION_COOKIE_NAME, type Session, sealSession, unsealSession } from "@/lib/auth/session";
+import { DEVICE_COOKIE_NAME } from "@/lib/auth/device/device";
+import {
+  NONCE_COOKIE_NAME,
+  NONCE_HEADER_NAME,
+  hashNonce,
+} from "@/lib/auth/google-nonce/google-nonce";
+import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
+import {
+  SESSION_COOKIE_NAME,
+  type Session,
+  sealSession,
+  unsealSession,
+} from "@/lib/auth/session/session";
 import { server } from "@/test/msw";
 
 const BASE = "http://api.test";

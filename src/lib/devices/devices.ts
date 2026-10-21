@@ -6,9 +6,9 @@
 
 import "server-only";
 
-import { serverApi } from "@/lib/api/server";
-import { deviceHeaders } from "@/lib/auth/device";
-import { parseApiDateOrNull } from "@/lib/time/api-date";
+import { serverApi } from "@/lib/api/server/server";
+import { deviceHeaders } from "@/lib/auth/device/device";
+import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 
 // Hand-written from the backend's MyDeviceResponse. Nothing is marked
 // `required` in openapi.json, so every field is narrowed where it is used.
