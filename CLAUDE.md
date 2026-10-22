@@ -64,7 +64,7 @@ non-root user and serving `next.config.ts`'s `output: "standalone"` bundle with 
 **The image takes no build arguments, and one image runs anywhere.** `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
 is never inlined, because the only reader is `getEnv()` in a Server Component that passes the value
 down as a prop, so no client code references `process.env`. It is a **runtime** variable like the
-other two, and missing it makes every Google sign-in fail with the generic error. A build needs no
+other three, and missing it makes every Google sign-in fail with the generic error. A build needs no
 environment at all.
 
 ### Generated files
@@ -434,13 +434,22 @@ routes are `noindex` via the `(auth)` layout.
 - **Every browser carries a device id, minted by Proxy into `tasklean_device`.** The backend binds
   a refresh token to it, so a session has a stable identity across rotation and can be listed and
   revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which
-  cannot reach `localStorage`. `auth/device/device.ts` owns the cookie and builds the three headers the
+  cannot reach `localStorage`. `auth/device/device.ts` owns the cookie and builds the headers the
   backend reads: `X-Device-Id`, `X-Device-User-Agent` (the real browser UA, since the transport one
-  on this hop is Node's) and `X-Forwarded-For`. They ride on login, Google, verify-email, refresh
-  and every `/api/devices` call, the last because `currentDevice` is resolved from the header. Logout
-  sends them too, but derives the device from the token's own binding, not from what we send.
+  on this hop is Node's), `X-Device-Ip` and `X-Internal-Hop`. They ride on login, Google,
+  verify-email, refresh and every `/api/devices` call, the last because `currentDevice` is resolved
+  from the header. Logout sends them too, but derives the device from the token's own binding, not
+  from what we send.
   Proxy mints only on the auth screens and for signed-in requests, never for an anonymous reader of
   the marketing page.
+- **The end user's address is forwarded explicitly, and `CF-Connecting-IP` is the only safe source.**
+  Every API call is a server-to-server hop, so the backend's own socket sees Cloudflare's edge, which
+  is what the devices screen used to list. `X-Device-Ip` carries the real address and `X-Internal-Hop`
+  carries `BFF_HOP_SECRET`, which is what makes the backend honour it rather than ignore it.
+  Cloudflare sets `CF-Connecting-IP` from the TCP peer, while it only *appends* to
+  `X-Forwarded-For`, so that header's leftmost entry is caller-chosen and reading it would launder a
+  forged address into a trusted one. `device.ts` forwards a single bare literal or nothing at all,
+  and the secret never rides without an address to vouch for. `X-Forwarded-For` is no longer sent.
 - **Proxy is the auth boundary and the only refresh site on the navigation path.** Default deny —
   everything is protected unless in `PUBLIC_PATHS`. `/api` is excluded from the matcher so Route
   Handlers answer `401` instead of redirecting to HTML.
@@ -589,6 +598,9 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **jsdom implements no `ResizeObserver`**, so `vitest.setup.ts` stubs it. A component that
   measures itself would otherwise throw on mount; the stub never fires, so a measured size simply
   stays absent.
+- **`BFF_HOP_SECRET` has a harness default** in `vitest.config.mts`, because `getEnv()` validates
+  every required variable at once, so without one every test that builds a URL would have to set a
+  secret it is not about. A file asserting the header's value sets its own.
 - New logic in `src/lib/` gets a colocated test.
 
 ## Environment
@@ -599,9 +611,10 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 | ------------------------------ | ------- | --------------------------------------------------------------------------- |
 | `API_BASE_URL`                 | server  | Spring API origin                                                           |
 | `SESSION_SECRET`               | server  | Key for the encrypted session cookie, unique per environment, ≥32 chars     |
+| `BFF_HOP_SECRET`               | server  | Proves a call came from us, so the client IP we forward is trusted, ≥32 chars |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | browser | Google Sign-In client id — **must match** the backend's `GOOGLE_CLIENT_ID`  |
 
-All three are required and validated by `config/env/env.ts`; whitespace-only counts as missing. Our
+All four are required and validated by `config/env/env.ts`; whitespace-only counts as missing. Our
 origin must be in the backend's `CORS_ALLOWED_ORIGINS` and the Google client's authorized origins —
 though the browser never calls Spring directly, so a CORS error means something is calling from the
 wrong side.

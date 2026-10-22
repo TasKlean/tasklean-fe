@@ -4,6 +4,7 @@ import { readEnv } from "@/lib/config/env/env";
 const good = {
   API_BASE_URL: "http://localhost:8080",
   SESSION_SECRET: "a".repeat(32),
+  BFF_HOP_SECRET: "b".repeat(32),
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: "client-id.apps.googleusercontent.com",
 };
 
@@ -29,6 +30,8 @@ describe("readEnv", () => {
   });
 
   it("names every missing variable in one message", () => {
-    expect(() => readEnv({})).toThrow(/API_BASE_URL.*SESSION_SECRET.*NEXT_PUBLIC_GOOGLE_CLIENT_ID/);
+    expect(() => readEnv({})).toThrow(
+      /API_BASE_URL.*SESSION_SECRET.*BFF_HOP_SECRET.*NEXT_PUBLIC_GOOGLE_CLIENT_ID/,
+    );
   });
 });

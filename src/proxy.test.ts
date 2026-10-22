@@ -25,6 +25,7 @@ const SITE = "http://localhost:3000";
 beforeAll(() => {
   process.env.API_BASE_URL = BASE;
   process.env.SESSION_SECRET = "proxy-test-secret-at-least-32-chars";
+  process.env.BFF_HOP_SECRET = "proxy-test-hop-secret-at-least-32-chars";
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "client-id.apps.googleusercontent.com";
 });
 
@@ -422,7 +423,7 @@ function requestWithDevice(path: string, deviceId?: string, session?: string): N
     headers: {
       ...(cookies.length ? { cookie: cookies.join("; ") } : {}),
       "user-agent": "Mozilla/5.0 (Windows NT 10.0)",
-      "x-forwarded-for": "203.0.113.9",
+      "cf-connecting-ip": "203.0.113.9",
     },
   });
 }
@@ -468,7 +469,32 @@ describe("proxy device id", () => {
 
     expect(seen.headers?.get("x-device-id")).toBe("device-9");
     expect(seen.headers?.get("x-device-user-agent")).toBe("Mozilla/5.0 (Windows NT 10.0)");
-    expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-internal-hop")).toBe("proxy-test-hop-secret-at-least-32-chars");
+  });
+
+  it("vouches for no address when only x-forwarded-for arrived", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/refresh`, async ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({
+          success: true,
+          data: { token: await accessToken(900), refreshToken: "rt-rotated", uid: "u1" },
+        });
+      }),
+    );
+
+    await proxy(
+      requestWithHeaders(
+        "/tasks",
+        { "x-forwarded-for": "1.2.3.4, 172.70.240.123" },
+        await sessionCookie(10, "rt-xff"),
+      ),
+    );
+
+    expect(seen.headers?.get("x-device-ip")).toBeNull();
+    expect(seen.headers?.get("x-internal-hop")).toBeNull();
   });
 });
 

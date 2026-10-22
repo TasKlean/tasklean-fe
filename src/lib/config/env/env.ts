@@ -6,7 +6,12 @@
 import "server-only";
 
 // Before the types, against the usual file order: they derive from it.
-const REQUIRED = ["API_BASE_URL", "SESSION_SECRET", "NEXT_PUBLIC_GOOGLE_CLIENT_ID"] as const;
+const REQUIRED = [
+  "API_BASE_URL",
+  "SESSION_SECRET",
+  "BFF_HOP_SECRET",
+  "NEXT_PUBLIC_GOOGLE_CLIENT_ID",
+] as const;
 
 type RequiredKey = (typeof REQUIRED)[number];
 

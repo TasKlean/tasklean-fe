@@ -244,7 +244,7 @@ async function route(
       buildDeviceHeaders({
         deviceId,
         userAgent: request.headers.get("user-agent"),
-        forwardedFor: request.headers.get("x-forwarded-for"),
+        deviceIp: request.headers.get("cf-connecting-ip"),
       }),
     );
     const rotated: Session = {
