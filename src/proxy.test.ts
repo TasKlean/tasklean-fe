@@ -10,10 +10,7 @@ import {
   hashNonce,
 } from "@/lib/auth/google-nonce/google-nonce";
 import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
-import {
-  THEME_CHECKED_COOKIE_NAME,
-  THEME_COOKIE_NAME,
-} from "@/lib/preferences/theme-cookie/theme-cookie";
+import { THEME_COOKIE_NAME } from "@/lib/preferences/theme-cookie/theme-cookie";
 import {
   SESSION_COOKIE_NAME,
   type Session,
@@ -505,6 +502,16 @@ function requestWithCookies(path: string, jar: Record<string, string>): NextRequ
   return new NextRequest(`${SITE}${path}`, { headers: { cookie } });
 }
 
+function requestWithHeaders(
+  path: string,
+  extra: Record<string, string>,
+  session: string,
+): NextRequest {
+  return new NextRequest(`${SITE}${path}`, {
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${session}`, ...extra },
+  });
+}
+
 function forwardedCookie(response: Response): string {
   return response.headers.get("x-middleware-request-cookie") ?? "";
 }
@@ -514,7 +521,7 @@ function setCookie(response: Response): string {
 }
 
 describe("proxy theme cache", () => {
-  it("re-reads the saved theme once the marker has expired", async () => {
+  it("re-reads the saved theme before painting a document", async () => {
     const counter = { calls: 0 };
     server.use(settingsHandler(counter, "DARK"));
 
@@ -543,26 +550,41 @@ describe("proxy theme cache", () => {
     expect(forwardedCookie(response)).not.toContain("LIGHT");
   });
 
-  it("marks the cache as checked, so the next navigation does not re-read", async () => {
-    const response = await proxy(requestFor("/app", await sessionCookie(3600)));
+  it("re-reads it again on the very next document, with no window in the way", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter, "DARK"));
+    const jar = {
+      [SESSION_COOKIE_NAME]: await sessionCookie(3600),
+      [THEME_COOKIE_NAME]: "LIGHT",
+    };
 
-    expect(setCookie(response)).toContain(`${THEME_CHECKED_COOKIE_NAME}=1`);
+    await proxy(requestWithCookies("/app", jar));
+    await proxy(requestWithCookies("/app", jar));
+
+    expect(counter.calls).toBe(2);
   });
 
-  it("trusts the cache while the marker is still alive", async () => {
+  it("spends no read on an RSC payload, which cannot repaint the document", async () => {
     const counter = { calls: 0 };
     server.use(settingsHandler(counter));
 
     const response = await proxy(
-      requestWithCookies("/app", {
-        [SESSION_COOKIE_NAME]: await sessionCookie(3600),
-        [THEME_COOKIE_NAME]: "LIGHT",
-        [THEME_CHECKED_COOKIE_NAME]: "1",
-      }),
+      requestWithHeaders("/app", { "sec-fetch-dest": "empty" }, await sessionCookie(3600)),
     );
 
     expect(counter.calls).toBe(0);
     expect(setCookie(response)).not.toContain(THEME_COOKIE_NAME);
+  });
+
+  it("reads for a real browser navigation", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter));
+
+    await proxy(
+      requestWithHeaders("/app", { "sec-fetch-dest": "document" }, await sessionCookie(3600)),
+    );
+
+    expect(counter.calls).toBe(1);
   });
 
   it("keeps the cached theme when the read fails", async () => {
@@ -578,7 +600,6 @@ describe("proxy theme cache", () => {
 
     expect(counter.calls).toBe(1);
     expect(forwardedCookie(response)).toContain(`${THEME_COOKIE_NAME}=LIGHT`);
-    expect(setCookie(response)).toContain(`${THEME_CHECKED_COOKIE_NAME}=1`);
     expect(setCookie(response)).not.toContain(`${THEME_COOKIE_NAME}=DARK`);
   });
 

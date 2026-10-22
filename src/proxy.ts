@@ -32,8 +32,6 @@ import {
 import { fetchPreferences } from "@/lib/preferences/preferences";
 import type { Theme } from "@/lib/preferences/preferences.types";
 import {
-  THEME_CHECKED_COOKIE_NAME,
-  THEME_CHECKED_COOKIE_OPTIONS,
   THEME_COOKIE_NAME,
   THEME_COOKIE_OPTIONS,
 } from "@/lib/preferences/theme-cookie/theme-cookie";
@@ -124,6 +122,21 @@ function dropSpentCredentials(request: NextRequest, response: NextResponse): Nex
 }
 
 /**
+ * Reports whether this request ends in a document render, the only kind that
+ * can repaint `<html>`.
+ *
+ * An RSC payload replaces a subtree and leaves the document's own attributes
+ * where they are, so reading the theme for one would spend a call on nothing.
+ * Next's own `RSC` header never reaches Proxy, so `sec-fetch-dest` is the
+ * signal: every browser sends it and an RSC fetch reports `empty`. A client
+ * that sends none at all is treated as a document.
+ */
+function paintsDocument(request: NextRequest): boolean {
+  const destination = request.headers.get("sec-fetch-dest");
+  return destination === null || destination === "document";
+}
+
+/**
  * Reads the saved theme for the theme cache.
  *
  * @returns The saved theme, or null when the read failed, which must cost a
@@ -139,7 +152,7 @@ async function freshTheme(accessToken: string): Promise<Theme | null> {
 
 /**
  * Builds the pass-through response for a path a visitor may stay on, and
- * re-reads the cached theme once its marker has expired.
+ * re-reads the cached theme whenever a document is about to be painted.
  *
  * The fresh theme goes onto the request as well as the response, or this very
  * render still paints from the cookie the browser sent and the new scheme
@@ -149,8 +162,7 @@ async function freshTheme(accessToken: string): Promise<Theme | null> {
  * one everywhere else, dropping whatever nonce was left behind.
  */
 async function passThrough(request: NextRequest, accessToken: string): Promise<NextResponse> {
-  const due = !request.cookies.has(THEME_CHECKED_COOKIE_NAME);
-  const theme = due ? await freshTheme(accessToken) : null;
+  const theme = paintsDocument(request) ? await freshTheme(accessToken) : null;
   if (theme) request.cookies.set(THEME_COOKIE_NAME, theme);
 
   const response = matches(GOOGLE_PATHS, request.nextUrl.pathname)
@@ -158,9 +170,6 @@ async function passThrough(request: NextRequest, accessToken: string): Promise<N
     : dropSpentCredentials(request, NextResponse.next({ request }));
 
   if (theme) response.cookies.set(THEME_COOKIE_NAME, theme, THEME_COOKIE_OPTIONS);
-  // Marked even when the read failed, so a backend outage costs one attempt
-  // per window rather than one per navigation.
-  if (due) response.cookies.set(THEME_CHECKED_COOKIE_NAME, "1", THEME_CHECKED_COOKIE_OPTIONS);
 
   return response;
 }

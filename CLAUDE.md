@@ -199,8 +199,7 @@ src/
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
     preferences/       preferences.ts (theme and language, via /api/user-settings),
-                       theme-cookie.ts (the cached theme the server paints from, plus the
-                       marker saying how fresh it is),
+                       theme-cookie.ts (the cached theme the server paints from),
                        theme-attribute.ts (the data-theme value, client-safe)
     qr/                qr-code.ts (the encoder, server side only) and qr-code.types.ts
     time/api-date.ts   API timestamps ↔ Date
@@ -413,12 +412,14 @@ routes are `noindex` via the `(auth)` layout.
   beside `/api/users/me` and writes `tasklean_theme`, always, so a browser never keeps painting the
   theme of whoever used it last. The API stays the authority; the cookie is this browser's cache,
   rewritten on every save.
-- **Proxy keeps that cache honest, so the theme follows the account across devices.**
-  `tasklean_theme_checked` is a five-minute marker, and while it exists the cached theme is
-  trusted. Once it expires Proxy re-reads `/api/user-settings` and writes the fresh theme onto the
+- **Proxy keeps that cache honest, so the theme follows the account across devices.** Every request
+  that ends in a document render re-reads `/api/user-settings` and writes the fresh theme onto the
   **request** as well as the response, so the render already in flight paints the new scheme rather
-  than the next one. A failed read keeps the cached colour and still sets the marker, so a backend
-  outage costs one attempt per window instead of one per navigation.
+  than the next one. There is no trust window: one was tried and it swallowed the very case the
+  cache exists for. An RSC payload is skipped because it cannot repaint `<html>`, and
+  `sec-fetch-dest` is how that is told apart, since Next's own `RSC` header never reaches Proxy. A
+  failed read keeps the cached colour, so a backend outage costs a stale scheme and never a
+  navigation.
 - **Everything behind the session lives under `/app`.** `/app` is the home, `/app/account` and
   `/app/settings/*` hang off it, and future screens follow. The prefix makes the auth boundary
   legible in the URL and keeps a marketing page and an app route from ever colliding. Protection

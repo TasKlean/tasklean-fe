@@ -16,7 +16,6 @@ vi.mock("next/headers", () => ({
 
 import {
   readTheme,
-  THEME_CHECKED_COOKIE_NAME,
   THEME_COOKIE_NAME,
   writeTheme,
 } from "@/lib/preferences/theme-cookie/theme-cookie";
@@ -49,11 +48,5 @@ describe("writeTheme", () => {
 
     expect(store.get(THEME_COOKIE_NAME)).toBe("LIGHT");
     await expect(readTheme()).resolves.toBe("LIGHT");
-  });
-
-  it("marks the cache as just checked, since the value came from the API", async () => {
-    await writeTheme("LIGHT");
-
-    expect(store.get(THEME_CHECKED_COOKIE_NAME)).toBe("1");
   });
 });
