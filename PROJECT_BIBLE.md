@@ -1059,18 +1059,29 @@ requests and fixes one screen while every other page stays wrong. Proxy could re
 which is what it now does: it is already the one place on the navigation path that can both call
 the backend and write a cookie.
 
-`tasklean_theme_checked` is a second cookie whose only content is its own expiry. While it is there
-the cache is trusted; once it has gone, Proxy re-reads `/api/user-settings` and rewrites both. A
-timestamp parsed out of the first cookie would do the same job with more moving parts, where
-letting the browser expire a marker is free. Five minutes is the window, so five minutes is also
-the longest a change takes to cross devices.
+**The check has no trust window, and the first attempt at one was the bug all over again.** A
+marker cookie held for five minutes looked like an obvious saving, until `writeTheme` set it at
+sign-in: the blind window then covered exactly the five minutes after signing in on a second
+device, which is the only moment anyone compares two devices. That version shipped and the reported
+symptom did not move. So Proxy re-reads on every request that ends in a document, which is the only
+kind whose render can repaint `<html>`. An RSC payload replaces a subtree and leaves the document's
+own attributes alone, so it is skipped, and that is where the saving actually lives: prefetches and
+soft navigations are the frequent traffic and they read nothing. What is left is one small `GET`
+per hard page load for a signed-in reader.
+
+`sec-fetch-dest` is the signal, and it has to be, because **Next's own `RSC` header does not reach
+Proxy.** Measured against a running build: a request carrying `RSC: 1` and nothing else was treated
+as a document, while `sec-fetch-dest: empty` was skipped correctly. Every browser sends
+`sec-fetch-dest`, and an RSC payload is a `fetch`, so it reports `empty`.
 
 **The fresh theme goes onto the request, not only the response.** A cookie set on a response is
 invisible to the render that response carries, so writing only there would paint the old scheme one
 more time, which on a hard refresh looks exactly like the original bug. `request.cookies.set()`
 rewrites the request's own `cookie` header and `NextResponse.next({ request })` forwards it, so the
-render in flight already sees the new value. A failed read sets the marker anyway and keeps the
-cached colour: an outage should cost one attempt per window, never a repaint.
+render in flight already sees the new value. Verified against a running production build rather
+than reasoned about: a request arriving with a stale `tasklean_theme=LIGHT` came back with
+`data-theme="dark"` in that same response. A failed read keeps the cached colour, since an outage
+should cost a stale scheme and never a navigation.
 
 **The dark palette is still written once.** `globals.css` declares the condition as a
 `@custom-variant dark` with two branches, the OS preference unless `data-theme="light"` overrides
@@ -1415,7 +1426,12 @@ workaround **before** the feature depending on it gets built.
     off-by-one navigation rather than as a bug. `request.cookies.set()` rewrites the request's own
     `cookie` header, and `NextResponse.next({ request })` forwards it to the render, which is how
     the theme cache repaints the page it was read for. Verified by inspecting the forwarded
-    `x-middleware-request-cookie` header, not assumed.
+    `x-middleware-request-cookie` header, and again against a running build.
+22. **Next's `RSC` header never reaches Proxy**, so it cannot be used to tell an RSC payload from a
+    document. A request carrying `RSC: 1` and nothing else is indistinguishable from a navigation
+    there. `sec-fetch-dest` is the one that arrives: `document` for a navigation, `empty` for the
+    `fetch` an RSC payload travels on. A unit test can assert the opposite happily, because
+    `NextRequest` keeps whatever header the test sets.
 
 ---
 
