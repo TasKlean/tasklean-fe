@@ -1047,9 +1047,30 @@ So the theme is **cached in a cookie**, `tasklean_theme`, and the root layout re
 byte of HTML and correct with scripting off. `startSession` fills the cookie from the API at every
 sign-in, beside the profile call that fetches the avatar, and always writes it, even when the read
 failed, so a shared browser never keeps painting the previous account's theme. The API stays the
-authority; the cookie is a cache, rewritten whenever the picker saves. The honest cost: a change
-made on another device does not reach this one until the next sign-in. For a colour scheme that is
-a fair trade against an API call on every render.
+authority; the cookie is a cache, rewritten whenever the picker saves.
+
+**A cache nothing refreshes is a bug, and this one was reported as one.** Saving the theme on one
+device left the other painting the old scheme while its own settings form showed the new value: the
+form reads the API, the paint reads the cookie, and nothing ever reconciled them. Three fixes were
+on the table. The root layout could read the API whenever there is a session, which is exact and
+puts a blocking call in front of the first paint of every page, the thing the cookie exists to
+avoid. The appearance page could spot the mismatch and repaint from the browser, which costs no
+requests and fixes one screen while every other page stays wrong. Proxy could re-read on a window,
+which is what it now does: it is already the one place on the navigation path that can both call
+the backend and write a cookie.
+
+`tasklean_theme_checked` is a second cookie whose only content is its own expiry. While it is there
+the cache is trusted; once it has gone, Proxy re-reads `/api/user-settings` and rewrites both. A
+timestamp parsed out of the first cookie would do the same job with more moving parts, where
+letting the browser expire a marker is free. Five minutes is the window, so five minutes is also
+the longest a change takes to cross devices.
+
+**The fresh theme goes onto the request, not only the response.** A cookie set on a response is
+invisible to the render that response carries, so writing only there would paint the old scheme one
+more time, which on a hard refresh looks exactly like the original bug. `request.cookies.set()`
+rewrites the request's own `cookie` header and `NextResponse.next({ request })` forwards it, so the
+render in flight already sees the new value. A failed read sets the marker anyway and keeps the
+cached colour: an outage should cost one attempt per window, never a repaint.
 
 **The dark palette is still written once.** `globals.css` declares the condition as a
 `@custom-variant dark` with two branches, the OS preference unless `data-theme="light"` overrides
@@ -1389,6 +1410,12 @@ workaround **before** the feature depending on it gets built.
     `functions-config-manifest.json`, so every protected route is simply open. Measured by moving
     it and rebuilding, not assumed. The same pinning applies to `page.tsx`, `layout.tsx`,
     `route.ts` and `error.tsx`, where the cost of being wrong is only a missing page.
+21. **A cookie Proxy sets on the response is invisible to the render that response carries.** The
+    browser gets it, so the *next* request is right and the current one is not, which reads as an
+    off-by-one navigation rather than as a bug. `request.cookies.set()` rewrites the request's own
+    `cookie` header, and `NextResponse.next({ request })` forwards it to the render, which is how
+    the theme cache repaints the page it was read for. Verified by inspecting the forwarded
+    `x-middleware-request-cookie` header, not assumed.
 
 ---
 

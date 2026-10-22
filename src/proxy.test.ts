@@ -1,7 +1,7 @@
 import { SignJWT } from "jose";
 import { HttpResponse, http } from "msw";
 import { NextRequest } from "next/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import proxy from "@/proxy";
 import { DEVICE_COOKIE_NAME } from "@/lib/auth/device/device";
 import {
@@ -10,6 +10,10 @@ import {
   hashNonce,
 } from "@/lib/auth/google-nonce/google-nonce";
 import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
+import {
+  THEME_CHECKED_COOKIE_NAME,
+  THEME_COOKIE_NAME,
+} from "@/lib/preferences/theme-cookie/theme-cookie";
 import {
   SESSION_COOKIE_NAME,
   type Session,
@@ -25,6 +29,20 @@ beforeAll(() => {
   process.env.API_BASE_URL = BASE;
   process.env.SESSION_SECRET = "proxy-test-secret-at-least-32-chars";
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "client-id.apps.googleusercontent.com";
+});
+
+function settingsHandler(counter: { calls: number }, theme = "DARK", status = 200) {
+  return http.get(`${BASE}/api/user-settings`, () => {
+    counter.calls += 1;
+    if (status !== 200) {
+      return HttpResponse.json({ success: false, message: "No settings." }, { status });
+    }
+    return HttpResponse.json({ success: true, data: { theme, locale: "EN" } });
+  });
+}
+
+beforeEach(() => {
+  server.use(settingsHandler({ calls: 0 }));
 });
 
 async function accessToken(expiresInSeconds: number): Promise<string> {
@@ -476,5 +494,118 @@ describe("proxy device id rolling", () => {
     );
 
     expect(response.cookies.get(DEVICE_COOKIE_NAME)).toBeUndefined();
+  });
+});
+
+function requestWithCookies(path: string, jar: Record<string, string>): NextRequest {
+  const cookie = Object.entries(jar)
+    .map(([name, value]) => `${name}=${value}`)
+    .join("; ");
+
+  return new NextRequest(`${SITE}${path}`, { headers: { cookie } });
+}
+
+function forwardedCookie(response: Response): string {
+  return response.headers.get("x-middleware-request-cookie") ?? "";
+}
+
+function setCookie(response: Response): string {
+  return response.headers.get("set-cookie") ?? "";
+}
+
+describe("proxy theme cache", () => {
+  it("re-reads the saved theme once the marker has expired", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter, "DARK"));
+
+    const response = await proxy(
+      requestWithCookies("/app", {
+        [SESSION_COOKIE_NAME]: await sessionCookie(3600),
+        [THEME_COOKIE_NAME]: "LIGHT",
+      }),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(setCookie(response)).toContain(`${THEME_COOKIE_NAME}=DARK`);
+  });
+
+  it("paints this very render from the fresh theme, not the next one", async () => {
+    server.use(settingsHandler({ calls: 0 }, "DARK"));
+
+    const response = await proxy(
+      requestWithCookies("/app", {
+        [SESSION_COOKIE_NAME]: await sessionCookie(3600),
+        [THEME_COOKIE_NAME]: "LIGHT",
+      }),
+    );
+
+    expect(forwardedCookie(response)).toContain(`${THEME_COOKIE_NAME}=DARK`);
+    expect(forwardedCookie(response)).not.toContain("LIGHT");
+  });
+
+  it("marks the cache as checked, so the next navigation does not re-read", async () => {
+    const response = await proxy(requestFor("/app", await sessionCookie(3600)));
+
+    expect(setCookie(response)).toContain(`${THEME_CHECKED_COOKIE_NAME}=1`);
+  });
+
+  it("trusts the cache while the marker is still alive", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter));
+
+    const response = await proxy(
+      requestWithCookies("/app", {
+        [SESSION_COOKIE_NAME]: await sessionCookie(3600),
+        [THEME_COOKIE_NAME]: "LIGHT",
+        [THEME_CHECKED_COOKIE_NAME]: "1",
+      }),
+    );
+
+    expect(counter.calls).toBe(0);
+    expect(setCookie(response)).not.toContain(THEME_COOKIE_NAME);
+  });
+
+  it("keeps the cached theme when the read fails", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter, "DARK", 500));
+
+    const response = await proxy(
+      requestWithCookies("/app", {
+        [SESSION_COOKIE_NAME]: await sessionCookie(3600),
+        [THEME_COOKIE_NAME]: "LIGHT",
+      }),
+    );
+
+    expect(counter.calls).toBe(1);
+    expect(forwardedCookie(response)).toContain(`${THEME_COOKIE_NAME}=LIGHT`);
+    expect(setCookie(response)).toContain(`${THEME_CHECKED_COOKIE_NAME}=1`);
+    expect(setCookie(response)).not.toContain(`${THEME_COOKIE_NAME}=DARK`);
+  });
+
+  it("re-reads on the response that also rotates the token pair", async () => {
+    const refreshes = { calls: 0 };
+    const reads = { calls: 0 };
+    server.use(refreshHandler(refreshes), settingsHandler(reads, "LIGHT"));
+
+    const response = await proxy(
+      requestWithCookies("/app", {
+        [SESSION_COOKIE_NAME]: await sessionCookie(10, "rt-theming"),
+        [THEME_COOKIE_NAME]: "DARK",
+      }),
+    );
+
+    expect(refreshes.calls).toBe(1);
+    expect(reads.calls).toBe(1);
+    expect(setCookie(response)).toContain(`${THEME_COOKIE_NAME}=LIGHT`);
+  });
+
+  it("reads nothing for an anonymous visitor, who has no account to follow", async () => {
+    const counter = { calls: 0 };
+    server.use(settingsHandler(counter));
+
+    const response = await proxy(requestFor("/"));
+
+    expect(counter.calls).toBe(0);
+    expect(setCookie(response)).not.toContain(THEME_COOKIE_NAME);
   });
 });

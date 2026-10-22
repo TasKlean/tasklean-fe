@@ -37,7 +37,7 @@ npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
 
-Next.js 16.4.0 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
+Next.js 16.4.2 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
 Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`, `uqr`. **Node 26** (`.nvmrc` +
 `engines.node`); npm comes from Node's bundled copy, so a global npm install would silently shadow
 it.
@@ -199,7 +199,8 @@ src/
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
     preferences/       preferences.ts (theme and language, via /api/user-settings),
-                       theme-cookie.ts (the cached theme the server paints from),
+                       theme-cookie.ts (the cached theme the server paints from, plus the
+                       marker saying how fresh it is),
                        theme-attribute.ts (the data-theme value, client-safe)
     qr/                qr-code.ts (the encoder, server side only) and qr-code.types.ts
     time/api-date.ts   API timestamps ↔ Date
@@ -410,8 +411,14 @@ routes are `noindex` via the `(auth)` layout.
   `setSession` directly, or the chrome loses the photo on whichever path skipped it.
 - **Sign-in caches the theme as well as the avatar.** `startSession` reads `/api/user-settings`
   beside `/api/users/me` and writes `tasklean_theme`, always, so a browser never keeps painting the
-  theme of whoever used it last. The API stays the authority: the cookie is this browser's cache,
-  rewritten on every save, and a change made on another device arrives at the next sign-in.
+  theme of whoever used it last. The API stays the authority; the cookie is this browser's cache,
+  rewritten on every save.
+- **Proxy keeps that cache honest, so the theme follows the account across devices.**
+  `tasklean_theme_checked` is a five-minute marker, and while it exists the cached theme is
+  trusted. Once it expires Proxy re-reads `/api/user-settings` and writes the fresh theme onto the
+  **request** as well as the response, so the render already in flight paints the new scheme rather
+  than the next one. A failed read keeps the cached colour and still sets the marker, so a backend
+  outage costs one attempt per window instead of one per navigation.
 - **Everything behind the session lives under `/app`.** `/app` is the home, `/app/account` and
   `/app/settings/*` hang off it, and future screens follow. The prefix makes the auth boundary
   legible in the URL and keeps a marketing page and an app route from ever colliding. Protection
