@@ -46,6 +46,10 @@ export default defineConfig({
       // bug they exist to catch. Ljubljana also observes DST, so the summer and
       // winter cases differ. src/lib/time.test.ts asserts this pin holds.
       TZ: "Europe/Ljubljana",
+      // env.ts requires this, so without a default every test that builds a URL
+      // would have to set a secret it is not about. The files asserting the
+      // header's value set their own.
+      BFF_HOP_SECRET: "vitest-bff-hop-secret-at-least-32-chars",
     },
   },
 });

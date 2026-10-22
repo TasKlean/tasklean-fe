@@ -917,6 +917,54 @@ The headers are built in one place, `auth/device/device.ts`, and passed as a par
 inside each call, mirroring `client.ts`'s rule that auth is a parameter and not a session lookup.
 Proxy reads them off the `NextRequest`; a Server Action reads them through `next/headers`.
 
+### The client IP needs a header of its own, and a secret to vouch for it
+
+The devices screen listed addresses like `172.70.240.123` for every device on the account, which is
+CLOUDFLARENET's `172.64.0.0/13`, not anybody's browser. Two hops explain it. A browser never reaches
+the API: our BFF calls it server to server, so the backend's socket sees us, and Render fronts every
+service with Cloudflare, so what it actually sees is Cloudflare's edge. Tomcat's `RemoteIpValve`
+then walks `X-Forwarded-For` right to left and stops at the first hop outside its
+`internalProxies` list, which covers the private ranges and nothing else, so it stops at the edge.
+
+**Widening that list is the wrong fix.** Trusting Cloudflare's published ranges means trusting
+whatever the frontmost hop claims, and the frontmost claim in `X-Forwarded-For` is the client's own,
+because Cloudflare *appends* to that header rather than replacing it. So the backend grew
+`X-Device-Ip`, honoured only when `X-Internal-Hop` matches a configured `BFF_HOP_SECRETS` entry,
+and we send both.
+
+**The source of that address is the load-bearing decision.** The secret authenticates the messenger,
+not the message: once we attach it, the backend faithfully trusts whatever we forwarded, so reading
+the wrong header would launder a forged address into a trusted one and hand an attacker a free
+rate-limit reset. `CF-Connecting-IP` is the one safe source, because Cloudflare sets it at the edge
+from the TCP peer and recommends it over `X-Forwarded-For` for exactly this reason. We no longer
+send `X-Forwarded-For` at all, and the backend no longer reads it.
+
+`device.ts` validates before forwarding, rather than trusting its own input: a value is sent only if
+it is a single bare literal within 45 characters, the width of the backend's `ip_address` column,
+and the secret never rides without an address to vouch for. The backend validates again. Belt and
+braces is cheap here and the cost of being wrong is not.
+
+The backend half was proved against a running backend, by rate limit rather than by reading a row:
+thirteen calls to `/api/auth/login` each claiming a different address all shared one bucket and
+`429`d at the tier's tenth, while the same thirteen carrying `X-Internal-Hop` passed through that
+already drained bucket, which only happens if each forwarded address became its own throttle key.
+`DeviceService` reads the same resolver, so that covers the devices screen too.
+
+**What could not be verified locally**: whether `CF-Connecting-IP` reaches a Next app on Render at
+all. Render documents no client-IP header anywhere, only that Cloudflare sits in front for DDoS
+protection. The evidence that incoming headers do arrive on both code paths is `X-Device-User-Agent`,
+which already works in production. The post-deploy check needs no probe: a real address on the
+devices screen means it arrived, and `172.7x` alongside the backend's own
+`Trusted hop sent no valid X-Device-Ip header` warning means it did not, in which case the fallback
+is exactly the behaviour we have today.
+
+**Scope is deliberate.** `deviceHeaders()` is passed per call at around thirteen sites, all auth,
+account and devices, which is where the damage was: the devices screen, the sign-in emails and every
+throttled auth endpoint. Domain mutations carry no device headers, so their audit rows still record
+the edge. Extending it to every call is a one-line change at `client.ts`'s `requestHeaders` and needs
+no backend work, but `request()` is not `server-only` while `headers()` is, so it needs care rather
+than haste.
+
 ### The avatar costs one call at sign-in, not one per page
 
 The chrome shows a profile photo, and `AuthResponse` does not carry one: it has `token`,
@@ -1432,6 +1480,11 @@ workaround **before** the feature depending on it gets built.
     there. `sec-fetch-dest` is the one that arrives: `document` for a navigation, `empty` for the
     `fetch` an RSC payload travels on. A unit test can assert the opposite happily, because
     `NextRequest` keeps whatever header the test sets.
+23. **`X-Forwarded-For`'s leftmost entry is caller-chosen.** Cloudflare appends the connecting IP
+    rather than replacing the header, so a client that sends its own `X-Forwarded-For: 1.2.3.4`
+    keeps that entry at the front all the way to the origin. Anything deriving identity or a
+    rate-limit key from it is reading attacker input. `CF-Connecting-IP` is set at the edge from the
+    TCP peer and holds exactly one address.
 
 ---
 

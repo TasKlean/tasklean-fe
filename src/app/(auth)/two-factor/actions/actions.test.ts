@@ -12,7 +12,8 @@ vi.mock("next/headers", () => ({
     set: (name: string, value: string) => jar.set(name, value),
     delete: (name: string) => jar.delete(name),
   }),
-  headers: async () => new Headers({ "user-agent": "Vitest UA", "x-forwarded-for": "203.0.113.9" }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.9" }),
 }));
 
 import {
@@ -28,6 +29,7 @@ const EMPTY: TwoFactorState = { error: null };
 beforeAll(() => {
   process.env.API_BASE_URL = BASE;
   process.env.SESSION_SECRET = "0123456789abcdef0123456789abcdef";
+  process.env.BFF_HOP_SECRET = "action-test-hop-secret-at-least-32-chars";
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "test-client-id";
 });
 
@@ -129,7 +131,8 @@ describe("verifyTwoFactorAction success", () => {
 
     expect(seen.headers?.get("x-device-id")).toBe("dev-1");
     expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
-    expect(seen.headers?.get("x-forwarded-for")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-internal-hop")).toBe("action-test-hop-secret-at-least-32-chars");
   });
 
   it("lands on the app by default", async () => {
