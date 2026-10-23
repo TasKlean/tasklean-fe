@@ -14,7 +14,6 @@ import type {
   SetPasswordRequest,
 } from "@/lib/account/account.types";
 import type { AuthResponse, GoogleAuthRequest, SignedInTokens } from "@/lib/auth/auth.types";
-import { deviceHeaders } from "@/lib/auth/device/device";
 
 const CONNECTED_ACCOUNTS_PATH = "/api/account/connected-accounts";
 
@@ -63,12 +62,9 @@ export async function changePassword(
   newPassword: string,
 ): Promise<SignedInTokens> {
   const body: ChangePasswordRequest = { currentPassword, newPassword };
-  // Without the device headers the rotated pair binds to a new device row, and
-  // a password change would email a new-sign-in notice for this same browser.
   const response = await serverApi<AuthResponse>("/api/account/change-password", {
     method: "POST",
     body,
-    headers: await deviceHeaders(),
     credentialCheck: true,
   });
 
@@ -86,7 +82,6 @@ export async function setPassword(newPassword: string): Promise<SignedInTokens> 
   const response = await serverApi<AuthResponse>("/api/account/set-password", {
     method: "POST",
     body,
-    headers: await deviceHeaders(),
   });
 
   return rotatedTokens(response);

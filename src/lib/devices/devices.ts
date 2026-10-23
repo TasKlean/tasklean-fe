@@ -7,7 +7,6 @@
 import "server-only";
 
 import { serverApi } from "@/lib/api/server/server";
-import { deviceHeaders } from "@/lib/auth/device/device";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 
 // Hand-written from the backend's MyDeviceResponse. Nothing is marked
@@ -64,9 +63,7 @@ function byRecency(left: MyDevice, right: MyDevice): number {
  * @throws SessionExpiredError when the session is gone or refused.
  */
 export async function listMyDevices(): Promise<MyDevice[]> {
-  const devices = await serverApi<MyDevice[]>("/api/devices", {
-    headers: await deviceHeaders(),
-  });
+  const devices = await serverApi<MyDevice[]>("/api/devices");
 
   return Array.isArray(devices) ? [...devices].sort(byRecency) : [];
 }
@@ -77,10 +74,7 @@ export async function listMyDevices(): Promise<MyDevice[]> {
  * @throws SessionExpiredError when the session is gone, ApiError otherwise.
  */
 export async function logoutDevice(id: number): Promise<void> {
-  await serverApi<void>(`/api/devices/${id}/logout`, {
-    method: "POST",
-    headers: await deviceHeaders(),
-  });
+  await serverApi<void>(`/api/devices/${id}/logout`, { method: "POST" });
 }
 
 /**
@@ -89,8 +83,5 @@ export async function logoutDevice(id: number): Promise<void> {
  * @throws SessionExpiredError when the session is gone, ApiError otherwise.
  */
 export async function removeDevice(id: number): Promise<void> {
-  await serverApi<void>(`/api/devices/${id}`, {
-    method: "DELETE",
-    headers: await deviceHeaders(),
-  });
+  await serverApi<void>(`/api/devices/${id}`, { method: "DELETE" });
 }

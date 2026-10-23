@@ -15,6 +15,7 @@ import {
 import {
   DEVICE_COOKIE_NAME,
   DEVICE_COOKIE_OPTIONS,
+  type DeviceHeaders,
   buildDeviceHeaders,
   createDeviceId,
 } from "@/lib/auth/device/device";
@@ -137,14 +138,28 @@ function paintsDocument(request: NextRequest): boolean {
 }
 
 /**
+ * Builds the device headers for a call Proxy makes on this request's behalf.
+ *
+ * Proxy cannot use `deviceHeaders()`, which reads `next/headers`, so it reads
+ * the same values off the `NextRequest` instead.
+ */
+function deviceHeadersFor(request: NextRequest, deviceId: string): DeviceHeaders {
+  return buildDeviceHeaders({
+    deviceId,
+    userAgent: request.headers.get("user-agent"),
+    deviceIp: request.headers.get("cf-connecting-ip"),
+  });
+}
+
+/**
  * Reads the saved theme for the theme cache.
  *
  * @returns The saved theme, or null when the read failed, which must cost a
  * colour and never a navigation.
  */
-async function freshTheme(accessToken: string): Promise<Theme | null> {
+async function freshTheme(accessToken: string, device: DeviceHeaders): Promise<Theme | null> {
   try {
-    return (await fetchPreferences(accessToken)).theme;
+    return (await fetchPreferences(accessToken, device)).theme;
   } catch {
     return null;
   }
@@ -161,8 +176,14 @@ async function freshTheme(accessToken: string): Promise<Theme | null> {
  * @returns One carrying a nonce where a Google widget needs one, and a plain
  * one everywhere else, dropping whatever nonce was left behind.
  */
-async function passThrough(request: NextRequest, accessToken: string): Promise<NextResponse> {
-  const theme = paintsDocument(request) ? await freshTheme(accessToken) : null;
+async function passThrough(
+  request: NextRequest,
+  accessToken: string,
+  deviceId: string,
+): Promise<NextResponse> {
+  const theme = paintsDocument(request)
+    ? await freshTheme(accessToken, deviceHeadersFor(request, deviceId))
+    : null;
   if (theme) request.cookies.set(THEME_COOKIE_NAME, theme);
 
   const response = matches(GOOGLE_PATHS, request.nextUrl.pathname)
@@ -235,17 +256,13 @@ async function route(
   }
 
   if (!accessTokenExpiresWithin(session.accessToken)) {
-    return passThrough(request, session.accessToken);
+    return passThrough(request, session.accessToken, deviceId);
   }
 
   try {
     const refreshed = await refreshTokens(
       session.refreshToken,
-      buildDeviceHeaders({
-        deviceId,
-        userAgent: request.headers.get("user-agent"),
-        deviceIp: request.headers.get("cf-connecting-ip"),
-      }),
+      deviceHeadersFor(request, deviceId),
     );
     const rotated: Session = {
       ...session,
@@ -255,7 +272,7 @@ async function route(
       name: refreshed.name || session.name,
     };
 
-    const response = await passThrough(request, refreshed.accessToken);
+    const response = await passThrough(request, refreshed.accessToken, deviceId);
     // Writing this back is not optional: the backend has already revoked the
     // old refresh token, so losing the new one ends the session.
     response.cookies.set(SESSION_COOKIE_NAME, await sealSession(rotated), SESSION_COOKIE_OPTIONS);

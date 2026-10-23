@@ -15,6 +15,8 @@ vi.mock("next/headers", () => ({
     get: (name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined),
     set: (name: string, value: string) => jar.set(name, value),
   }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.9" }),
 }));
 
 import { startSession } from "@/lib/auth/start-session/start-session";
@@ -135,5 +137,29 @@ describe("startSession and the theme", () => {
     await startSession(TOKENS);
 
     expect(jar.get(THEME_COOKIE_NAME)).toBe("SYSTEM");
+  });
+});
+
+describe("startSession device attribution", () => {
+  it("attributes both sign-in reads to the end user", async () => {
+    const seen: Headers[] = [];
+    server.use(
+      http.get(`${BASE}/api/users/me`, ({ request }) => {
+        seen.push(request.headers);
+        return HttpResponse.json({ success: true, data: { uid: "u1" } });
+      }),
+      http.get(`${BASE}/api/user-settings`, ({ request }) => {
+        seen.push(request.headers);
+        return HttpResponse.json({ success: true, data: { theme: "DARK", locale: "EN" } });
+      }),
+    );
+
+    await startSession(TOKENS);
+
+    expect(seen).toHaveLength(2);
+    for (const headers of seen) {
+      expect(headers.get("x-device-ip")).toBe("203.0.113.9");
+      expect(headers.get("x-internal-hop")).toBeTruthy();
+    }
   });
 });

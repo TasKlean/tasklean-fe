@@ -1,6 +1,7 @@
 /**
- * The session-aware entry point for API calls. Deliberately does not refresh on
- * 401: a render cannot persist the rotated pair, and Proxy has already tried.
+ * The session-aware entry point for API calls, and where every authenticated
+ * call picks up its device headers. Deliberately does not refresh on 401: a
+ * render cannot persist the rotated pair, and Proxy has already tried.
  */
 
 import "server-only";
@@ -8,6 +9,7 @@ import "server-only";
 import { request } from "@/lib/api/client/client";
 import type { RequestOptions } from "@/lib/api/client/client.types";
 import { isApiError } from "@/lib/api/errors";
+import { deviceHeaders } from "@/lib/auth/device/device";
 import { getSession } from "@/lib/auth/session/session";
 
 export type ServerApiOptions = Omit<RequestOptions, "accessToken"> & {
@@ -33,8 +35,12 @@ export function isSessionExpiredError(error: unknown): error is SessionExpiredEr
 /**
  * Calls the API with the current session's access token.
  *
+ * Every call carries the device headers, so the backend attributes the action
+ * to the right browser and the right end-user address.
+ *
  * @param options As `request()`, minus `accessToken`, which the session supplies,
- * plus `credentialCheck` to keep a 401 as an ApiError.
+ * plus `credentialCheck` to keep a 401 as an ApiError. A header named here
+ * cannot displace a device header.
  * @throws SessionExpiredError when there is no session, or the API returns 401
  * for anything but a credential check.
  * @throws ApiError for every other failure, including 403: authenticated but
@@ -43,11 +49,19 @@ export function isSessionExpiredError(error: unknown): error is SessionExpiredEr
 export async function serverApi<T>(path: string, options: ServerApiOptions = {}): Promise<T> {
   const { credentialCheck = false, ...rest } = options;
 
-  const session = await getSession();
+  // Read in parallel: the headers do not depend on the session, so attaching
+  // them costs nothing.
+  const [session, device] = await Promise.all([getSession(), deviceHeaders()]);
   if (!session) throw new SessionExpiredError();
 
   try {
-    return await request<T>(path, { ...rest, accessToken: session.accessToken });
+    return await request<T>(path, {
+      ...rest,
+      // Device headers last, so no caller can substitute its own address or
+      // the secret that vouches for it.
+      headers: { ...rest.headers, ...device },
+      accessToken: session.accessToken,
+    });
   } catch (error) {
     if (!credentialCheck && isApiError(error) && error.status === 401) {
       throw new SessionExpiredError();

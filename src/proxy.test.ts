@@ -656,3 +656,21 @@ describe("proxy theme cache", () => {
     expect(setCookie(response)).not.toContain(THEME_COOKIE_NAME);
   });
 });
+
+describe("proxy device attribution", () => {
+  it("attributes the theme read to the end user, not to our server", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.get(`${BASE}/api/user-settings`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({ success: true, data: { theme: "DARK", locale: "EN" } });
+      }),
+    );
+
+    await proxy(requestWithDevice("/app", "device-11", await sessionCookie(3600)));
+
+    expect(seen.headers?.get("x-device-id")).toBe("device-11");
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-internal-hop")).toBe("proxy-test-hop-secret-at-least-32-chars");
+  });
+});

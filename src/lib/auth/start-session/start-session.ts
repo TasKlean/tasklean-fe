@@ -6,6 +6,7 @@
 import "server-only";
 
 import type { SignedInTokens } from "@/lib/auth/auth.types";
+import { deviceHeaders } from "@/lib/auth/device/device";
 import { setSession } from "@/lib/auth/session/session";
 import { fetchPreferences } from "@/lib/preferences/preferences";
 import { DEFAULT_PREFERENCES } from "@/lib/preferences/preferences.types";
@@ -21,9 +22,12 @@ import { fetchProfile } from "@/lib/users/me/me";
  * the first render; a failure must cost an avatar or a colour, never a login.
  */
 export async function startSession(tokens: SignedInTokens): Promise<void> {
+  // Read here rather than threaded from all eight callers: this module already
+  // writes cookies, so it is in a request scope either way.
+  const device = await deviceHeaders();
   const [profile, preferences] = await Promise.all([
-    fetchProfile(tokens.accessToken).catch(() => null),
-    fetchPreferences(tokens.accessToken).catch(() => null),
+    fetchProfile(tokens.accessToken, device).catch(() => null),
+    fetchPreferences(tokens.accessToken, device).catch(() => null),
   ]);
 
   const name = tokens.name ?? profile?.name;

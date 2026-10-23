@@ -1,7 +1,13 @@
 import { http, HttpResponse } from "msw";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { registerAction, type RegisterState } from "@/app/(auth)/register/actions/actions";
 import { server } from "@/test/msw";
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.9" }),
+}));
 
 const BASE = "http://api.test";
 const EMPTY: RegisterState = { error: null };
@@ -109,5 +115,22 @@ describe("registerAction", () => {
     await registerAction(EMPTY, form({ middleName: "   " }));
 
     expect("middleName" in body).toBe(false);
+  });
+});
+
+describe("registerAction device attribution", () => {
+  it("carries the end user's address, so the audit row is not our server", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/register`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({ success: true, data: null }, { status: 201 });
+      }),
+    );
+
+    await registerAction(EMPTY, form()).catch(() => {});
+
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
+    expect(seen.headers?.get("x-internal-hop")).toBeTruthy();
   });
 });

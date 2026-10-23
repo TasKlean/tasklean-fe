@@ -8,6 +8,7 @@
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
+import { deviceHeaders } from "@/lib/auth/device/device";
 import { register } from "@/lib/auth/signin/register/register";
 import {
   echoRegister,
@@ -43,11 +44,14 @@ export async function registerAction(
   const values = { name, lastName, middleName, email };
 
   try {
-    await register({
-      ...values,
-      password,
-      middleName: values.middleName || undefined,
-    });
+    await register(
+      {
+        ...values,
+        password,
+        middleName: values.middleName || undefined,
+      },
+      await deviceHeaders(),
+    );
   } catch (error) {
     if (isApiError(error)) {
       // A taken address belongs beside the email field, not in a banner.

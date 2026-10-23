@@ -9,6 +9,7 @@
 import { redirect } from "next/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
+import { deviceHeaders } from "@/lib/auth/device/device";
 import { clearSession } from "@/lib/auth/session/session";
 import { completePasswordReset } from "@/lib/auth/password-reset/password-reset";
 import { parseResetPassword } from "@/lib/validation/forms/reset-password.schema/reset-password.schema";
@@ -39,7 +40,7 @@ export async function resetPasswordAction(
   const { token, password } = parsed.values;
 
   try {
-    await completePasswordReset(token, password);
+    await completePasswordReset(token, password, await deviceHeaders());
   } catch (error) {
     if (isApiError(error)) {
       if (error.status === 429) {

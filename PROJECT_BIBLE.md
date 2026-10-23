@@ -958,12 +958,40 @@ devices screen means it arrived, and `172.7x` alongside the backend's own
 `Trusted hop sent no valid X-Device-Ip header` warning means it did not, in which case the fallback
 is exactly the behaviour we have today.
 
-**Scope is deliberate.** `deviceHeaders()` is passed per call at around thirteen sites, all auth,
-account and devices, which is where the damage was: the devices screen, the sign-in emails and every
-throttled auth endpoint. Domain mutations carry no device headers, so their audit rows still record
-the edge. Extending it to every call is a one-line change at `client.ts`'s `requestHeaders` and needs
-no backend work, but `request()` is not `server-only` while `headers()` is, so it needs care rather
-than haste.
+**Every call that reaches the backend carries them.** They began on thirteen hand-picked sites,
+which left every other endpoint resolving to our own egress address.
+Two things made that worth fixing before the domain features land. `audit_log` is append-only, so a
+mutation audited against an infrastructure address stays wrong forever and no later change can
+repair the history. And the backend's `apiPerIp` tier, 300 a minute, keys on the resolved address,
+so one address for all of our traffic means every signed-in user shares a single bucket: invisible
+at this size, and a ceiling unrelated people would start hitting as the app grows.
+
+`serverApi()` is the seam for everything behind a session, and `request()` cannot be it. Proxy calls
+`request()` for the refresh and the theme read, and `next/headers` does not work there at all: Next
+scopes `cookies()` to Server Components, Server Functions and Route Handlers, so a lookup inside
+`request()` would throw on the two paths we can least afford to lose. `client.ts` also states its own
+contract in its header, that auth is a parameter and not a session lookup, and device identity is
+the same category. `serverApi()` already reads cookies for the session, so it adds no constraint,
+and reading the session and the headers in parallel makes the addition free.
+
+The rest take the headers as a parameter, the way `loginWithPassword` always has: register, both
+password-reset steps and resend-verification, none of which has a session yet. Two exceptions read
+them directly instead. `startSession` does, because threading them from its eight callers would buy
+nothing in a module that already writes cookies. Proxy cannot, so `deviceHeadersFor` reads the same
+values off the `NextRequest` for both calls it makes, the refresh and the theme read. **That theme
+read is the highest-volume authenticated call we make**, one per document render, so it was also the
+largest single contributor to the shared bucket.
+
+**The headers are spread last, after the caller's.** The handoff proposed the opposite, so that an
+explicit header could win, but these two decide whether the backend trusts a forwarded address: the
+precedence that lets a caller override them is a laundering path inside our own code. No caller
+needs it, and a test asserts an attempted override loses. The pre-session sign-in flows and Proxy's
+refresh still pass the headers explicitly, because neither has a session to read them from.
+
+The hop secret now rides on every authenticated request rather than thirteen. Same channel and same
+recipient, so the exposure is unchanged, but anything that logged request headers would capture it
+far more often, which is worth knowing before adding request logging. Rotation already works through
+the backend's comma-separated `BFF_HOP_SECRETS`.
 
 ### The avatar costs one call at sign-in, not one per page
 

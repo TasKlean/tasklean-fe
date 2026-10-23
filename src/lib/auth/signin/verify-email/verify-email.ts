@@ -48,11 +48,14 @@ export async function verifyEmail(
  * Always resolves for any well-formed address: the backend answers 200 whether
  * or not the account exists, so callers must not imply that it does.
  *
+ * @param device Device headers, so the backend attributes this to the end user
+ * rather than to our server.
  * @throws ApiError only on a transport or rate-limit failure.
  */
-export async function resendVerification(email: string): Promise<void> {
+export async function resendVerification(email: string, device: DeviceHeaders = {}): Promise<void> {
   await request<AuthResponse>("/api/auth/resend-verification", {
     method: "POST",
     body: { email },
+    headers: device,
   });
 }
