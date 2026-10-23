@@ -8,6 +8,7 @@
 
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
+import { deviceHeaders } from "@/lib/auth/device/device";
 import { requestPasswordReset } from "@/lib/auth/password-reset/password-reset";
 import {
   echoForgotPassword,
@@ -45,7 +46,7 @@ export async function forgotPasswordAction(
   const { email } = parsed.values;
 
   try {
-    await requestPasswordReset(email);
+    await requestPasswordReset(email, await deviceHeaders());
   } catch (error) {
     if (isApiError(error)) {
       if (error.status === 429) {

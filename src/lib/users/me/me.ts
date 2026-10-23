@@ -7,6 +7,7 @@ import "server-only";
 
 import { request } from "@/lib/api/client/client";
 import { serverApi } from "@/lib/api/server/server";
+import type { DeviceHeaders } from "@/lib/auth/device/device";
 
 // Hand-written from the backend's UserResponse. Nothing is marked `required`
 // in openapi.json, so every field is optional and narrowed where it is used.
@@ -26,10 +27,14 @@ const PATH = "/api/users/me";
 /**
  * Reads the profile with an explicit token, before a session cookie exists.
  *
+ * @param device Device headers, so this read is attributed to the end user.
  * @throws ApiError on any non-2xx.
  */
-export async function fetchProfile(accessToken: string): Promise<CurrentUser> {
-  return request<CurrentUser>(PATH, { accessToken });
+export async function fetchProfile(
+  accessToken: string,
+  device: DeviceHeaders = {},
+): Promise<CurrentUser> {
+  return request<CurrentUser>(PATH, { accessToken, headers: device });
 }
 
 /**

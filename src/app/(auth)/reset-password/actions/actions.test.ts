@@ -2,6 +2,12 @@ import { http, HttpResponse } from "msw";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.9" }),
+}));
+
 const clearSession = vi.fn(async () => {});
 
 vi.mock("@/lib/auth/session/session", () => ({
@@ -151,5 +157,21 @@ describe("resetPasswordAction failure", () => {
     const state = await resetPasswordAction(EMPTY, form(GOOD));
 
     expect(state.error).toBe("Too many attempts. Please try again in 2 minutes.");
+  });
+});
+
+describe("resetPasswordAction device attribution", () => {
+  it("carries the end user's address", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/reset-password`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({ success: true, message: "Password reset.", data: null });
+      }),
+    );
+
+    await redirectedTo(form(GOOD));
+
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
   });
 });

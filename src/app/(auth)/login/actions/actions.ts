@@ -56,7 +56,7 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
     // Not a failure but a step: send a fresh code and move them on.
     if (isEmailUnverified(error)) {
       // A rate-limited resend must not block the redirect.
-      await resendVerification(email).catch(() => {});
+      await resendVerification(email, await deviceHeaders()).catch(() => {});
       unverified = true;
     } else if (isApiError(error)) {
       if (error.status === 429) {

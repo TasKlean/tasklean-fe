@@ -8,7 +8,14 @@ import { server } from "@/test/msw";
 const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock("@/lib/auth/session/session", () => ({ getSession }));
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "device-5" }) }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.4" }),
+}));
+
 const BASE = "http://api.test";
+const HOP_SECRET = "server-test-hop-secret-at-least-32-chars";
 
 const session: Session = {
   accessToken: "access-token-value",
@@ -20,6 +27,7 @@ const session: Session = {
 beforeAll(() => {
   process.env.API_BASE_URL = BASE;
   process.env.SESSION_SECRET = "a".repeat(32);
+  process.env.BFF_HOP_SECRET = HOP_SECRET;
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID = "client-id.apps.googleusercontent.com";
 });
 
@@ -107,5 +115,57 @@ describe("serverApi", () => {
 
     await serverApi("/api/tasks", { method: "POST", query: { groupId: 7 }, body: { name: "x" } });
     expect(new URL(seenUrl).searchParams.get("groupId")).toBe("7");
+  });
+});
+
+describe("serverApi device headers", () => {
+  function seeing(seen: { headers?: Headers }) {
+    return http.get(`${BASE}/api/users/me`, ({ request: req }) => {
+      seen.headers = req.headers;
+      return HttpResponse.json({ success: true, data: { uid: "u1" } });
+    });
+  }
+
+  it("carries the device id, the browser user agent and the end user's address", async () => {
+    getSession.mockResolvedValue(session);
+    const seen: { headers?: Headers } = {};
+    server.use(seeing(seen));
+
+    await serverApi("/api/users/me");
+
+    expect(seen.headers?.get("x-device-id")).toBe("device-5");
+    expect(seen.headers?.get("x-device-user-agent")).toBe("Vitest UA");
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.4");
+    expect(seen.headers?.get("x-internal-hop")).toBe(HOP_SECRET);
+  });
+
+  it("refuses a caller's own address and hop secret", async () => {
+    getSession.mockResolvedValue(session);
+    const seen: { headers?: Headers } = {};
+    server.use(seeing(seen));
+
+    await serverApi("/api/users/me", {
+      headers: { "X-Device-Ip": "1.2.3.4", "X-Internal-Hop": "guessed-secret" },
+    });
+
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.4");
+    expect(seen.headers?.get("x-internal-hop")).toBe(HOP_SECRET);
+  });
+
+  it("keeps a caller header that is not a device header", async () => {
+    getSession.mockResolvedValue(session);
+    const seen: { headers?: Headers } = {};
+    server.use(seeing(seen));
+
+    await serverApi("/api/users/me", { headers: { "X-Request-Note": "kept" } });
+
+    expect(seen.headers?.get("x-request-note")).toBe("kept");
+    expect(seen.headers?.get("x-device-id")).toBe("device-5");
+  });
+
+  it("sends no device headers when the session is gone", async () => {
+    getSession.mockResolvedValue(null);
+
+    await expect(serverApi("/api/users/me")).rejects.toBeInstanceOf(SessionExpiredError);
   });
 });

@@ -2,6 +2,11 @@ import { http, HttpResponse } from "msw";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
 
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: () => undefined }),
+  headers: async () => new Headers(),
+}));
+
 vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({
     accessToken: "session-token",

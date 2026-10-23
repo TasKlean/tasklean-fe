@@ -74,7 +74,7 @@ export async function resendAction(
   const { email } = parsed;
 
   try {
-    await resendVerification(email);
+    await resendVerification(email, await deviceHeaders());
   } catch (error) {
     if (isApiError(error)) {
       if (error.status === 429) {

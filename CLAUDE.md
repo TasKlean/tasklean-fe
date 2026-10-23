@@ -436,12 +436,15 @@ routes are `noindex` via the `(auth)` layout.
   revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which
   cannot reach `localStorage`. `auth/device/device.ts` owns the cookie and builds the headers the
   backend reads: `X-Device-Id`, `X-Device-User-Agent` (the real browser UA, since the transport one
-  on this hop is Node's), `X-Device-Ip` and `X-Internal-Hop`. They ride on login, Google,
-  verify-email, refresh and every `/api/devices` call, the last because `currentDevice` is resolved
-  from the header. Logout sends them too, but derives the device from the token's own binding, not
-  from what we send.
-  Proxy mints only on the auth screens and for signed-in requests, never for an anonymous reader of
-  the marketing page.
+  on this hop is Node's), `X-Device-Ip` and `X-Internal-Hop`. **Nothing reaches the backend without
+  them.** `serverApi()` attaches all four to every authenticated call, so no module passes them by
+  hand. The calls outside a session take them as a parameter, because there is no session to read
+  them from: register, both password-reset steps, resend-verification, every sign-in exchange,
+  `startSession`'s profile and preferences reads, and the refresh and theme reads Proxy makes, which
+  use `deviceHeadersFor` since `next/headers` is unreachable there. Logout sends them too, but
+  derives the device from the token's own binding, not from what we send. Proxy mints the id only on
+  the auth screens and for signed-in requests, never for an anonymous reader of the marketing
+  page.
 - **The end user's address is forwarded explicitly, and `CF-Connecting-IP` is the only safe source.**
   Every API call is a server-to-server hop, so the backend's own socket sees Cloudflare's edge, which
   is what the devices screen used to list. `X-Device-Ip` carries the real address and `X-Internal-Hop`
@@ -457,7 +460,9 @@ routes are `noindex` via the `(auth)` layout.
   cookies can only be written in Proxy, a Route Handler or a Server Action — **never in a Server
   Component render**.
 - **`serverApi()` is session-aware; `request()` is raw.** `serverApi` throws `SessionExpiredError` on
-  `401` and deliberately does not refresh. `403` passes through as `ApiError`.
+  `401` and deliberately does not refresh. `403` passes through as `ApiError`. It also attaches the
+  device headers, and spreads them **last**, so no caller can substitute its own address or the
+  secret vouching for it.
 - **`credentialCheck: true` is the one opt-out, and only `/api/account` uses it.** Those endpoints
   verify a password or a Google token we just sent, and the backend answers a wrong one with `401`
   carrying no code, so without the flag a typo would sign the person out.

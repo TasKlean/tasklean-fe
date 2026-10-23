@@ -20,7 +20,6 @@ import type {
   TwoFactorStatusResponse,
 } from "@/lib/account/two-factor/two-factor.types";
 import { serverApi } from "@/lib/api/server/server";
-import { deviceHeaders } from "@/lib/auth/device/device";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 
 const PATH = "/api/account/2fa";
@@ -112,12 +111,9 @@ export async function startTwoFactorSetup(password?: string): Promise<TwoFactorS
  */
 export async function enableTwoFactor(code: string): Promise<TwoFactorEnabled> {
   const body: TwoFactorEnableRequest = { code };
-  // Without the device headers the new pair binds to a new device row, and this
-  // browser gets emailed a new-sign-in notice about itself.
   const response = await serverApi<TwoFactorEnableResponse>(`${PATH}/enable`, {
     method: "POST",
     body,
-    headers: await deviceHeaders(),
     credentialCheck: true,
   });
 
@@ -145,12 +141,9 @@ export async function enableTwoFactor(code: string): Promise<TwoFactorEnabled> {
  * no second factor to turn off.
  */
 export async function disableTwoFactor(code: string, password?: string): Promise<SignedInTokens> {
-  // Without the device headers the new pair binds to a new device row, and this
-  // browser gets emailed a new-sign-in notice about itself.
   const response = await serverApi<AuthResponse>(`${PATH}/disable`, {
     method: "POST",
     body: confirmBody(code, password),
-    headers: await deviceHeaders(),
     credentialCheck: true,
   });
 

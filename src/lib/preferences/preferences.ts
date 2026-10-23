@@ -7,6 +7,7 @@ import "server-only";
 
 import { request } from "@/lib/api/client/client";
 import { serverApi } from "@/lib/api/server/server";
+import type { DeviceHeaders } from "@/lib/auth/device/device";
 import {
   asLocale,
   asTheme,
@@ -24,10 +25,15 @@ function toPreferences(response: PreferencesResponse | undefined): Preferences {
 /**
  * Reads the preferences with an explicit token, before a session cookie exists.
  *
+ * @param device Device headers, so this read is throttled against the end user
+ * rather than against our server, which every browser would then share.
  * @throws ApiError on any non-2xx.
  */
-export async function fetchPreferences(accessToken: string): Promise<Preferences> {
-  return toPreferences(await request<PreferencesResponse>(PATH, { accessToken }));
+export async function fetchPreferences(
+  accessToken: string,
+  device: DeviceHeaders = {},
+): Promise<Preferences> {
+  return toPreferences(await request<PreferencesResponse>(PATH, { accessToken, headers: device }));
 }
 
 /**

@@ -8,6 +8,7 @@ import "server-only";
 
 import { request } from "@/lib/api/client/client";
 import type { ForgotPasswordRequest, ResetPasswordRequest } from "@/lib/auth/auth.types";
+import type { DeviceHeaders } from "@/lib/auth/device/device";
 
 /**
  * Asks for a reset link.
@@ -16,11 +17,16 @@ import type { ForgotPasswordRequest, ResetPasswordRequest } from "@/lib/auth/aut
  * not the account exists, and emails a Google-only account a "nothing to reset"
  * notice instead, so a caller must never imply that a link went out.
  *
+ * @param device Device headers, so the backend attributes this to the end user
+ * rather than to our server.
  * @throws ApiError only on a transport or rate-limit failure.
  */
-export async function requestPasswordReset(email: string): Promise<void> {
+export async function requestPasswordReset(
+  email: string,
+  device: DeviceHeaders = {},
+): Promise<void> {
   const body: ForgotPasswordRequest = { email };
-  await request<unknown>("/api/auth/forgot-password", { method: "POST", body });
+  await request<unknown>("/api/auth/forgot-password", { method: "POST", body, headers: device });
 }
 
 /**
@@ -33,7 +39,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
  * @throws ApiError on failure. Unknown, already spent and expired tokens are
  * one indistinguishable 401, by design.
  */
-export async function completePasswordReset(token: string, newPassword: string): Promise<void> {
+export async function completePasswordReset(
+  token: string,
+  newPassword: string,
+  device: DeviceHeaders = {},
+): Promise<void> {
   const body: ResetPasswordRequest = { token, newPassword };
-  await request<unknown>("/api/auth/reset-password", { method: "POST", body });
+  await request<unknown>("/api/auth/reset-password", { method: "POST", body, headers: device });
 }

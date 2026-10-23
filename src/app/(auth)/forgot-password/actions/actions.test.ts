@@ -1,6 +1,12 @@
 import { http, HttpResponse } from "msw";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { server } from "@/test/msw";
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  headers: async () =>
+    new Headers({ "user-agent": "Vitest UA", "cf-connecting-ip": "203.0.113.9" }),
+}));
 import {
   forgotPasswordAction,
   type ForgotPasswordState,
@@ -97,5 +103,21 @@ describe("forgotPasswordAction failure", () => {
     const state = await forgotPasswordAction(EMPTY, form({ email: "a@b.test" }));
 
     expect(state.error).toBe("Mail is down.");
+  });
+});
+
+describe("forgotPasswordAction device attribution", () => {
+  it("carries the end user's address", async () => {
+    const seen: { headers?: Headers } = {};
+    server.use(
+      http.post(`${BASE}/api/auth/forgot-password`, ({ request }) => {
+        seen.headers = request.headers;
+        return HttpResponse.json({ success: true, message: "Sent.", data: null });
+      }),
+    );
+
+    await forgotPasswordAction(EMPTY, form({ email: "maja@example.com" }));
+
+    expect(seen.headers?.get("x-device-ip")).toBe("203.0.113.9");
   });
 });
