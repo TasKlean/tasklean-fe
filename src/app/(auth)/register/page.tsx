@@ -16,7 +16,7 @@ export default async function RegisterPage() {
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
 
   return (
-    <div className="gap-space-lg flex flex-col">
+    <div className="gap-space-md flex flex-col">
       <BackLink />
 
       <header className="gap-space-xs flex flex-col">

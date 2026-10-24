@@ -144,3 +144,22 @@ describe("LoginForm password reset", () => {
     );
   });
 });
+
+describe("LoginForm focus order", () => {
+  it("tabs from the email field into the password field, not past it", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.tab();
+    expect(screen.getByLabelText("Email address")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByLabelText("Password")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Show password" })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("link", { name: "Forgot password?" })).toHaveFocus();
+  });
+});

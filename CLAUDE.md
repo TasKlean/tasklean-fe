@@ -270,7 +270,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
   design's Material Symbols. `aria-hidden` when a text label says the same thing.
 - **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
-  labelled. Check phone, tablet and desktop — tablet is the one that gets skipped.
+  labelled. Check phone, tablet and desktop. Tablet is the one that gets skipped.
+- **Full height is `min-h-svh`, never `dvh`.** A dynamic viewport grows when the phone address bar
+  hides, which leaves the page a few pixels scrollable and shifts centred content. Reasoning in the
+  bible.
 - **Motion is opt-out.** Anything that moves sits behind `motion-safe:` or a
   `prefers-reduced-motion` check, and anything cursor-driven ignores a `pointerType` other than
   `mouse`. Tailwind wraps `hover:` in `@media (hover: hover)` already, so a tap never sticks. A
@@ -288,6 +291,13 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   last box: those fields are read with `getAll` into a list, as `notifications/actions/actions.ts` does.
 - **A field shows only its first unmet rule.** Zod reports every failed check; the order in
   `rules.ts` is therefore the order a user is asked to fix things.
+- **A required field is marked with a `*`, and nothing marks an optional one.** `TextField` renders
+  it from the input's own `required`, outside the `<label>` and `aria-hidden`: the native attribute
+  is what a screen reader announces, and an asterisk inside the label would change the accessible
+  name and break every `getByLabelText`.
+- **A `labelAction` renders after the input, not before it.** It sits on the label row but comes
+  later in source order and is placed back with `absolute`, so tab leads into the field rather than
+  past it. "Forgot password?" on the login screen is the one that proved it.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
@@ -544,7 +554,8 @@ routes are `noindex` via the `(auth)` layout.
   holds a session.
 - **Password policy** lives in `validation/password/policy/policy.ts` and the **frontend is the spec**;
   the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
-  guessable password is rejected. Enforced at register, never at login. Both sides run the same
+  guessable password is rejected. Enforced at register, never at login. `PASSWORD_HINT` in the same
+  module is the one line the three password forms show, so the copy cannot drift from the rules. Both sides run the same
   vectors: `src/test/password-policy-vectors.json` is a verbatim mirror of the backend's canonical
   copy, so changing the policy means editing both implementations, both copies of the file, and
   running both suites.

@@ -44,12 +44,18 @@ export function TextField({
   const describedBy = describedById(errorId, hintId, { error, success, hint });
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2">
+    <div className="relative flex flex-col gap-1.5">
+      <div className="flex items-center gap-1">
         <label htmlFor={name} className="text-label-md text-foreground font-semibold">
           {label}
         </label>
-        {labelAction}
+        {/* Outside the label and hidden: the input's own `required` is what tells
+            a screen reader, so repeating it would read the field twice. */}
+        {input.required ? (
+          <span aria-hidden className="text-destructive text-label-md">
+            *
+          </span>
+        ) : null}
       </div>
 
       <div className="relative flex items-center">
@@ -81,6 +87,10 @@ export function TextField({
 
         {trailing ? <span className="absolute right-2 flex items-center">{trailing}</span> : null}
       </div>
+
+      {/* After the input in source order, so tab leads into the field rather
+          than past it, then placed back on the label row. */}
+      {labelAction ? <div className="absolute top-0 right-0">{labelAction}</div> : null}
 
       <FieldMessage errorId={errorId} hintId={hintId} error={error} success={success} hint={hint} />
 

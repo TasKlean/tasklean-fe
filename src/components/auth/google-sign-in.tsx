@@ -22,7 +22,7 @@ export function GoogleSignIn({ intent, nonceHash, next }: Readonly<GoogleSignInP
   if (!nonceHash) return null;
 
   return (
-    <div className="gap-space-lg py-space-md flex flex-col">
+    <div className="gap-space-lg flex flex-col">
       <OrDivider />
 
       <GoogleButton

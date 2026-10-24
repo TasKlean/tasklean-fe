@@ -14,7 +14,7 @@ export default async function PublicLayout({ children }: LayoutProps<"/">) {
   const name = session?.name ?? null;
 
   return (
-    <div className="bg-background flex min-h-dvh flex-col">
+    <div className="bg-background flex min-h-svh flex-col">
       <SiteHeader signedIn={session !== null} name={name} photoUrl={session?.photoUrl ?? null} />
       <main className="flex-1">{children}</main>
       <SiteFooter signedIn={session !== null} name={name} />

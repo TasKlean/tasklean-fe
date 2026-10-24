@@ -1513,6 +1513,13 @@ workaround **before** the feature depending on it gets built.
     keeps that entry at the front all the way to the origin. Anything deriving identity or a
     rate-limit key from it is reading attacker input. `CF-Connecting-IP` is set at the edge from the
     TCP peer and holds exactly one address.
+24. **`100dvh` moves under a phone address bar.** The bar hides the moment a page scrolls, which
+    grows the dynamic viewport, so a `min-h-dvh` box is taller than the area a reader can see while
+    the bar is up. Every full-height screen is then a few pixels scrollable, and a refresh restores
+    those pixels, so the page appears to jump once it has loaded. Centred content is where it shows
+    worst: any height change moves the card. `svh` is the smallest viewport and never changes, and
+    the strip it leaves uncovered when the bar hides paints `body`'s own background, so nothing
+    shows through.
 
 ---
 

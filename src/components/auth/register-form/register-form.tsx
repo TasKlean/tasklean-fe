@@ -13,7 +13,7 @@ import { PasswordField } from "@/components/common/password-field";
 import { PasswordStrengthMeter } from "@/components/common/password-strength-meter";
 import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field/text-field";
-import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password/policy/policy";
+import { PASSWORD_HINT } from "@/lib/validation/password/policy/policy";
 import { validateRegister } from "@/lib/validation/forms/register.schema/register.schema";
 
 const INITIAL: RegisterState = { error: null };
@@ -96,6 +96,7 @@ export function RegisterForm() {
           required
           autoComplete="family-name"
           placeholder="Your last name"
+          icon={<User className="size-5" />}
           value={fields.lastName}
           onChange={set("lastName")}
           onBlur={touch("lastName")}
@@ -107,7 +108,8 @@ export function RegisterForm() {
         label="Middle name"
         name="middleName"
         autoComplete="additional-name"
-        placeholder="Optional"
+        placeholder="Your middle name"
+        icon={<User className="size-5" />}
         value={fields.middleName}
         onChange={set("middleName")}
       />
@@ -131,11 +133,7 @@ export function RegisterForm() {
         name="password"
         autoComplete="new-password"
         placeholder="Enter password"
-        hint={
-          fields.password
-            ? undefined
-            : `At least ${PASSWORD_MIN_LENGTH} characters, with upper and lower case, a number and a special character`
-        }
+        hint={fields.password ? undefined : PASSWORD_HINT}
         below={<PasswordStrengthMeter password={fields.password} />}
         value={fields.password}
         onChange={set("password")}
