@@ -629,8 +629,10 @@ forwards the hash on the request as `x-tasklean-google-nonce`. The alternative, 
 fetches on mount, costs a round trip and a public endpoint for no gain. The nonce is **reused
 across requests rather than rotated**, because a link prefetch is a request too: rotating there
 would leave the visible page holding a hash the cookie no longer matches. Single use is enforced on
-the attempt instead, where the action replaces the nonce on every outcome and hands the fresh hash
-back in its state so the button rebuilds around it rather than needing a reload. Only the Google
+the attempt instead, and **only a success spends it**: the cookie is deleted once the backend has
+accepted the credential. A refused attempt deliberately keeps its nonce, because the widget cannot
+be handed a different one without a new document (gotcha 25). The one exception is an attempt that
+finds no nonce at all, which mints a replacement and costs the widget a reload. Only the Google
 action spends a nonce, so a password login would otherwise leave one behind until it expired: Proxy
 drops it on the first signed-in request, keeping the whole lifecycle in the file that mints it.
 
@@ -1520,6 +1522,14 @@ workaround **before** the feature depending on it gets built.
     worst: any height change moves the card. `svh` is the smallest viewport and never changes, and
     the strip it leaves uncovered when the bar hides paints `body`'s own background, so nothing
     shows through.
+25. **`google.accounts.id.initialize()` cannot be called twice in one document.** Google logs that
+    only the last call counts, but the credential it then mints can still carry the **first** call's
+    nonce, and the backend compares that claim against our cookie and answers "Invalid Google
+    token". Signing in with Google, signing out and trying again is the path that hits it: the
+    sign-in spent the nonce, `/login` minted a fresh one, and `redirect()` is a soft navigation, so
+    the JavaScript that already configured Google was still alive. Proved by a hard refresh of the
+    same screen fixing it every time. A new nonce therefore needs a new document, which is what
+    `gisNonceIsStale` reports and the widget acts on by reloading.
 
 ---
 

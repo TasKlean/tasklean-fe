@@ -26,6 +26,7 @@ import {
   announceGis,
   configureGis,
   gisIsReady,
+  gisNonceIsStale,
   GSI_SRC,
   setGisHandler,
   subscribeToGis,
@@ -59,8 +60,8 @@ export function GoogleButton({
   // to this screen would otherwise wait for an event that never comes.
   const ready = useSyncExternalStore(subscribeToGis, gisIsReady, () => false);
 
-  // A spent nonce cannot sign anyone in, so a failed attempt hands back the
-  // hash of its replacement and the widget is rebuilt around it.
+  // A refused attempt keeps its nonce, so this normally stays the one Proxy
+  // minted. A replacement only arrives when there was none to keep.
   const activeNonce = state.nonceHash ?? nonceHash;
 
   const submit = useCallback(
@@ -91,6 +92,13 @@ export function GoogleButton({
   useEffect(() => {
     const node = slot.current;
     if (!ready || !node || width === 0) return;
+
+    // A new nonce cannot reach a configured GIS, so the document is replaced
+    // rather than initialized a second time.
+    if (gisNonceIsStale(clientId, activeNonce)) {
+      window.location.reload();
+      return;
+    }
 
     const api = configureGis(clientId, activeNonce);
     if (!api) return;

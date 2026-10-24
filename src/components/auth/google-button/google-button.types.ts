@@ -33,8 +33,8 @@ export type GoogleIdApi = {
   renderButton: (parent: HTMLElement, options: GoogleRenderOptions) => void;
 };
 
-// What either Google action hands back. The hash belongs to the nonce minted
-// for the next attempt, because this one is spent whatever the outcome.
+// What either Google action hands back. A hash arrives only when the attempt
+// found no nonce at all, and the widget reloads the page to take it up.
 export type GoogleActionState = {
   error: string | null;
   nonceHash?: string;

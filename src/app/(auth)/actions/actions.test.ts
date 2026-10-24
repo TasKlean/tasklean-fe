@@ -103,23 +103,23 @@ describe("googleSignInAction nonce", () => {
     expect(jar.has("tasklean_google_nonce")).toBe(false);
   });
 
-  it("replaces the nonce after a failure, and hands back its hash", async () => {
+  it("keeps the nonce after a failure, so the widget keeps the one it has", async () => {
     fail("Invalid Google token");
 
     const state = await googleSignInAction(EMPTY, form({ idToken: "google-token" }));
 
-    expect(jar.get("tasklean_google_nonce")).toMatch(/^[0-9a-f]{64}$/);
-    expect(jar.get("tasklean_google_nonce")).not.toBe("raw-nonce-1");
-    expect(state.nonceHash).toBe(await hashNonce(jar.get("tasklean_google_nonce") ?? ""));
+    expect(jar.get("tasklean_google_nonce")).toBe("raw-nonce-1");
+    expect(state.nonceHash).toBeUndefined();
   });
 
-  it("refuses to call the API with no nonce at all", async () => {
+  it("mints one when there is no nonce at all, and hands back its hash", async () => {
     jar.clear();
 
     const state = await googleSignInAction(EMPTY, form({ idToken: "google-token" }));
 
     expect(state.error).toBe("That sign-in attempt expired. Please try again.");
-    expect(state.nonceHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(jar.get("tasklean_google_nonce")).toMatch(/^[0-9a-f]{64}$/);
+    expect(state.nonceHash).toBe(await hashNonce(jar.get("tasklean_google_nonce") ?? ""));
   });
 });
 
@@ -182,7 +182,7 @@ describe("googleSignInAction failure", () => {
 });
 
 describe("googleSignInAction rate limiting", () => {
-  it("turns a 429 into a retry window and rearms the nonce", async () => {
+  it("turns a 429 into a retry window and keeps the nonce", async () => {
     server.use(
       http.post(`${BASE}/api/auth/google`, () =>
         HttpResponse.json(
@@ -195,7 +195,7 @@ describe("googleSignInAction rate limiting", () => {
     const state = await googleSignInAction(EMPTY, form({ idToken: "google-token" }));
 
     expect(state.error).toBe("Too many attempts. Please try again in 2 minutes.");
-    expect(state.nonceHash).toBe(await hashNonce(jar.get("tasklean_google_nonce") ?? ""));
+    expect(jar.get("tasklean_google_nonce")).toBe("raw-nonce-1");
     expect(setSession).not.toHaveBeenCalled();
   });
 });

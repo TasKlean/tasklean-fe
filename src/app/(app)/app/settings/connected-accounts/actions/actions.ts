@@ -1,7 +1,7 @@
 /**
  * The connected accounts section's Server Actions: linking a Google account to this
  * one, and unlinking it. Linking runs the same credential exchange as signing
- * in, so it owns the nonce's single use the same way.
+ * in, so it owns the nonce's single use the same way: only a success spends it.
  */
 
 "use server";
@@ -29,12 +29,13 @@ const CONNECTED_ACCOUNTS_PATH = "/app/settings/connected-accounts";
 const NO_NONCE = "That attempt expired. Please try again.";
 
 /**
- * Replaces the spent nonce so the widget on screen stays usable.
+ * Mints a nonce for an attempt that found none, so the screen works again.
  *
  * Kept here rather than in `google-nonce.ts`, which Proxy imports and which
- * therefore cannot reach for `cookies()`.
+ * therefore cannot reach for `cookies()`. Only that branch needs it: a hash the
+ * widget has not seen costs it a reload, so a refused attempt keeps its own.
  *
- * @returns The hash of the fresh nonce, for Google's next credential.
+ * @returns The hash of the fresh nonce.
  */
 async function rearmNonce(): Promise<string> {
   const nonce = createNonce();
@@ -50,7 +51,7 @@ export async function linkGoogleAction(
   // The sign-in schema fits: a credential plus the `next` this one ignores.
   const parsed = parseGoogleSignIn(Object.fromEntries(formData));
   if (!parsed.ok) {
-    return { error: parsed.errors.idToken ?? GENERIC_FAILURE, nonceHash: await rearmNonce() };
+    return { error: parsed.errors.idToken ?? GENERIC_FAILURE };
   }
 
   const store = await cookies();
@@ -60,7 +61,7 @@ export async function linkGoogleAction(
   try {
     await linkGoogle(parsed.values.idToken, nonce);
   } catch (error) {
-    return { error: actionFailureMessage(error), nonceHash: await rearmNonce() };
+    return { error: actionFailureMessage(error) };
   }
 
   store.delete(NONCE_COOKIE_NAME);

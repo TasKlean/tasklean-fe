@@ -497,9 +497,11 @@ routes are `noindex` via the `(auth)` layout.
   the raw value into an httpOnly cookie and forwards only its **lowercase hex SHA-256** to the page,
   which hands that hash to Google; the action sends the **raw** value to the backend, which rehashes
   and compares. Sending the hash to the backend would make a stolen token replayable. The nonce is
-  single use: every outcome of an attempt replaces it, and the action returns the new hash so the
-  button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
-  first signed-in request.
+  single use, and **only a success spends it**: a refused attempt keeps its own, because
+  `google.accounts.id.initialize()` cannot be called twice in one document and a second call lets
+  Google mint a credential the backend refuses. An attempt that finds no nonce at all mints one and
+  hands back its hash, and the widget reloads the page to take it up. A session makes it pointless,
+  so Proxy drops a leftover one on the first signed-in request.
 - **A sign-in can end in a challenge instead of a session.** `login` and `google` answer with
   `twoFactorRequired` and a `challengeToken` and no tokens at all when the account has a second
   factor, so both return a `SignInOutcome` union and `signin/outcome/outcome.ts` is the only place that

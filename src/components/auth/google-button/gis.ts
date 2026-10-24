@@ -48,18 +48,20 @@ export function setGisHandler(handler: (response: GoogleCredentialResponse) => v
 /**
  * Configures Google once per client id and nonce, and returns its API.
  *
- * @returns The API, or null while the script has not defined it.
+ * Never initializes twice over one API object: `gisNonceIsStale` reports that
+ * case, and only a fresh document can clear it.
+ *
+ * @returns The API, or null while the script has not defined it or this
+ * document already holds another nonce.
  */
 export function configureGis(clientId: string, nonceHash: string): GoogleIdApi | null {
   const api = window.google?.accounts.id;
   if (!api) return null;
   // A replaced API object means a fresh script, so the old call no longer counts.
-  if (
-    gisConfiguredFor?.clientId === clientId &&
-    gisConfiguredFor.nonceHash === nonceHash &&
-    gisConfiguredFor.api === api
-  ) {
-    return api;
+  if (gisConfiguredFor?.api === api) {
+    const unchanged =
+      gisConfiguredFor.clientId === clientId && gisConfiguredFor.nonceHash === nonceHash;
+    return unchanged ? api : null;
   }
 
   api.initialize({
@@ -69,4 +71,19 @@ export function configureGis(clientId: string, nonceHash: string): GoogleIdApi |
   });
   gisConfiguredFor = { clientId, nonceHash, api };
   return api;
+}
+
+/**
+ * Reports whether this document already configured Google with another nonce.
+ *
+ * Google refuses a second `initialize()`: it warns that only the last call
+ * counts, and the credential it then mints can still carry the first nonce,
+ * which the backend compares against our cookie and refuses. Signing out and
+ * back in with Google is the path that hits it, since the spent nonce is
+ * replaced while the page's JavaScript lives on.
+ */
+export function gisNonceIsStale(clientId: string, nonceHash: string): boolean {
+  const api = window.google?.accounts.id;
+  if (!api || gisConfiguredFor?.api !== api) return false;
+  return gisConfiguredFor.clientId !== clientId || gisConfiguredFor.nonceHash !== nonceHash;
 }
