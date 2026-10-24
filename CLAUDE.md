@@ -250,6 +250,11 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
   genuinely dynamic value. Extract a component, not an `@apply` class.
+- **Two utilities for one property fight in the stylesheet, not in the class list.** `items-end`
+  beside `items-center`, or `font-bold` beside a `text-label-*` token that already carries a weight,
+  resolves by Tailwind's own output order and the class attribute has no say. Set each property in
+  one place: a shared constant states the grid while each row states its own alignment, and a weight
+  goes on a nested element that sets nothing else.
 - **Every colour, radius and font is a token** in `src/app/globals.css`, named by role (`card`,
   `muted-foreground`, `destructive`) never by appearance. Never hard-code a hex or rem elsewhere.
   **[DESIGN.md](DESIGN.md) is the design authority**; `globals.css` implements it. Token names are
