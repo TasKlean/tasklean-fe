@@ -163,7 +163,8 @@ src/
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
-                       language-form, notifications-form, notification-toggle,
+                       language-form with locale-select (the dropdown, ours not
+                       the platform's), notifications-form, notification-toggle,
                        switch-track, two-factor-method (the shell every method shares),
                        two-factor-card, two-factor-enroll, two-factor-manage,
                        two-factor-confirm, recovery-codes
@@ -323,9 +324,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A `select` or a checkbox whose value lives in React state cancels the form reset.** React resets
   a form's DOM once its action answers, and never rewrites a controlled value it did not change, so
   the control keeps the reset value while state disagrees. `onReset={(event) => event.preventDefault()}`
-  is the fix, and the language select and the notification switches carry it. **A text input does
+  is the fix, and the notification switches carry it. **A text input does
   not need it**: React writes its value into the attribute, which is what a reset restores, so the
-  two-factor code survives a refusal with nothing added.
+  two-factor code survives a refusal with nothing added. A **hidden input** behaves the same way,
+  which is why the language field dropped the guard when its native `select` went.
 - **A complete code submits its own form.** `CodeInput` calls `requestSubmit()` from an effect once
   six digits are in, so the form's own validation and action still run. It fires on a keystroke or a
   paste, never on a code that arrived with the component: a prefilled one, as the email link's is, is
@@ -347,6 +349,12 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   holds every value, the batch answers with the backend's own re-read, and a dynamic route fetched
   with `no-store` has no cached copy to invalidate. A reminder appears the moment the draft differs from what is saved,
   and a refused save keeps the draft so it can be sent again.
+- **A dropdown is ours, not the platform's.** `LocaleSelect` is the one there is: a button plus a
+  `role="listbox"`, focus kept on the button with `aria-activedescendant`, and the value posted by a
+  hidden input. Two rules make it work: the popup cancels `mousedown`, or the button blurs and the
+  list closes before a press lands, and Enter and Space cancel the default, or the browser fires a
+  click that toggles a second time. The cost is that it needs JavaScript, where a native `select`
+  did not.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone. It is an outlined red pill

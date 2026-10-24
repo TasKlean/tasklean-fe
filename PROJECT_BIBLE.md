@@ -1261,15 +1261,37 @@ was right and only the DOM was wrong.
 
 Remounting the field does not fix it, because the reset lands after the commit. The fix is to cancel
 the reset, `onReset={(event) => event.preventDefault()}`, on any form whose values live in React
-state. The language select and the notification switches both carry it. A form that wants its fields
-emptied on success, like the password form, still does that from state, where it can be read.
+state. The notification switches carry it. A form that wants its fields emptied on success, like
+the password form, still does that from state, where it can be read.
 
 **It is not every controlled field, and the two-factor form proved it.** A reset restores each
 control's default, and React writes a text input's value into the `value` attribute, which is that
 default, so a text field comes back unchanged. A `select` has no `selected` option written and falls
 back to the first one; a checkbox has no `checked` attribute written and falls back to unchecked.
 That is the whole difference, and it is why the code prompt keeps a refused code on screen with
-nothing added, while the language picker could not.
+nothing added, while the language picker could not while it was a `select`. A hidden input is a text
+input for this purpose, so the language field dropped the guard when the native control went.
+
+### The one dropdown in the app is ours
+
+The language picker started as a native `select`, on the reasoning that it is the control a phone
+already knows how to present. That held until the screen was looked at: the OS menu cannot be
+themed, so the one control on a settings page wore the platform's surfaces while everything around
+it wore ours. `LocaleSelect` replaced it with a button and a `role="listbox"`, following the ARIA
+select-only combobox pattern: focus never leaves the button and `aria-activedescendant` names the
+active row, so there is no focus to move between options and no focus trap to build.
+
+Two details are the whole implementation, and both look like noise until they are missing. The popup
+cancels `mousedown`, because a press on a row otherwise blurs the button first, which closes the
+list before the click lands and makes the control look broken on every second attempt. And Enter and
+Space cancel their default, because a `<button>` turns both into a click, which would toggle the
+list a second time in the same keystroke.
+
+What it costs is progressive enhancement. A native `select` posts its value with JavaScript off; a
+listbox cannot be opened at all. The value rides in a hidden input so the Server Action is unchanged
+and still the authority, but a reader without JavaScript can no longer change language on that
+screen. That is accepted rather than solved: a `<noscript>` native select is the fallback if it ever
+matters.
 
 ### A finished code submits itself
 
