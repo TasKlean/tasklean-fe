@@ -76,42 +76,47 @@ export function DeviceRow({
 
   return (
     <li className="bg-card border-border/60 p-space-md gap-space-md flex flex-col rounded-xl border sm:flex-row sm:items-start">
-      <Icon className={`text-muted-foreground mt-0.5 size-5 shrink-0 ${dim}`} aria-hidden />
+      {/* A row of its own, so the icon sits beside the name while the li stacks. */}
+      <div className="gap-space-md flex min-w-0 sm:flex-1">
+        <Icon className={`text-muted-foreground mt-0.5 size-5 shrink-0 ${dim}`} aria-hidden />
 
-      <div className="gap-space-xs flex min-w-0 flex-col sm:flex-1">
-        <div className={`gap-space-xs flex flex-wrap items-center ${dim}`}>
-          <span className="text-label-lg text-foreground">{label}</span>
+        <div className="gap-space-xs flex min-w-0 flex-1 flex-col">
+          <div className={`gap-space-xs flex flex-wrap items-center ${dim}`}>
+            <span className="text-label-lg text-foreground">{label}</span>
 
-          {current ? (
-            <span className="text-label-sm bg-primary text-primary-foreground px-space-sm rounded-full py-0.5">
-              This device
+            {current ? (
+              <span className="text-label-sm bg-primary text-primary-foreground px-space-sm rounded-full py-0.5">
+                This device
+              </span>
+            ) : null}
+
+            {active ? (
+              <span className="text-label-sm bg-muted text-muted-foreground px-space-sm rounded-full py-0.5">
+                Signed in
+              </span>
+            ) : (
+              <span className="text-label-sm text-muted-foreground">Signed out</span>
+            )}
+          </div>
+
+          {ipAddress ? (
+            <span className={`text-label-sm text-muted-foreground break-all ${dim}`}>
+              Last seen from <span className="text-foreground font-bold">{ipAddress}</span>
             </span>
           ) : null}
 
-          {active ? (
-            <span className="text-label-sm bg-muted text-muted-foreground px-space-sm rounded-full py-0.5">
-              Signed in
+          {lastUsed ? (
+            <span className={`text-label-sm text-muted-foreground ${dim}`}>
+              Last used <span className="text-foreground font-bold">{lastUsed}</span>
             </span>
-          ) : (
-            <span className="text-label-sm text-muted-foreground">Signed out</span>
-          )}
+          ) : null}
+
+          {error ? (
+            <p role="alert" className="text-label-sm text-destructive-subtle-foreground">
+              {error}
+            </p>
+          ) : null}
         </div>
-
-        {ipAddress ? (
-          <span className={`text-label-sm text-muted-foreground break-all ${dim}`}>
-            Last seen from {ipAddress}
-          </span>
-        ) : null}
-
-        {lastUsed ? (
-          <span className={`text-label-sm text-muted-foreground ${dim}`}>Last used {lastUsed}</span>
-        ) : null}
-
-        {error ? (
-          <p role="alert" className="text-label-sm text-destructive-subtle-foreground">
-            {error}
-          </p>
-        ) : null}
       </div>
 
       <div className="gap-space-xs flex flex-wrap items-center sm:justify-end">{controls}</div>

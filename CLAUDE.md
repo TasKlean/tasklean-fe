@@ -341,7 +341,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   and a refused save keeps the draft so it can be sent again.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
-  which cannot be styled and reads badly on a phone.
+  which cannot be styled and reads badly on a phone. It is an outlined red pill
+  (`border-destructive/40 text-destructive hover:bg-destructive-subtle`) and the confirmation that
+  replaces it is filled, so the escalation shows. Turning two-factor off and removing a device both
+  follow it.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
