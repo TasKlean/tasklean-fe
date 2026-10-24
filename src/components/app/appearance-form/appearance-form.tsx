@@ -54,7 +54,7 @@ export function AppearanceForm({ theme }: Readonly<AppearanceFormProps>) {
         <fieldset disabled={pending}>
           <legend className="sr-only">Colour scheme</legend>
 
-          <div className="gap-space-sm grid grid-cols-3">
+          <div className="gap-space-sm grid grid-cols-1 sm:grid-cols-3">
             {THEMES.map((option) => {
               const active = chosen === option;
 
@@ -69,27 +69,38 @@ export function AppearanceForm({ theme }: Readonly<AppearanceFormProps>) {
                     setPicked(option);
                     paint(option);
                   }}
-                  className={`p-space-sm gap-space-xs focus-visible:ring-ring flex flex-col rounded-xl border text-left transition-colors focus-visible:ring-2 focus-visible:outline-none ${
+                  className={`p-space-sm gap-space-md sm:p-space-md sm:gap-space-xs focus-visible:ring-ring flex items-center rounded-xl border text-left transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex-col sm:items-stretch ${
                     active
                       ? "border-primary bg-accent/40"
                       : "border-border/60 hover:bg-muted bg-card"
                   }`}
                 >
-                  <ThemePreview theme={option} />
-
-                  <span className="gap-space-xs flex items-center">
-                    <span className="text-label-lg text-foreground">{LABELS[option].name}</span>
-
-                    {active && pending ? (
-                      <Loader2 className="text-primary size-4 animate-spin" aria-hidden />
-                    ) : null}
-
-                    {active && !pending ? (
-                      <Check className="text-primary size-4 shrink-0" aria-hidden />
-                    ) : null}
+                  {/* A thumbnail beside the text on a phone, where three of
+                      these in one row leave each option under 100px wide. */}
+                  <span className="block w-16 shrink-0 sm:w-full">
+                    <ThemePreview theme={option} />
                   </span>
 
-                  <span className="text-label-sm text-muted-foreground">{LABELS[option].hint}</span>
+                  <span className="gap-space-xs flex min-w-0 flex-1 flex-col sm:flex-none">
+                    <span className="gap-space-xs flex items-center justify-between sm:justify-start">
+                      <span className="text-label-lg text-foreground">{LABELS[option].name}</span>
+
+                      {active && pending ? (
+                        <Loader2
+                          className="text-primary size-4 shrink-0 motion-safe:animate-spin"
+                          aria-hidden
+                        />
+                      ) : null}
+
+                      {active && !pending ? (
+                        <Check className="text-primary size-4 shrink-0" aria-hidden />
+                      ) : null}
+                    </span>
+
+                    <span className="text-label-sm text-muted-foreground">
+                      {LABELS[option].hint}
+                    </span>
+                  </span>
                 </button>
               );
             })}
