@@ -34,8 +34,10 @@ const PANEL = "border-border/60 pt-space-md gap-space-md flex flex-col border-t"
 
 const LEAD = "text-body-md text-muted-foreground";
 
+// Full width on a phone, where two content-width pills wrap into a ragged
+// stack, and back to their own width once they fit on one line.
 const BUTTON =
-  "text-label-md gap-space-xs px-space-md flex min-h-11 items-center rounded-full border transition-colors";
+  "text-label-md gap-space-xs px-space-md flex min-h-11 w-full items-center justify-center rounded-full border transition-colors sm:w-auto";
 
 /** Renders the two things that can be done to a factor that is already on. */
 export function TwoFactorManage({
@@ -152,7 +154,7 @@ export function TwoFactorManage({
   }
 
   return (
-    <div className="gap-space-xs flex flex-wrap items-center">
+    <div className="gap-space-sm flex flex-col sm:flex-row sm:flex-wrap sm:items-center">
       <button
         type="button"
         onClick={() => setOpen("codes")}

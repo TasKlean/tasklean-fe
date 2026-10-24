@@ -40,34 +40,38 @@ export function TwoFactorMethod({
   children,
 }: Readonly<TwoFactorMethodProps>) {
   return (
-    <div className="bg-card border-border/60 p-space-lg gap-space-md flex flex-col rounded-xl border">
-      <div className="gap-space-sm flex flex-col sm:flex-row sm:items-start sm:justify-between">
-        <div className="gap-space-sm flex items-start">
-          <Icon
-            className={`size-5 shrink-0 ${active ? "text-success-subtle-foreground" : "text-muted-foreground"}`}
-            aria-hidden
-          />
+    <div className="bg-card border-border/60 p-space-lg gap-space-sm flex items-start rounded-xl border">
+      <Icon
+        className={`size-5 shrink-0 ${active ? "text-success-subtle-foreground" : "text-muted-foreground"}`}
+        aria-hidden
+      />
 
+      {/* One column beside the icon, so what a method offers lines up with its
+          name rather than starting at the card's own edge. */}
+      <div className="gap-space-md flex min-w-0 flex-1 flex-col">
+        {/* A row at every width: stacked, the badge is a flex item that
+            stretches across the column rather than reading as a pill. */}
+        <div className="gap-space-sm flex items-start justify-between">
           <div className="gap-space-xs flex min-w-0 flex-col">
             <p className="text-label-lg text-foreground">{name}</p>
             <p className="text-body-md text-muted-foreground">{description}</p>
           </div>
+
+          {badge ? <span className={`${BADGE} ${TONES[badge.tone]}`}>{badge.label}</span> : null}
         </div>
 
-        {badge ? <span className={`${BADGE} ${TONES[badge.tone]}`}>{badge.label}</span> : null}
+        {available ? (
+          children
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="text-label-md px-space-md border-border/60 text-muted-foreground flex min-h-11 w-fit cursor-not-allowed items-center rounded-full border"
+          >
+            Coming soon
+          </button>
+        )}
       </div>
-
-      {available ? (
-        children
-      ) : (
-        <button
-          type="button"
-          disabled
-          className="text-label-md px-space-md border-border/60 text-muted-foreground flex min-h-11 w-fit cursor-not-allowed items-center rounded-full border"
-        >
-          Coming soon
-        </button>
-      )}
     </div>
   );
 }
