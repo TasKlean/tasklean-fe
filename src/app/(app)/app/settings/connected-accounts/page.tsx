@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { BadgeCheck } from "lucide-react";
 import { GoogleConnection } from "@/components/app/google-connection";
 import { BackLink } from "@/components/auth/back-link";
+import { GoogleMark } from "@/components/common/google-mark";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { getConnectedAccounts } from "@/lib/account/account";
@@ -52,13 +54,27 @@ export default async function ConnectedAccountsPage() {
         />
       ) : (
         <div className="bg-card border-border/60 p-space-lg gap-space-md flex flex-col rounded-xl border">
-          <div className="gap-space-xs flex flex-col">
-            <h3 className="text-title-md text-foreground">Google</h3>
-            <p className="text-body-sm text-muted-foreground">
-              {connectedAccounts.googleLinked === true
-                ? "You can sign in with Google on this account."
-                : "Link your Google account to sign in with one tap."}
-            </p>
+          {/* A row at every width, so the state reads as this account's badge
+              rather than as a banner over the control below it. */}
+          <div className="gap-space-md flex items-start justify-between">
+            <div className="gap-space-xs flex min-w-0 flex-col">
+              <h3 className="text-title-md text-foreground gap-space-sm flex items-center">
+                <GoogleMark />
+                Google
+              </h3>
+              <p className="text-body-sm text-muted-foreground">
+                {connectedAccounts.googleLinked === true
+                  ? "You can sign in with Google on this account."
+                  : "Link your Google account to sign in with one tap."}
+              </p>
+            </div>
+
+            {connectedAccounts.googleLinked === true ? (
+              <span className="text-label-sm bg-success-subtle text-success-subtle-foreground px-space-sm inline-flex shrink-0 items-center gap-1.5 rounded-full py-1">
+                <BadgeCheck className="size-4" aria-hidden />
+                Connected
+              </span>
+            ) : null}
           </div>
 
           <GoogleConnection

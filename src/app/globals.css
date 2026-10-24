@@ -102,6 +102,12 @@
   --color-qr-ink: var(--qr-ink);
   --color-qr-paper: var(--qr-paper);
 
+  /* Google's own mark, which stays Google's colours in either scheme. */
+  --color-google-blue: var(--google-blue);
+  --color-google-green: var(--google-green);
+  --color-google-yellow: var(--google-yellow);
+  --color-google-red: var(--google-red);
+
   /* Type scale. Each step carries its own line height, tracking and weight, so
    * `text-headline-md` alone is the complete heading style. */
   --text-display-lg: 2.5rem;
@@ -272,6 +278,13 @@
    * modules on a light field, and an inverted code is read less reliably. */
   --qr-ink: #000000; /* plain black, for contrast rather than for the palette */
   --qr-paper: #ffffff;
+
+  /* Google's brand mark, also not redeclared under `dark`: a logo recoloured by
+   * our scheme stops being the logo. These four are Google's, not ours. */
+  --google-blue: #4285f4;
+  --google-green: #34a853;
+  --google-yellow: #fbbc05;
+  --google-red: #ea4335;
 
   /*
    * Dark, applied when the OS asks for it or the reader chose it. DESIGN.md is

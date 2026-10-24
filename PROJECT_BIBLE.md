@@ -1170,7 +1170,10 @@ token values to support an override would have broken the rule that each colour 
 
 Four `swatch-*` tokens are deliberately **not** redeclared in the dark branch. The picker's squares
 have to show what light and dark look like while wearing whichever one is active, so those four are
-fixed in both schemes.
+fixed in both schemes. The four `google-*` tokens are fixed for a different reason: they are
+Google's brand colours, not ours, and a logo our scheme recoloured would stop being the logo. They
+are tokens rather than hex in the SVG path only so the rule that colours live in `globals.css`
+survives having a vendor's palette in the tree.
 
 **The picker is three submit buttons, not a radio group with a save.** A `name`/`value` pair on a
 submit button is ordinary HTML, so one click saves with or without JavaScript and there is no second

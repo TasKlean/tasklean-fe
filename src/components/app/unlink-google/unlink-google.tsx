@@ -7,6 +7,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Loader2, Unlink } from "lucide-react";
 import {
   type ConnectedAccountsActionState,
@@ -20,6 +21,8 @@ type UnlinkGoogleProps = {
 
 const INITIAL: ConnectedAccountsActionState = { error: null };
 
+const BLOCKED_ID = "unlink-google-blocked";
+
 const BUTTON =
   "text-label-md gap-space-xs px-space-md flex min-h-11 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -30,9 +33,30 @@ export function UnlinkGoogle({ canUnlink }: Readonly<UnlinkGoogleProps>) {
 
   if (!canUnlink) {
     return (
-      <p className="text-label-sm text-muted-foreground">
-        Set a password first. Google is the only way into this account right now.
-      </p>
+      <div className="gap-space-sm flex flex-col">
+        {/* A dead button rather than prose alone, so the copy reads as the
+            reason this control is unavailable rather than as a stray notice. */}
+        <button
+          type="button"
+          disabled
+          aria-describedby={BLOCKED_ID}
+          className={`${BUTTON} border-destructive/40 text-destructive w-fit`}
+        >
+          <Unlink className="size-4" aria-hidden />
+          Unlink
+        </button>
+
+        <p id={BLOCKED_ID} className="text-label-sm text-muted-foreground">
+          Google is the only way into this account right now.{" "}
+          <Link
+            href="/app/settings/password"
+            className="text-link hover:text-primary-strong font-semibold underline-offset-4 hover:underline"
+          >
+            Set a password
+          </Link>{" "}
+          before unlinking it.
+        </p>
+      </div>
     );
   }
 
@@ -75,7 +99,7 @@ export function UnlinkGoogle({ canUnlink }: Readonly<UnlinkGoogleProps>) {
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className={`${BUTTON} border-border/60 text-foreground hover:bg-muted w-fit`}
+          className={`${BUTTON} border-destructive/40 text-destructive hover:bg-destructive-subtle w-fit`}
         >
           <Unlink className="size-4" aria-hidden />
           Unlink

@@ -19,11 +19,14 @@ beforeEach(() => {
 });
 
 describe("UnlinkGoogle", () => {
-  it("offers nothing to press when Google is the only way in", () => {
+  it("shows unlinking as unavailable when Google is the only way in", () => {
     render(<UnlinkGoogle canUnlink={false} />);
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText(/Set a password first/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unlink" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Set a password" })).toHaveAttribute(
+      "href",
+      "/app/settings/password",
+    );
   });
 
   it("confirms in place before unlinking", async () => {

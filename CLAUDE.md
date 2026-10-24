@@ -159,7 +159,7 @@ src/
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
-                       or-divider, greeting, copy-button, qr-image
+                       or-divider, greeting, copy-button, qr-image, google-mark
     app/               signed-in chrome: app-header, settings-nav, device-row,
                        sign-out-everywhere, password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
@@ -265,7 +265,8 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   `dark:` utility run through it, so the palette is written once. `data-theme` on `<html>` is the
   override; the root layout writes it from the theme cookie, so the first paint is already right.
   The four `swatch-*` tokens are the exception that never flips: the picker has to show a scheme
-  rather than wear it.
+  rather than wear it, and so are the four `google-*` brand colours, since a logo recoloured by our
+  scheme stops being the logo.
 - **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare
   `<img>` and never `public/`, which costs the intrinsic size and the build-time blur
   placeholder. The logo has a dark-mode twin, so render `BrandMark` rather than either file.
@@ -273,7 +274,9 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   allowlists the hosts the optimizer may fetch and `Avatar` falls back to initials for anything
   else, since an unlisted host makes `next/image` throw and takes the page with it.
 - **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
-  design's Material Symbols. `aria-hidden` when a text label says the same thing.
+  design's Material Symbols. `aria-hidden` when a text label says the same thing. **A brand mark is
+  the exception**: lucide carries none, so `GoogleMark` is an inline SVG in its own component, and
+  its colours are `google-*` tokens rather than hex in the path.
 - **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
   labelled. Check phone, tablet and desktop. Tablet is the one that gets skipped.
 - **Full height is `min-h-svh`, never `dvh`.** A dynamic viewport grows when the phone address bar
@@ -348,8 +351,12 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone. It is an outlined red pill
   (`border-destructive/40 text-destructive hover:bg-destructive-subtle`) and the confirmation that
-  replaces it is filled, so the escalation shows. Turning two-factor off and removing a device both
-  follow it.
+  replaces it is filled, so the escalation shows. Turning two-factor off, removing a device and
+  unlinking Google all follow it.
+- **A control that cannot be used yet stays a disabled button, with the reason beside it.** Prose
+  where a button belongs reads as a stray notice, so the two-factor page's "Coming soon" and the
+  blocked unlink both render the real control disabled and say why underneath, the unlink linking to
+  `/app/settings/password`.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
