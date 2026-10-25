@@ -36,6 +36,7 @@ export function AllDeviceActions() {
       {asked === "signOut" ? (
         <ConfirmAction
           question="This ends every session, including this one, and returns you to the sign-in screen."
+          tone="neutral"
           label="Yes, sign out everywhere"
           pendingLabel="Signing out"
           icon={<ShieldX className="size-4" aria-hidden />}
@@ -48,6 +49,7 @@ export function AllDeviceActions() {
       {asked === "removeAll" ? (
         <ConfirmAction
           question="Removing all devices will sign you out of all of them and forget them. To add devices back, sign in with them again."
+          tone="destructive"
           label="Yes, remove all devices"
           pendingLabel="Removing"
           icon={<Trash2 className="size-4" aria-hidden />}

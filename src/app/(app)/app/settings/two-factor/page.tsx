@@ -53,8 +53,8 @@ export default async function TwoFactorPage() {
 
         <h2 className="text-headline-sm text-foreground">Two-factor authentication</h2>
         <p className="text-body-md text-muted-foreground">
-          When you sign in you are asked for a six-digit code from your authenticator app, or one of
-          your recovery codes. A stolen password is then not enough to get into your account.
+          <span className="text-foreground font-semibold">Setup 2FA</span> to secure your account
+          with another factor of authentication.
         </p>
       </div>
 
@@ -93,7 +93,7 @@ export default async function TwoFactorPage() {
             <TwoFactorMethod
               icon={Mail}
               name="Email"
-              description="A code sent to the address you sign in with."
+              description="Complete sign in with a code sent to your email account."
               available={false}
             />
           </li>
@@ -102,7 +102,7 @@ export default async function TwoFactorPage() {
             <TwoFactorMethod
               icon={MessageSquare}
               name="Text message"
-              description="A code sent to your phone number."
+              description="Complete sign in with a code sent to your phone number."
               available={false}
             />
           </li>

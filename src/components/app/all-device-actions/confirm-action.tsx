@@ -10,6 +10,8 @@ import {
 
 type ConfirmActionProps = {
   question: string;
+  // Red where the button that opened it was red, so a warning reads as one.
+  tone: "neutral" | "destructive";
   label: string;
   pendingLabel: string;
   icon: ReactNode;
@@ -18,9 +20,15 @@ type ConfirmActionProps = {
   onCancel: () => void;
 };
 
+const QUESTION: Record<ConfirmActionProps["tone"], string> = {
+  neutral: "text-body-md text-muted-foreground",
+  destructive: "text-body-md text-destructive",
+};
+
 /** Renders the question, the button that goes through with it, and a way back. */
 export function ConfirmAction({
   question,
+  tone,
   label,
   pendingLabel,
   icon,
@@ -30,7 +38,7 @@ export function ConfirmAction({
 }: Readonly<ConfirmActionProps>) {
   return (
     <>
-      <p className="text-body-md text-muted-foreground">{question}</p>
+      <p className={QUESTION[tone]}>{question}</p>
 
       <div className="gap-space-xs flex flex-wrap items-center">
         <form action={act}>

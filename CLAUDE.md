@@ -366,7 +366,9 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   which cannot be styled and reads badly on a phone. It is an outlined red pill
   (`border-destructive/40 text-destructive hover:bg-destructive-subtle`) and the confirmation that
   replaces it is filled, so the escalation shows. Turning two-factor off, removing a device and
-  unlinking Google all follow it.
+  unlinking Google all follow it, and **the warning it reveals is `text-destructive`**, the red the
+  button itself wears. A confirmation behind a neutral button stays `text-muted-foreground`, which
+  is why `ConfirmAction` is told its tone rather than guessing.
 - **A control that cannot be used yet stays a disabled button, with the reason beside it.** Prose
   where a button belongs reads as a stray notice, so the two-factor page's "Coming soon" and the
   blocked unlink both render the real control disabled and say why underneath, the unlink linking to

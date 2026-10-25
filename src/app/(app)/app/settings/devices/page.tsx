@@ -69,7 +69,7 @@ export default async function DevicesPage() {
 
         <h2 className="text-headline-sm text-foreground">Devices and sessions</h2>
         <p className="text-body-md text-muted-foreground">
-          Every browser you have signed in from. Removing one signs it out.
+          Manage the devices you have signed in with in the past.
         </p>
       </div>
 

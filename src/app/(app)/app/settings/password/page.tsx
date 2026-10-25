@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { PasswordForm } from "@/components/app/password-form/password-form";
 import { BackLink } from "@/components/auth/back-link";
@@ -18,10 +19,25 @@ export const metadata: Metadata = {
  * @param connectedAccounts Null when the read failed, where the line has to
  * stay true without knowing which case it is.
  */
-function leadFor(connectedAccounts: ConnectedAccounts | null, passwordSet: boolean): string {
+function leadFor(connectedAccounts: ConnectedAccounts | null, passwordSet: boolean): ReactNode {
   if (!connectedAccounts) return "Your password for signing in with your email address.";
-  if (passwordSet) return "Changing it signs out every other device. This one stays signed in.";
-  return "You signed up with Google. A password lets you sign in with your email address as well.";
+
+  if (passwordSet) {
+    return (
+      <>
+        <span className="text-foreground font-semibold">Change your password</span>. Doing that will
+        sign you out of all your other devices.
+      </>
+    );
+  }
+
+  return (
+    <>
+      You signed up with <span className="text-foreground font-semibold">Google</span>.{" "}
+      <span className="text-foreground font-semibold">Create a password</span> to sign in with
+      email/password as well.
+    </>
+  );
 }
 
 /** Renders the password section: changing one, or setting the first. */

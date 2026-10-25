@@ -64,7 +64,7 @@ export function UnlinkGoogle({ canUnlink }: Readonly<UnlinkGoogleProps>) {
     <div className="gap-space-sm flex flex-col">
       {confirming ? (
         <>
-          <p className="text-body-md text-muted-foreground">
+          <p className="text-body-md text-destructive">
             You will sign in with your email address and password from now on.
           </p>
 

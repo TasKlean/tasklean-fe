@@ -78,7 +78,7 @@ describe("DeviceRow removal", () => {
 
     await user.click(screen.getByRole("button", { name: /Remove Chrome on Windows/ }));
 
-    expect(screen.getByText("Remove it?")).toBeInTheDocument();
+    expect(screen.getByText("Remove device? You will be signed out of it!")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe("DeviceRow removal", () => {
     await user.click(screen.getByRole("button", { name: /Remove Chrome on Windows/ }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-    expect(screen.queryByText("Remove it?")).toBeNull();
+    expect(screen.queryByText("Remove device? You will be signed out of it!")).toBeNull();
     expect(screen.getByRole("button", { name: /Sign out/ })).toBeInTheDocument();
   });
 });

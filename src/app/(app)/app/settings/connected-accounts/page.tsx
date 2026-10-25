@@ -42,7 +42,7 @@ export default async function ConnectedAccountsPage() {
 
         <h2 className="text-headline-sm text-foreground">Connected accounts</h2>
         <p className="text-body-md text-muted-foreground">
-          The accounts you can sign in with, alongside your email address.
+          Connected accounts that let you sign in.
         </p>
       </div>
 

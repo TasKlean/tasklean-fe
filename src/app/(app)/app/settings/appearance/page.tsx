@@ -36,7 +36,7 @@ export default async function AppearancePage() {
 
         <h2 className="text-headline-sm text-foreground">Appearance</h2>
         <p className="text-body-md text-muted-foreground">
-          The colour scheme this account uses, on every browser you sign in from.
+          Choose what theme you will use. Applies on all devices this account uses.
         </p>
       </div>
 

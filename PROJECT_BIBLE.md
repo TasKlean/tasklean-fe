@@ -1228,17 +1228,19 @@ overwrite a change made elsewhere.
 
 **Language is stored, and nothing is translated yet.** The backend offers `EN`, `DE` and `SL`, the
 page saves the choice, and `<html lang>` stays `en` on purpose: a `lang` the copy does not match
-tells a screen reader to pronounce English in German. The page says plainly that English is the only
-one so far, so the control is honest rather than decorative. Translating the interface is its own
-phase, and the saved preference is what it will read.
+tells a screen reader to pronounce English in German. The page used to say plainly that English is
+the only one so far; that line was cut as too wordy for a settings screen, which leaves the control
+honest about what it saves but silent about what it does not yet change. Translating the interface
+is its own phase, and the saved preference is what it will read.
 
 ### Notification channels are saved long before anything is sent
 
 `GET /api/notification-settings` and `PUT /api/notification-settings/batch` store, per user, which
 of four events reach them in the app and by email. **Nothing delivers them yet**: no mail goes out,
 no in-app row is written, and there is no push channel in the contract even though the device table
-holds push tokens. The page says so in a line of its own, because a switch that silently does
-nothing is worse than no switch at all.
+holds push tokens. The page used to say so in a banner of its own, on the reasoning that a switch
+which silently does nothing is worse than no switch at all. The banner was cut as clutter: the
+switches stay, so until delivery ships they record a preference and nothing more.
 
 **The page edits a draft and saves it in one press.** Every switch is a real checkbox holding its
 own state, Save posts one list of type names per channel, and the action writes only the types that
@@ -1673,6 +1675,10 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   read from the saved preference rather than from the URL, since the preference is account state and
   the routes are already decided. Until then `<html lang>` stays `en`, because a `lang` the copy
   does not match is worse than none.
+- **Where support lives** — the deactivation confirmation offers "Contact our support" and points
+  at `/support`, which is not a route, so it lands on the 404. The destination is undecided: a page
+  of our own, a `mailto:` on a domain address, or a hosted help desk. Nothing warns at build,
+  because a `Link` href is not checked against the routes that exist.
 - **End-to-end testing** — whether, with what, and where it runs. Async Server Components and the
   httpOnly session both fall outside Vitest's reach. Not urgent until a flow spans several pages.
 - **Cache Components** — Next 16's newer rendering model (`cacheComponents: true`), under which

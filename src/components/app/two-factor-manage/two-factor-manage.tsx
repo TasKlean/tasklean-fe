@@ -34,6 +34,9 @@ const PANEL = "border-border/60 pt-space-md gap-space-md flex flex-col border-t"
 
 const LEAD = "text-body-md text-muted-foreground";
 
+// The red the "Turn off" button wears, so its warning reads as that button's.
+const DANGER_LEAD = "text-body-md text-destructive";
+
 // Full width on a phone, where two content-width pills wrap into a ragged
 // stack, and back to their own width once they fit on one line.
 const BUTTON =
@@ -129,7 +132,7 @@ export function TwoFactorManage({
       <div className={PANEL}>
         <div className="gap-space-xs flex flex-col">
           <h3 className="text-title-md text-foreground">Turn off two-factor</h3>
-          <p className={LEAD}>
+          <p className={DANGER_LEAD}>
             Your password alone will get into your account again. Confirm with a code from your app,
             or with a recovery code.
           </p>

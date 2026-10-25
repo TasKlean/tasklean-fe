@@ -35,9 +35,7 @@ export default async function LanguagePage() {
         </div>
 
         <h2 className="text-headline-sm text-foreground">Language</h2>
-        <p className="text-body-md text-muted-foreground">
-          The language this account uses, on every browser you sign in from.
-        </p>
+        <p className="text-body-md text-muted-foreground">The language your app speaks.</p>
       </div>
 
       {failure || !preferences ? (
@@ -46,12 +44,7 @@ export default async function LanguagePage() {
           message={failure ?? "Please try again."}
         />
       ) : (
-        <div className="bg-card border-border/60 p-space-lg gap-space-md flex flex-col rounded-xl border">
-          <p className="text-body-sm text-muted-foreground">
-            English is the only language the interface speaks so far. Your choice is saved now and
-            takes effect as the others land.
-          </p>
-
+        <div className="bg-card border-border/60 p-space-lg rounded-xl border">
           <LanguageForm locale={preferences.locale} />
         </div>
       )}

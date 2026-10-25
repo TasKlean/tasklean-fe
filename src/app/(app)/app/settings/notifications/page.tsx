@@ -36,15 +36,9 @@ export default async function NotificationsPage() {
 
         <h2 className="text-headline-sm text-foreground">Notifications</h2>
         <p className="text-body-md text-muted-foreground">
-          Where each kind of notification reaches you. Saved for this account, on every browser you
-          sign in from.
+          Manage what notifications you receive and where.
         </p>
       </div>
-
-      <p className="text-label-md text-muted-foreground bg-muted p-space-sm rounded-md">
-        Nothing is being sent yet. These choices are kept, and they will be used once notifications
-        start going out.
-      </p>
 
       {failure || !settings ? (
         <LoadError
