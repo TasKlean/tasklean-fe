@@ -134,8 +134,8 @@ src/
           notifications/  page.tsx and actions.ts: the channels each notification uses
           two-factor/  page.tsx and actions/: the methods on offer, enrolling in an
                        authenticator app, turning it off and reissuing recovery codes
-          devices/     page.tsx with page.helpers.ts, and actions/: list, sign out,
-                       remove, sign out everywhere
+          devices/     page.tsx with page.helpers.ts, and actions/: list, rename,
+                       sign out, remove, sign out everywhere, remove every device
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
           deactivate/  page.tsx and actions.ts: closing the account
@@ -159,11 +159,14 @@ src/
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
-                       or-divider, greeting, copy-button, qr-image
-    app/               signed-in chrome: app-header, settings-nav, device-row,
-                       sign-out-everywhere, password-form, google-connection,
+                       or-divider, greeting, copy-button, qr-image, google-mark
+    app/               signed-in chrome: app-header, settings-nav, device-row
+                       with device-name (the inline rename), all-device-actions
+                       (sign out everywhere and remove every device),
+                       password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
-                       language-form, notifications-form, notification-toggle,
+                       language-form with locale-select (the dropdown, ours not
+                       the platform's), notifications-form, notification-toggle,
                        switch-track, two-factor-method (the shell every method shares),
                        two-factor-card, two-factor-enroll, two-factor-manage,
                        two-factor-confirm, recovery-codes
@@ -206,10 +209,11 @@ src/
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
-                       notification type, two-factor code)
+                       notification type, two-factor code, device id, device name)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
+                       rename-device,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
                        two-factor-enable, two-factor-confirm
@@ -250,6 +254,14 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
   genuinely dynamic value. Extract a component, not an `@apply` class.
+- **The hand cursor comes from one base rule in `globals.css`**, not a `cursor-pointer` utility per
+  button: Tailwind 4's Preflight dropped it. It excludes `:disabled`, so a dead control keeps
+  `disabled:cursor-not-allowed`.
+- **Two utilities for one property fight in the stylesheet, not in the class list.** `items-end`
+  beside `items-center`, or `font-bold` beside a `text-label-*` token that already carries a weight,
+  resolves by Tailwind's own output order and the class attribute has no say. Set each property in
+  one place: a shared constant states the grid while each row states its own alignment, and a weight
+  goes on a nested element that sets nothing else.
 - **Every colour, radius and font is a token** in `src/app/globals.css`, named by role (`card`,
   `muted-foreground`, `destructive`) never by appearance. Never hard-code a hex or rem elsewhere.
   **[DESIGN.md](DESIGN.md) is the design authority**; `globals.css` implements it. Token names are
@@ -260,7 +272,8 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   `dark:` utility run through it, so the palette is written once. `data-theme` on `<html>` is the
   override; the root layout writes it from the theme cookie, so the first paint is already right.
   The four `swatch-*` tokens are the exception that never flips: the picker has to show a scheme
-  rather than wear it.
+  rather than wear it, and so are the four `google-*` brand colours, since a logo recoloured by our
+  scheme stops being the logo.
 - **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare
   `<img>` and never `public/`, which costs the intrinsic size and the build-time blur
   placeholder. The logo has a dark-mode twin, so render `BrandMark` rather than either file.
@@ -268,9 +281,14 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   allowlists the hosts the optimizer may fetch and `Avatar` falls back to initials for anything
   else, since an unlisted host makes `next/image` throw and takes the page with it.
 - **Icons from `lucide-react`** as components, never an icon font. Pick the nearest equivalent to the
-  design's Material Symbols. `aria-hidden` when a text label says the same thing.
+  design's Material Symbols. `aria-hidden` when a text label says the same thing. **A brand mark is
+  the exception**: lucide carries none, so `GoogleMark` is an inline SVG in its own component, and
+  its colours are `google-*` tokens rather than hex in the path.
 - **Mobile-first.** Narrow layout first, then widen. Touch targets ≥44px, keyboard-reachable,
-  labelled. Check phone, tablet and desktop — tablet is the one that gets skipped.
+  labelled. Check phone, tablet and desktop. Tablet is the one that gets skipped.
+- **Full height is `min-h-svh`, never `dvh`.** A dynamic viewport grows when the phone address bar
+  hides, which leaves the page a few pixels scrollable and shifts centred content. Reasoning in the
+  bible.
 - **Motion is opt-out.** Anything that moves sits behind `motion-safe:` or a
   `prefers-reduced-motion` check, and anything cursor-driven ignores a `pointerType` other than
   `mouse`. Tailwind wraps `hover:` in `@media (hover: hover)` already, so a tap never sticks. A
@@ -288,6 +306,13 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   last box: those fields are read with `getAll` into a list, as `notifications/actions/actions.ts` does.
 - **A field shows only its first unmet rule.** Zod reports every failed check; the order in
   `rules.ts` is therefore the order a user is asked to fix things.
+- **A required field is marked with a `*`, and nothing marks an optional one.** `TextField` renders
+  it from the input's own `required`, outside the `<label>` and `aria-hidden`: the native attribute
+  is what a screen reader announces, and an asterisk inside the label would change the accessible
+  name and break every `getByLabelText`.
+- **A `labelAction` renders after the input, not before it.** It sits on the label row but comes
+  later in source order and is placed back with `absolute`, so tab leads into the field rather than
+  past it. "Forgot password?" on the login screen is the one that proved it.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
@@ -305,9 +330,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A `select` or a checkbox whose value lives in React state cancels the form reset.** React resets
   a form's DOM once its action answers, and never rewrites a controlled value it did not change, so
   the control keeps the reset value while state disagrees. `onReset={(event) => event.preventDefault()}`
-  is the fix, and the language select and the notification switches carry it. **A text input does
+  is the fix, and the notification switches carry it. **A text input does
   not need it**: React writes its value into the attribute, which is what a reset restores, so the
-  two-factor code survives a refusal with nothing added.
+  two-factor code survives a refusal with nothing added. A **hidden input** behaves the same way,
+  which is why the language field dropped the guard when its native `select` went.
 - **A complete code submits its own form.** `CodeInput` calls `requestSubmit()` from an effect once
   six digits are in, so the form's own validation and action still run. It fires on a keystroke or a
   paste, never on a code that arrived with the component: a prefilled one, as the email link's is, is
@@ -329,9 +355,32 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   holds every value, the batch answers with the backend's own re-read, and a dynamic route fetched
   with `no-store` has no cached copy to invalidate. A reminder appears the moment the draft differs from what is saved,
   and a refused save keeps the draft so it can be sent again.
+- **A dropdown is ours, not the platform's.** `LocaleSelect` is the one there is: a button plus a
+  `role="listbox"`, focus kept on the button with `aria-activedescendant`, and the value posted by a
+  hidden input. Two rules make it work: the popup cancels `mousedown`, or the button blurs and the
+  list closes before a press lands, and Enter and Space cancel the default, or the browser fires a
+  click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
+  the thing being clicked is a real control while the tab order still holds one stop. The cost is
+  that it needs JavaScript, where a native `select` did not.
+- **A field that appears on a press takes focus through a ref, never `autoFocus`.** The attribute
+  cannot tell an editor that was asked for from one that loaded on its own, so it is an
+  accessibility finding wherever it sits. A `useCallback` ref calling `focus()` on mount says the
+  same thing about one case only, as the device rename field does.
+- **A live region with no name is an `<output>`.** It carries `role="status"` already, so the role
+  attribute is noise, and `getByRole("status")` still finds it. `role="alert"` has no element of its
+  own and stays an attribute.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
-  which cannot be styled and reads badly on a phone.
+  which cannot be styled and reads badly on a phone. It is an outlined red pill
+  (`border-destructive/40 text-destructive hover:bg-destructive-subtle`) and the confirmation that
+  replaces it is filled, so the escalation shows. Turning two-factor off, removing a device and
+  unlinking Google all follow it, and **the warning it reveals is `text-destructive`**, the red the
+  button itself wears. A confirmation behind a neutral button stays `text-muted-foreground`, which
+  is why `ConfirmAction` is told its tone rather than guessing.
+- **A control that cannot be used yet stays a disabled button, with the reason beside it.** Prose
+  where a button belongs reads as a stray notice, so the two-factor page's "Coming soon" and the
+  blocked unlink both render the real control disabled and say why underneath, the unlink linking to
+  `/app/settings/password`.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
@@ -429,8 +478,8 @@ routes are `noindex` via the `(auth)` layout.
   `safe-next.ts` owns that constant, so login, Google and Proxy agree.
 - **Logout is best effort at the backend, certain in the browser.** `revokeSession` failing must
   never leave someone in a session they asked to leave, so the cookie is cleared either way. It
-  ends **this device only**; other browsers keep their sessions, and signing out everywhere is a
-  separate call from account settings.
+  ends **this device only**; other browsers keep their sessions. Signing out everywhere and
+  removing every device are separate calls from account settings, and both end this session too.
 - **Every browser carries a device id, minted by Proxy into `tasklean_device`.** The backend binds
   a refresh token to it, so a session has a stable identity across rotation and can be listed and
   revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which
@@ -484,9 +533,11 @@ routes are `noindex` via the `(auth)` layout.
   the raw value into an httpOnly cookie and forwards only its **lowercase hex SHA-256** to the page,
   which hands that hash to Google; the action sends the **raw** value to the backend, which rehashes
   and compares. Sending the hash to the backend would make a stolen token replayable. The nonce is
-  single use: every outcome of an attempt replaces it, and the action returns the new hash so the
-  button on screen stays usable. A session makes it pointless, so Proxy drops a leftover one on the
-  first signed-in request.
+  single use, and **only a success spends it**: a refused attempt keeps its own, because
+  `google.accounts.id.initialize()` cannot be called twice in one document and a second call lets
+  Google mint a credential the backend refuses. An attempt that finds no nonce at all mints one and
+  hands back its hash, and the widget reloads the page to take it up. A session makes it pointless,
+  so Proxy drops a leftover one on the first signed-in request.
 - **A sign-in can end in a challenge instead of a session.** `login` and `google` answer with
   `twoFactorRequired` and a `challengeToken` and no tokens at all when the account has a second
   factor, so both return a `SignInOutcome` union and `signin/outcome/outcome.ts` is the only place that
@@ -544,7 +595,8 @@ routes are `noindex` via the `(auth)` layout.
   holds a session.
 - **Password policy** lives in `validation/password/policy/policy.ts` and the **frontend is the spec**;
   the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
-  guessable password is rejected. Enforced at register, never at login. Both sides run the same
+  guessable password is rejected. Enforced at register, never at login. `PASSWORD_HINT` in the same
+  module is the one line the three password forms show, so the copy cannot drift from the rules. Both sides run the same
   vectors: `src/test/password-policy-vectors.json` is a verbatim mirror of the backend's canonical
   copy, so changing the policy means editing both implementations, both copies of the file, and
   running both suites.

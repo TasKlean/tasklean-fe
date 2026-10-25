@@ -6,6 +6,9 @@
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 64;
 
+// One line, so it does not wrap under the field and push a long form taller.
+export const PASSWORD_HINT = `At least ${PASSWORD_MIN_LENGTH} characters, mixed case, a number and a symbol`;
+
 // Not a list of symbols: a list is what leaves gaps.
 export const PASSWORD_SPECIAL = /[^A-Za-z0-9]/;
 

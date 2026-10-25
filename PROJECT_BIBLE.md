@@ -535,7 +535,9 @@ are easy to miss if you picture the tokens sitting on the server:
 - **No per-session revocation.** Killing one session means rotating `SESSION_SECRET`, which kills
   every session at once. A server-side store (an opaque id in the cookie, tokens in Redis or a
   table) is the design that buys targeted revocation; we skipped it because it is infrastructure we
-  do not have. Revisit it when "sign out my other devices" becomes a requirement.
+  do not have. That requirement arrived and did not need it: the backend revokes refresh tokens per
+  device and per user, so per-device sign-out, sign-out-everywhere and removing every device all
+  work by revoking there and clearing our cookie when the row is this browser.
 - **Everything must fit a cookie.** Two tokens plus our own fields, inside the ~4KB limit.
 - **The tokens do transit the browser**, on every request. Encrypted and unreadable, but present —
   not "never leaves the server".
@@ -629,8 +631,10 @@ forwards the hash on the request as `x-tasklean-google-nonce`. The alternative, 
 fetches on mount, costs a round trip and a public endpoint for no gain. The nonce is **reused
 across requests rather than rotated**, because a link prefetch is a request too: rotating there
 would leave the visible page holding a hash the cookie no longer matches. Single use is enforced on
-the attempt instead, where the action replaces the nonce on every outcome and hands the fresh hash
-back in its state so the button rebuilds around it rather than needing a reload. Only the Google
+the attempt instead, and **only a success spends it**: the cookie is deleted once the backend has
+accepted the credential. A refused attempt deliberately keeps its nonce, because the widget cannot
+be handed a different one without a new document (gotcha 25). The one exception is an attempt that
+finds no nonce at all, which mints a replacement and costs the widget a reload. Only the Google
 action spends a nonce, so a password login would otherwise leave one behind until it expired: Proxy
 drops it on the first signed-in request, keeping the whole lifecycle in the file that mints it.
 
@@ -1021,10 +1025,24 @@ allowlisting every host instead would turn our optimizer into an open image prox
 
 ### What the devices screen offers, and what it refuses to
 
-Three operations exist on the backend and all three are worth exposing: end one device's session,
-remove a device, and end every session. There is **no bulk delete**, and the screen does not fake
-one by looping requests: a half-failed loop leaves a mess nobody can see, and "sign out everywhere"
-already covers the case that matters, losing a device.
+Five operations exist on the backend and all five are worth exposing: rename a device, end one
+device's session, remove a device, end every session, and remove every device. The bulk delete was
+not always there, and the screen deliberately did **not** fake one by looping `DELETE /{id}` over
+the list: a half-failed loop leaves a mess nobody can see, and removing the current device partway
+through would end the session before the rest of the loop ran. `DELETE /api/devices` now exists and
+revokes by user in one statement, so the button is the backend's own call and nothing is faked.
+
+**Removing every device ends this session, and the action says so by leaving.** The backend revokes
+every refresh token on the account, this browser's included, so the cookie is already worthless: the
+action clears it and redirects to `/login?signedOut=devices`, which is its own notice rather than
+the sign-out-everywhere one, because "every device is removed" is a different sentence from "you are
+signed out". It reads no session first, unlike sign-out-everywhere, whose request body needs the
+refresh token: this one revokes by user, so the access token `serverApi` already attaches is enough.
+
+**One component owns both account-wide buttons.** Each confirmation replaces the footer row it was
+pressed from, so two independent components would let one render its question behind the other's.
+`AllDeviceActions` holds a single `asked` state, which makes "only one question at a time" a
+property of the type rather than something to remember.
 
 A dead session dims its row but **keeps its Remove button at full strength**, since that is exactly
 when removal is the useful action. Its sign-out button disappears instead, because ending a session
@@ -1050,6 +1068,29 @@ three, and the slot is one word.
 Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
 Someone pressing it believes every other session is gone, and a silent failure would leave them
 believing it wrongly.
+
+### Renaming a device edits in place, and the page stays the source of truth
+
+A device's detected name is whatever the user-agent parser made of it, so renaming is the one way to
+tell two identical browsers apart. The name and its pencil are a single button, because two targets
+for one intent is two chances to miss on a phone, and the button carries the 44px the row's text
+line does not.
+
+**The editor's open state is derived, not stored.** Lint forbids `setState` inside an effect, so
+there is nothing watching for the save to answer. Instead the component remembers which action state
+it opened with, and is open only while that is still the current one: an answer arrives as a fresh
+object, which closes the editor by itself. The same trick the appearance picker uses for a refused
+theme, applied to a different question.
+
+**The draft is never the truth.** The row renders the label the page read, so a successful save shows
+the new name through `revalidatePath` and a refused one still shows the old, with no second copy to
+reconcile. That is why the action hands back only whether it worked.
+
+**A press outside aborts, through one `onBlur` rather than a document listener.** Focus leaving the
+form is exactly the signal wanted, and a click on something unfocusable reports `relatedTarget` as
+null, which counts as outside. The catch is Safari, which does not focus a button on press: without
+cancelling `mousedown` on Save, the field would blur and abort the edit before the click ever
+reached the button, so the save would silently do nothing on that one browser.
 
 ### Settings is grouped, and each section is a route
 
@@ -1168,7 +1209,10 @@ token values to support an override would have broken the rule that each colour 
 
 Four `swatch-*` tokens are deliberately **not** redeclared in the dark branch. The picker's squares
 have to show what light and dark look like while wearing whichever one is active, so those four are
-fixed in both schemes.
+fixed in both schemes. The four `google-*` tokens are fixed for a different reason: they are
+Google's brand colours, not ours, and a logo our scheme recoloured would stop being the logo. They
+are tokens rather than hex in the SVG path only so the rule that colours live in `globals.css`
+survives having a vendor's palette in the tree.
 
 **The picker is three submit buttons, not a radio group with a save.** A `name`/`value` pair on a
 submit button is ordinary HTML, so one click saves with or without JavaScript and there is no second
@@ -1184,17 +1228,19 @@ overwrite a change made elsewhere.
 
 **Language is stored, and nothing is translated yet.** The backend offers `EN`, `DE` and `SL`, the
 page saves the choice, and `<html lang>` stays `en` on purpose: a `lang` the copy does not match
-tells a screen reader to pronounce English in German. The page says plainly that English is the only
-one so far, so the control is honest rather than decorative. Translating the interface is its own
-phase, and the saved preference is what it will read.
+tells a screen reader to pronounce English in German. The page used to say plainly that English is
+the only one so far; that line was cut as too wordy for a settings screen, which leaves the control
+honest about what it saves but silent about what it does not yet change. Translating the interface
+is its own phase, and the saved preference is what it will read.
 
 ### Notification channels are saved long before anything is sent
 
 `GET /api/notification-settings` and `PUT /api/notification-settings/batch` store, per user, which
 of four events reach them in the app and by email. **Nothing delivers them yet**: no mail goes out,
 no in-app row is written, and there is no push channel in the contract even though the device table
-holds push tokens. The page says so in a line of its own, because a switch that silently does
-nothing is worse than no switch at all.
+holds push tokens. The page used to say so in a banner of its own, on the reasoning that a switch
+which silently does nothing is worse than no switch at all. The banner was cut as clutter: the
+switches stay, so until delivery ships they record a preference and nothing more.
 
 **The page edits a draft and saves it in one press.** Every switch is a real checkbox holding its
 own state, Save posts one list of type names per channel, and the action writes only the types that
@@ -1256,15 +1302,45 @@ was right and only the DOM was wrong.
 
 Remounting the field does not fix it, because the reset lands after the commit. The fix is to cancel
 the reset, `onReset={(event) => event.preventDefault()}`, on any form whose values live in React
-state. The language select and the notification switches both carry it. A form that wants its fields
-emptied on success, like the password form, still does that from state, where it can be read.
+state. The notification switches carry it. A form that wants its fields emptied on success, like
+the password form, still does that from state, where it can be read.
 
 **It is not every controlled field, and the two-factor form proved it.** A reset restores each
 control's default, and React writes a text input's value into the `value` attribute, which is that
 default, so a text field comes back unchanged. A `select` has no `selected` option written and falls
 back to the first one; a checkbox has no `checked` attribute written and falls back to unchecked.
 That is the whole difference, and it is why the code prompt keeps a refused code on screen with
-nothing added, while the language picker could not.
+nothing added, while the language picker could not while it was a `select`. A hidden input is a text
+input for this purpose, so the language field dropped the guard when the native control went.
+
+### The one dropdown in the app is ours
+
+The language picker started as a native `select`, on the reasoning that it is the control a phone
+already knows how to present. That held until the screen was looked at: the OS menu cannot be
+themed, so the one control on a settings page wore the platform's surfaces while everything around
+it wore ours. `LocaleSelect` replaced it with a button and a `role="listbox"`, following the ARIA
+select-only combobox pattern: focus never leaves the button and `aria-activedescendant` names the
+active row, so there is no focus to move between options and no focus trap to build.
+
+Two details are the whole implementation, and both look like noise until they are missing. The popup
+cancels `mousedown`, because a press on a row otherwise blurs the button first, which closes the
+list before the click lands and makes the control look broken on every second attempt. And Enter and
+Space cancel their default, because a `<button>` turns both into a click, which would toggle the
+list a second time in the same keystroke.
+
+**The rows are buttons, and that is not cosmetic.** They began as `<li>` elements with a click
+handler, which is what the pattern's markup suggests when focus lives elsewhere, and static analysis
+reads a clickable row with no key handler as a keyboard dead end. Adding a `keydown` to an element
+that never holds focus would have been a handler written to satisfy a tool, so the row became a
+`<button role="option">` with `tabIndex={-1}` inside a `role="listbox"` div: clicking a real button,
+Enter and Space handled by the browser, and the combobox still the only tab stop. `role="option"` on
+a `<button>` is allowed by ARIA in HTML, and a `listbox` does not have to be a `ul`.
+
+What it costs is progressive enhancement. A native `select` posts its value with JavaScript off; a
+listbox cannot be opened at all. The value rides in a hidden input so the Server Action is unchanged
+and still the authority, but a reader without JavaScript can no longer change language on that
+screen. That is accepted rather than solved: a `<noscript>` native select is the fallback if it ever
+matters.
 
 ### A finished code submits itself
 
@@ -1355,7 +1431,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge.                                                                                                                                 |
 | User settings     | `/api/user-settings`           | The caller's own theme and language. `GET` answers the defaults (`SYSTEM`, `EN`) when nothing was ever saved, so there is no empty state. `PUT` is a **full replace** and `@NotNull` on both fields, so a screen editing one sends the other back unchanged.                                                            |
 | Notification settings | `/api/notification-settings` | The caller's own channels. `GET` always answers one entry per type, defaults included, so there is no empty state. `PUT /batch` replaces the types it is sent, in one transaction, and answers with the whole matrix **re-read** after the writes; an empty list or a duplicate type is a `400`. `PUT /{type}` does one type and we no longer call it. Nothing reads these yet. |
-| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it.                                                   |
+| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `PATCH /{id}` renames one, `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it, and `DELETE` on the collection removes every one and revokes every session. |
 | Audit logs        | `/api/audit-logs`              | `?groupId=`, or `/entity?entityType=&entityId=`, or `/member/{id}`. Could power a group activity feed.                                                                                                                                            |
 
 ### Status codes and what the UI does
@@ -1513,6 +1589,27 @@ workaround **before** the feature depending on it gets built.
     keeps that entry at the front all the way to the origin. Anything deriving identity or a
     rate-limit key from it is reading attacker input. `CF-Connecting-IP` is set at the edge from the
     TCP peer and holds exactly one address.
+24. **`100dvh` moves under a phone address bar.** The bar hides the moment a page scrolls, which
+    grows the dynamic viewport, so a `min-h-dvh` box is taller than the area a reader can see while
+    the bar is up. Every full-height screen is then a few pixels scrollable, and a refresh restores
+    those pixels, so the page appears to jump once it has loaded. Centred content is where it shows
+    worst: any height change moves the card. `svh` is the smallest viewport and never changes, and
+    the strip it leaves uncovered when the bar hides paints `body`'s own background, so nothing
+    shows through.
+25. **`google.accounts.id.initialize()` cannot be called twice in one document.** Google logs that
+    only the last call counts, but the credential it then mints can still carry the **first** call's
+    nonce, and the backend compares that claim against our cookie and answers "Invalid Google
+    token". Signing in with Google, signing out and trying again is the path that hits it: the
+    sign-in spent the nonce, `/login` minted a fresh one, and `redirect()` is a soft navigation, so
+    the JavaScript that already configured Google was still alive. Proved by a hard refresh of the
+    same screen fixing it every time. A new nonce therefore needs a new document, which is what
+    `gisNonceIsStale` reports and the widget acts on by reloading.
+26. **Tailwind 4's Preflight no longer gives a button `cursor: pointer`.** Version 3 did, so every
+    button in the app showed the arrow and it read as our own styling bug. Browsers never set the
+    hand for a `<button>`, only for a link, so there is nothing to fall back on. One base rule in
+    `globals.css` restores it for `button:not(:disabled)` and `[role="button"]:not(:disabled)`,
+    rather than a `cursor-pointer` utility on every control, and the exclusion is what lets a
+    deliberately dead button keep `disabled:cursor-not-allowed`.
 
 ---
 
@@ -1586,6 +1683,10 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   read from the saved preference rather than from the URL, since the preference is account state and
   the routes are already decided. Until then `<html lang>` stays `en`, because a `lang` the copy
   does not match is worse than none.
+- **Where support lives** — the deactivation confirmation offers "Contact our support" and points
+  at `/support`, which is not a route, so it lands on the 404. The destination is undecided: a page
+  of our own, a `mailto:` on a domain address, or a hosted help desk. Nothing warns at build,
+  because a `Link` href is not checked against the routes that exist.
 - **End-to-end testing** — whether, with what, and where it runs. Async Server Components and the
   httpOnly session both fall outside Vitest's reach. Not urgent until a flow spans several pages.
 - **Cache Components** — Next 16's newer rendering model (`cacheComponents: true`), under which

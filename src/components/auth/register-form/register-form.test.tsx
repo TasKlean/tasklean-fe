@@ -52,11 +52,11 @@ describe("RegisterForm", () => {
     const user = userEvent.setup();
     render(<RegisterForm />);
 
-    expect(screen.getByText(/with upper and lower case/)).toBeInTheDocument();
+    expect(screen.getByText(/mixed case/)).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Password"), "chores12");
 
-    expect(screen.queryByText(/with upper and lower case/)).toBeNull();
+    expect(screen.queryByText(/mixed case/)).toBeNull();
     expect(screen.getByText("Weak")).toBeInTheDocument();
   });
 
@@ -112,7 +112,7 @@ describe("RegisterForm", () => {
   it("shows the password rule as a hint before anything is typed", () => {
     render(<RegisterForm />);
 
-    expect(screen.getByText(/with upper and lower case/)).toBeInTheDocument();
+    expect(screen.getByText(/mixed case/)).toBeInTheDocument();
   });
 
   it("blocks a submit when the repeat does not match", async () => {
@@ -159,5 +159,14 @@ describe("RegisterForm", () => {
 
     expect(screen.getByLabelText("Middle name")).toHaveValue("");
     expect(registerAction).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RegisterForm field marking", () => {
+  it("marks every required field and leaves the optional one unmarked", () => {
+    render(<RegisterForm />);
+
+    expect(screen.getAllByText("*")).toHaveLength(5);
+    expect(screen.queryByText("(optional)")).toBeNull();
   });
 });

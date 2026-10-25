@@ -7,6 +7,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Loader2, UserX } from "lucide-react";
 import {
   type DeactivateState,
@@ -36,9 +37,16 @@ export function DeactivateAccount({ passwordSet }: Readonly<DeactivateAccountPro
     <div className="gap-space-sm flex flex-col">
       {confirming ? (
         <form action={deactivate} className="gap-space-md flex flex-col" noValidate>
-          <p className="text-body-md text-muted-foreground">
-            Your account is closed and every session ends. Your groups keep what you shared with
-            them. Write to us if you want it back.
+          <p className="text-body-md text-destructive">
+            Your account will be deactivated and every session ended. Your groups will keep the
+            content you shared with them.{" "}
+            <Link
+              href="/support"
+              className="text-link hover:text-primary-strong font-semibold underline-offset-4 hover:underline"
+            >
+              Contact our support
+            </Link>{" "}
+            to explore reactivation options.
           </p>
 
           {passwordSet ? (

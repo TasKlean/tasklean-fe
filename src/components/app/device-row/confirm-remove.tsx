@@ -21,7 +21,9 @@ export function ConfirmRemove({
 }: Readonly<ConfirmRemoveProps>) {
   return (
     <>
-      <span className="text-label-sm text-muted-foreground px-space-xs">Remove it?</span>
+      <span className="text-label-sm text-destructive px-space-xs">
+        Remove device? You will be signed out of it!
+      </span>
 
       <form action={remove}>
         <input type="hidden" name="deviceId" value={id} />

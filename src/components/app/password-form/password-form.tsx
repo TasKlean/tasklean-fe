@@ -19,7 +19,7 @@ import { PasswordStrengthMeter } from "@/components/common/password-strength-met
 import { SubmitButton } from "@/components/common/submit-button";
 import { validateChangePassword } from "@/lib/validation/forms/change-password.schema/change-password.schema";
 import { validateSetPassword } from "@/lib/validation/forms/set-password.schema/set-password.schema";
-import { PASSWORD_MIN_LENGTH } from "@/lib/validation/password/policy/policy";
+import { PASSWORD_HINT } from "@/lib/validation/password/policy/policy";
 
 type PasswordFormProps = {
   // Picks the form: a change needs the current password, a first one does not.
@@ -31,8 +31,6 @@ type Field = "currentPassword" | "newPassword" | "confirmPassword";
 const INITIAL: PasswordActionState = { error: null };
 
 const EMPTY = { currentPassword: "", newPassword: "", confirmPassword: "" };
-
-const HINT = `At least ${PASSWORD_MIN_LENGTH} characters, with upper and lower case, a number and a special character`;
 
 /** Renders the form that sets a password, and reports how it went. */
 export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
@@ -127,7 +125,7 @@ export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
           name="newPassword"
           autoComplete="new-password"
           placeholder="Enter a new password"
-          hint={fields.newPassword ? undefined : HINT}
+          hint={fields.newPassword ? undefined : PASSWORD_HINT}
           below={<PasswordStrengthMeter password={fields.newPassword} />}
           value={fields.newPassword}
           onChange={set("newPassword")}

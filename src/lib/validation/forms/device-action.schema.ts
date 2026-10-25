@@ -6,13 +6,10 @@
 
 import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
+import { deviceIdRule } from "@/lib/validation/rules/rules";
 
 export const deviceActionSchema = z.object({
-  // A hidden field, so it arrives as a string and has to be coerced.
-  deviceId: z.pipe(
-    z.string().check(z.regex(/^\d+$/, "Pick a device.")),
-    z.transform((value) => Number(value)),
-  ),
+  deviceId: deviceIdRule,
 });
 
 export type DeviceActionFields = z.infer<typeof deviceActionSchema>;

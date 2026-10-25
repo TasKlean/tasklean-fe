@@ -23,6 +23,9 @@ const EMAIL = /^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]{2,}$/;
 // because the action parses whatever was posted, however long.
 const EMAIL_MAX_LENGTH = 254;
 
+// RenameDeviceRequest's own @Size, so a refusal comes from here, not a 400.
+const DEVICE_NAME_MAX_LENGTH = 255;
+
 /** A required, trimmed address. */
 export const emailRule = z
   .string({ error: "Enter your email address." })
@@ -87,6 +90,21 @@ export const twoFactorCodeRule = z.string({ error: "Enter your code." }).check(
   z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
   z.regex(TWO_FACTOR_CODE, "Enter the 6 digits from your app, or a recovery code."),
 );
+
+/** The device a button was pressed for: a hidden field, so it arrives as a string. */
+export const deviceIdRule = z.pipe(
+  z.string().check(z.regex(/^\d+$/, "Pick a device.")),
+  z.transform(Number),
+);
+
+/** A device's own name, bounded by the backend's `@Size` on the column. */
+export const deviceNameRule = z
+  .string({ error: "Enter a name for this device." })
+  .check(
+    z.trim(),
+    z.minLength(1, "Enter a name for this device."),
+    z.maxLength(DEVICE_NAME_MAX_LENGTH, "Use 255 characters or fewer."),
+  );
 
 /** One of the colour schemes the picker offers. */
 export const themeRule = z.enum(THEMES, { error: "Pick a theme." });

@@ -78,6 +78,29 @@ export async function logoutDevice(id: number): Promise<void> {
 }
 
 /**
+ * Renames one of the caller's devices.
+ *
+ * @returns The device as the backend now holds it, so the caller never has to
+ * guess what was stored.
+ * @throws SessionExpiredError when the session is gone, ApiError otherwise.
+ */
+export async function renameDevice(id: number, name: string): Promise<MyDevice> {
+  return serverApi<MyDevice>(`/api/devices/${id}`, { method: "PATCH", body: { name } });
+}
+
+/**
+ * Removes every device and revokes every session on the account.
+ *
+ * This browser's session goes with them, so the caller has to treat the answer
+ * as the end of its own.
+ *
+ * @throws SessionExpiredError when the session is gone, ApiError otherwise.
+ */
+export async function removeAllDevices(): Promise<void> {
+  await serverApi<void>("/api/devices", { method: "DELETE" });
+}
+
+/**
  * Removes a device and revokes any session on it.
  *
  * @throws SessionExpiredError when the session is gone, ApiError otherwise.

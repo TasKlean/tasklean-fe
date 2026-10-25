@@ -4,7 +4,7 @@
  */
 
 import { Loader2, LogOut, Trash2 } from "lucide-react";
-import { BUTTON, QUIET_BUTTON, SPINNER } from "@/components/app/device-row/device-row.styles";
+import { BUTTON, SPINNER } from "@/components/app/device-row/device-row.styles";
 
 type DeviceActionsProps = {
   id: number;
@@ -52,7 +52,7 @@ export function DeviceActions({
         onClick={onRemove}
         disabled={busy}
         aria-label={`Remove ${label}`}
-        className={QUIET_BUTTON}
+        className={`${BUTTON} border-destructive/40 text-destructive hover:bg-destructive-subtle`}
       >
         <Trash2 className="size-4" aria-hidden />
         Remove

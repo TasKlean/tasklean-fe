@@ -37,7 +37,7 @@ export default async function DangerZonePage() {
 
         <h2 className="text-headline-sm text-foreground">Deactivate account</h2>
         <p className="text-body-md text-muted-foreground">
-          Closing your account cannot be undone from this screen.
+          Deactivate your account to stop using it.
         </p>
       </div>
 
@@ -55,8 +55,7 @@ export default async function DangerZonePage() {
               Deactivate your account
             </h3>
             <p className="text-body-sm text-muted-foreground">
-              You are signed out everywhere and your account stops working. Nothing on this screen
-              brings it back.
+              You will be signed out everywhere and your account will stop working.
             </p>
           </div>
 

@@ -16,11 +16,20 @@ export const metadata: Metadata = {
   description: "Sign in to see today's chores and keep your household in sync.",
 };
 
+// Keyed by the `signedOut` an action redirected with, so each way out says
+// which one it was.
+const SIGNED_OUT_NOTICES: Record<string, string> = {
+  all: "You are signed out everywhere. Sign in again to carry on here.",
+  device: "You signed this device out. Sign in again to carry on here.",
+  devices: "Every device is removed. Sign in again to carry on here.",
+};
+
 /** Renders the login page. */
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { deactivated, expired, next, reset, signedOut } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
+  const signedOutNotice = typeof signedOut === "string" ? SIGNED_OUT_NOTICES[signedOut] : undefined;
 
   return (
     <div className="gap-space-lg flex flex-col">
@@ -53,11 +62,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </output>
       ) : null}
 
-      {signedOut === "all" || signedOut === "device" ? (
+      {signedOutNotice ? (
         <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
-          {signedOut === "all"
-            ? "You are signed out everywhere. Sign in again to carry on here."
-            : "You signed this device out. Sign in again to carry on here."}
+          {signedOutNotice}
         </output>
       ) : null}
 

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 /** Renders the 404 page. */
 export default function NotFound() {
   return (
-    <div className="bg-background px-margin md:px-margin-tablet lg:px-margin-desktop py-space-2xl flex min-h-dvh flex-col items-center justify-center">
+    <div className="bg-background px-margin md:px-margin-tablet lg:px-margin-desktop py-space-2xl flex min-h-svh flex-col items-center justify-center">
       <div className="gap-space-xl flex w-full max-w-prose flex-col items-center text-center">
         <Link href="/" className="flex items-center">
           <BrandMark />

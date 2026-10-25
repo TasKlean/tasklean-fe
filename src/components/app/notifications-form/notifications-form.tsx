@@ -59,8 +59,9 @@ const CHANNELS: Record<NotificationChannel, string> = {
   email: "Email",
 };
 
-// Matches the rows below, so every column lines up with its switches.
-const COLUMNS = "sm:grid sm:grid-cols-[1fr_auto_auto] sm:items-end";
+// Matches the rows below, so every column lines up. No gap and no alignment
+// here: a gap narrows the 1fr, and alignment would beat what each row sets.
+const COLUMNS = "sm:grid sm:grid-cols-[1fr_auto_auto] sm:gap-0";
 
 const CELL = "gap-space-xs flex items-center sm:w-20 sm:justify-center";
 
@@ -104,7 +105,7 @@ export function NotificationsForm({ settings }: Readonly<NotificationsFormProps>
         <FormNotice tone="success">Your notification choices are saved.</FormNotice>
       ) : null}
 
-      <div className={`gap-space-lg px-space-md flex sm:gap-0 ${COLUMNS}`}>
+      <div className={`gap-space-lg px-space-md flex justify-end ${COLUMNS} sm:items-end`}>
         <span className="hidden sm:block" />
 
         {NOTIFICATION_CHANNELS.map((channel) => {
@@ -168,10 +169,12 @@ export function NotificationsForm({ settings }: Readonly<NotificationsFormProps>
             <ul className="divide-border/60 border-border/60 px-space-md py-space-sm divide-y border-t">
               {types.map((type) => (
                 <li key={type} className="py-space-sm first:pt-0 last:pb-0">
-                  <div className={`gap-space-xs flex flex-col ${COLUMNS} sm:items-center`}>
-                    <span className="text-label-lg text-foreground">{LABELS[type]}</span>
+                  <div
+                    className={`gap-space-md flex items-center justify-between ${COLUMNS} sm:items-center`}
+                  >
+                    <span className="text-label-lg text-foreground min-w-0">{LABELS[type]}</span>
 
-                    <div className="gap-space-md flex items-center sm:contents">
+                    <div className="gap-space-md flex shrink-0 items-center sm:contents">
                       {NOTIFICATION_CHANNELS.map((channel) => (
                         <span key={channel} className={CELL}>
                           <span className="text-label-sm text-muted-foreground sm:hidden">

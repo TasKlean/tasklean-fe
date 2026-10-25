@@ -50,6 +50,7 @@ function lastOptions(): GoogleRenderOptions {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   initialize.mockReset();
   renderButton.mockReset();
   googleSignInAction.mockClear();
@@ -264,8 +265,8 @@ describe("GoogleButton credential handling", () => {
     });
   });
 
-  it("rebuilds the widget around the replacement nonce after a failure", async () => {
-    googleSignInAction.mockResolvedValue({ error: "Invalid Google token", nonceHash: "hash-2" });
+  it("keeps its nonce when an attempt is refused", async () => {
+    googleSignInAction.mockResolvedValue({ error: "Invalid Google token" });
     render(
       <GoogleButton
         action={googleSignInAction}
@@ -277,7 +278,30 @@ describe("GoogleButton credential handling", () => {
 
     await act(async () => credentialCallback({ credential: "stale" }));
 
-    expect(initialize).toHaveBeenLastCalledWith(expect.objectContaining({ nonce: "hash-2" }));
+    expect(initialize).toHaveBeenCalledTimes(1);
+    expect(initialize).toHaveBeenLastCalledWith(expect.objectContaining({ nonce: "hash-1" }));
+  });
+
+  it("reloads rather than handing Google a second nonce", async () => {
+    const reload = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({ reload } as unknown as Location);
+    googleSignInAction.mockResolvedValue({
+      error: "That sign-in attempt expired.",
+      nonceHash: "hash-2",
+    });
+    render(
+      <GoogleButton
+        action={googleSignInAction}
+        clientId="client-123"
+        intent="signin"
+        nonceHash="hash-1"
+      />,
+    );
+
+    await act(async () => credentialCallback({ credential: "stale" }));
+
+    expect(reload).toHaveBeenCalled();
+    expect(initialize).toHaveBeenCalledTimes(1);
   });
 
   it("shows the error the action returned", async () => {

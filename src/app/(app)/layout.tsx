@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const session = await getSession();
 
   return (
-    <div className="bg-background flex min-h-dvh flex-col">
+    <div className="bg-background flex min-h-svh flex-col">
       <AppHeader name={session?.name ?? null} photoUrl={session?.photoUrl ?? null} />
       <main className="flex-1">{children}</main>
     </div>

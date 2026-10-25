@@ -15,8 +15,10 @@ export const metadata: Metadata = {
 
 /** Renders the auth chrome around a form. */
 export default function AuthLayout({ children }: LayoutProps<"/">) {
+  // svh rather than dvh: a dvh grows when the phone address bar hides, which
+  // moves a centred card mid-read and leaves the page a few pixels scrollable.
   return (
-    <main className="bg-background p-margin md:p-margin-tablet flex min-h-dvh flex-col items-center justify-center">
+    <main className="bg-background p-margin md:p-margin-tablet flex min-h-svh flex-col items-center justify-center overflow-x-clip">
       <div className="relative w-full max-w-md lg:max-w-5xl">
         <div
           aria-hidden
@@ -55,7 +57,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
             </p>
           </aside>
 
-          <div className="p-space-lg sm:p-space-xl lg:p-margin-desktop col-span-1 flex flex-col justify-center lg:col-span-7">
+          <div className="p-space-lg sm:p-space-xl col-span-1 flex flex-col justify-center lg:col-span-7">
             {children}
           </div>
         </div>

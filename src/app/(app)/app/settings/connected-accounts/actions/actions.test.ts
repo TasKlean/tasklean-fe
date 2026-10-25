@@ -86,7 +86,7 @@ describe("linkGoogleAction", () => {
     expect(jar.has("tasklean_google_nonce")).toBe(false);
   });
 
-  it("replaces the spent nonce when the backend refuses the credential", async () => {
+  it("keeps the nonce when the backend refuses the credential", async () => {
     server.use(
       http.post(`${BASE}/api/account/connected-accounts/google`, () =>
         HttpResponse.json({ success: false, message: "Invalid Google token" }, { status: 401 }),
@@ -96,8 +96,8 @@ describe("linkGoogleAction", () => {
     const state = await linkGoogleAction({ error: null }, form({ idToken: "id-1" }));
 
     expect(state.error).toBe("Invalid Google token");
-    expect(state.nonceHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(jar.get("tasklean_google_nonce")).not.toBe("raw-nonce-1");
+    expect(state.nonceHash).toBeUndefined();
+    expect(jar.get("tasklean_google_nonce")).toBe("raw-nonce-1");
   });
 
   it("asks for another attempt when the nonce is gone", async () => {
