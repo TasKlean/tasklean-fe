@@ -1328,6 +1328,14 @@ list before the click lands and makes the control look broken on every second at
 Space cancel their default, because a `<button>` turns both into a click, which would toggle the
 list a second time in the same keystroke.
 
+**The rows are buttons, and that is not cosmetic.** They began as `<li>` elements with a click
+handler, which is what the pattern's markup suggests when focus lives elsewhere, and static analysis
+reads a clickable row with no key handler as a keyboard dead end. Adding a `keydown` to an element
+that never holds focus would have been a handler written to satisfy a tool, so the row became a
+`<button role="option">` with `tabIndex={-1}` inside a `role="listbox"` div: clicking a real button,
+Enter and Space handled by the browser, and the combobox still the only tab stop. `role="option"` on
+a `<button>` is allowed by ARIA in HTML, and a `listbox` does not have to be a `ul`.
+
 What it costs is progressive enhancement. A native `select` posts its value with JavaScript off; a
 listbox cannot be opened at all. The value rides in a hidden input so the Server Action is unchanged
 and still the authority, but a reader without JavaScript can no longer change language on that

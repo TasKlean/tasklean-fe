@@ -94,7 +94,7 @@ export const twoFactorCodeRule = z.string({ error: "Enter your code." }).check(
 /** The device a button was pressed for: a hidden field, so it arrives as a string. */
 export const deviceIdRule = z.pipe(
   z.string().check(z.regex(/^\d+$/, "Pick a device.")),
-  z.transform((value) => Number(value)),
+  z.transform(Number),
 );
 
 /** A device's own name, bounded by the backend's `@Size` on the column. */

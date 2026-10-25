@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { Check, Loader2, Pencil } from "lucide-react";
 import {
   type RenameDeviceState,
@@ -34,6 +34,10 @@ export function DeviceName({ id, label, dim }: Readonly<DeviceNameProps>) {
   const [openedWith, setOpenedWith] = useState<RenameDeviceState | null>(null);
   const [draft, setDraft] = useState(label);
 
+  // The editor opens on a press, so the field takes the focus that press asked
+  // for. A ref, not autoFocus, which also fires on a load nobody pressed.
+  const takeFocus = useCallback((field: HTMLInputElement | null) => field?.focus(), []);
+
   // Open only while the state it opened with is still the current one: a save
   // answers with a fresh object, which closes the editor without an effect.
   const editing = openedWith === state;
@@ -58,8 +62,7 @@ export function DeviceName({ id, label, dim }: Readonly<DeviceNameProps>) {
           onKeyDown={(event) => {
             if (event.key === "Escape") setOpenedWith(null);
           }}
-          // The editor opens on a press, so the field is what the press asked for.
-          autoFocus
+          ref={takeFocus}
           aria-label="Device name"
           className={FIELD}
         />
@@ -98,10 +101,10 @@ export function DeviceName({ id, label, dim }: Readonly<DeviceNameProps>) {
       </button>
 
       {state.done === true ? (
-        <span role="status" className={`${PILL} bg-success-subtle text-success-subtle-foreground`}>
+        <output className={`${PILL} bg-success-subtle text-success-subtle-foreground`}>
           <Check className="size-4" aria-hidden />
           Saved
-        </span>
+        </output>
       ) : null}
 
       {state.error !== null ? (

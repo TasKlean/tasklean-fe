@@ -359,8 +359,16 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   `role="listbox"`, focus kept on the button with `aria-activedescendant`, and the value posted by a
   hidden input. Two rules make it work: the popup cancels `mousedown`, or the button blurs and the
   list closes before a press lands, and Enter and Space cancel the default, or the browser fires a
-  click that toggles a second time. The cost is that it needs JavaScript, where a native `select`
-  did not.
+  click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
+  the thing being clicked is a real control while the tab order still holds one stop. The cost is
+  that it needs JavaScript, where a native `select` did not.
+- **A field that appears on a press takes focus through a ref, never `autoFocus`.** The attribute
+  cannot tell an editor that was asked for from one that loaded on its own, so it is an
+  accessibility finding wherever it sits. A `useCallback` ref calling `focus()` on mount says the
+  same thing about one case only, as the device rename field does.
+- **A live region with no name is an `<output>`.** It carries `role="status"` already, so the role
+  attribute is noise, and `getByRole("status")` still finds it. `role="alert"` has no element of its
+  own and stays an attribute.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone. It is an outlined red pill

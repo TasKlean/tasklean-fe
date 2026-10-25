@@ -29,7 +29,7 @@ const TRIGGER =
   "bg-card border-input text-body-md text-foreground focus-visible:ring-ring px-space-sm gap-space-sm flex min-h-11 w-full items-center justify-between rounded-md border text-left focus-visible:ring-2 focus-visible:outline-none";
 
 const OPTION =
-  "px-space-sm gap-space-sm text-body-md text-foreground flex min-h-11 cursor-pointer items-center justify-between rounded-sm";
+  "px-space-sm gap-space-sm text-body-md text-foreground flex min-h-11 items-center justify-between rounded-sm text-left";
 
 /** Renders the language field and its own dropdown. */
 export function LocaleSelect({ label, name, value, onChange }: Readonly<LocaleSelectProps>) {
@@ -116,7 +116,7 @@ export function LocaleSelect({ label, name, value, onChange }: Readonly<LocaleSe
         </button>
 
         {open ? (
-          <ul
+          <div
             role="listbox"
             id={listId}
             aria-labelledby={labelId}
@@ -126,11 +126,15 @@ export function LocaleSelect({ label, name, value, onChange }: Readonly<LocaleSe
             className="bg-card border-input shadow-level-2 p-space-xs gap-space-xs mt-space-xs absolute z-10 flex w-full flex-col rounded-md border"
           >
             {LOCALES.map((option, index) => (
-              <li
+              <button
                 key={option}
+                type="button"
                 id={`${baseId}-${option}`}
                 role="option"
                 aria-selected={option === value}
+                // Out of the tab order: focus belongs to the combobox button,
+                // which is what `aria-activedescendant` reads these rows to.
+                tabIndex={-1}
                 onClick={() => commit(option)}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`${OPTION} ${index === activeIndex ? "bg-accent/40" : ""}`}
@@ -140,9 +144,9 @@ export function LocaleSelect({ label, name, value, onChange }: Readonly<LocaleSe
                 {option === value ? (
                   <Check className="text-primary size-4 shrink-0" aria-hidden />
                 ) : null}
-              </li>
+              </button>
             ))}
-          </ul>
+          </div>
         ) : null}
       </div>
     </div>
