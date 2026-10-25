@@ -190,6 +190,19 @@ describe("GoogleButton rendering", () => {
     expect(renderButton).toHaveBeenCalled();
   });
 
+  it("holds a fixed box, so Google's widget cannot resize the page around it", () => {
+    const { container } = render(
+      <GoogleButton
+        action={googleSignInAction}
+        clientId="client-123"
+        intent="signin"
+        nonceHash="hash-1"
+      />,
+    );
+
+    expect(container.querySelector("div[aria-busy]")).toHaveClass("h-13", "overflow-hidden");
+  });
+
   it("renders nothing until Google has defined its API", () => {
     delete window.google;
     render(

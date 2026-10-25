@@ -362,6 +362,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
   the thing being clicked is a real control while the tab order still holds one stop. The cost is
   that it needs JavaScript, where a native `select` did not.
+- **Google's button sits in a fixed box, not a floor.** Google renders it as inline elements on
+  one origin and as an `<iframe>` on another, and the iframe measures 80px for a frame before
+  settling at 44. The slot is `h-13` with `overflow-hidden` so neither rendering can resize the
+  page around it. Local only ever serves the inline one, so this is a staging check.
 - **A field that appears on a press takes focus through a ref, never `autoFocus`.** The attribute
   cannot tell an editor that was asked for from one that loaded on its own, so it is an
   accessibility finding wherever it sits. A `useCallback` ref calling `focus()` on mount says the
