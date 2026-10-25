@@ -131,11 +131,13 @@ export function GoogleButton({
         </p>
       ) : null}
 
+      {/* A fixed box rather than a floor: Google's widget measures 80px for a
+          frame before settling at 44, and a floor passes that on to the page. */}
       {/* Google's iframe is a light document: under our dark scheme a rebuilt one paints its canvas opaque. */}
       <div
         ref={slot}
         aria-busy={pending}
-        className={`flex min-h-13 justify-center [&_iframe]:[color-scheme:light] ${pending ? "pointer-events-none opacity-70" : ""}`}
+        className={`flex h-13 items-center justify-center overflow-hidden [&_iframe]:[color-scheme:light] ${pending ? "pointer-events-none opacity-70" : ""}`}
       />
 
       {pending ? (

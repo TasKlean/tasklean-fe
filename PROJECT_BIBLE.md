@@ -1610,6 +1610,15 @@ workaround **before** the feature depending on it gets built.
     `globals.css` restores it for `button:not(:disabled)` and `[role="button"]:not(:disabled)`,
     rather than a `cursor-pointer` utility on every control, and the exclusion is what lets a
     deliberately dead button keep `disabled:cursor-not-allowed`.
+27. **Google renders its button two ways, and only one of them resizes.** On `localhost` the widget
+    comes back as inline elements, laid out once at 40px, so the screen is still. On the staging
+    origin the same call renders an `<iframe>` instead, which measures **80px for a frame** before
+    settling at 44. The slot used to be `min-h-13`, a floor, so that frame grew the auth card 28px
+    and dropped it back: the card is centred, so everything on screen moved 14px down and up again
+    about half a second after load. Measured on staging as `874 -> 902 -> 874` with two
+    `layout-shift` entries naming the iframe. A fixed `h-13` box with `overflow-hidden` holds both
+    renderings and lets neither reach the page. **It cannot be reproduced locally**, because local
+    never gets the iframe.
 
 ---
 
