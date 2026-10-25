@@ -1594,6 +1594,12 @@ workaround **before** the feature depending on it gets built.
     the JavaScript that already configured Google was still alive. Proved by a hard refresh of the
     same screen fixing it every time. A new nonce therefore needs a new document, which is what
     `gisNonceIsStale` reports and the widget acts on by reloading.
+26. **Tailwind 4's Preflight no longer gives a button `cursor: pointer`.** Version 3 did, so every
+    button in the app showed the arrow and it read as our own styling bug. Browsers never set the
+    hand for a `<button>`, only for a link, so there is nothing to fall back on. One base rule in
+    `globals.css` restores it for `button:not(:disabled)` and `[role="button"]:not(:disabled)`,
+    rather than a `cursor-pointer` utility on every control, and the exclusion is what lets a
+    deliberately dead button keep `disabled:cursor-not-allowed`.
 
 ---
 

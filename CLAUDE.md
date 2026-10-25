@@ -254,6 +254,9 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
   genuinely dynamic value. Extract a component, not an `@apply` class.
+- **The hand cursor comes from one base rule in `globals.css`**, not a `cursor-pointer` utility per
+  button: Tailwind 4's Preflight dropped it. It excludes `:disabled`, so a dead control keeps
+  `disabled:cursor-not-allowed`.
 - **Two utilities for one property fight in the stylesheet, not in the class list.** `items-end`
   beside `items-center`, or `font-bold` beside a `text-label-*` token that already carries a weight,
   resolves by Tailwind's own output order and the class attribute has no say. Set each property in
