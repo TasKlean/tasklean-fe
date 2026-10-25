@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { deviceLabel, lastSeen } from "@/app/(app)/app/settings/devices/page.helpers";
 import { BackLink } from "@/components/auth/back-link";
 import { DeviceRow } from "@/components/app/device-row/device-row";
-import { SignOutEverywhere } from "@/components/app/sign-out-everywhere";
+import { AllDeviceActions } from "@/components/app/all-device-actions/all-device-actions";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
@@ -55,7 +55,7 @@ export default async function DevicesPage() {
           ))}
         </ul>
 
-        <SignOutEverywhere />
+        <AllDeviceActions />
       </>
     );
   }

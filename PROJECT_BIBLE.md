@@ -535,7 +535,9 @@ are easy to miss if you picture the tokens sitting on the server:
 - **No per-session revocation.** Killing one session means rotating `SESSION_SECRET`, which kills
   every session at once. A server-side store (an opaque id in the cookie, tokens in Redis or a
   table) is the design that buys targeted revocation; we skipped it because it is infrastructure we
-  do not have. Revisit it when "sign out my other devices" becomes a requirement.
+  do not have. That requirement arrived and did not need it: the backend revokes refresh tokens per
+  device and per user, so per-device sign-out, sign-out-everywhere and removing every device all
+  work by revoking there and clearing our cookie when the row is this browser.
 - **Everything must fit a cookie.** Two tokens plus our own fields, inside the ~4KB limit.
 - **The tokens do transit the browser**, on every request. Encrypted and unreadable, but present —
   not "never leaves the server".
@@ -1023,10 +1025,24 @@ allowlisting every host instead would turn our optimizer into an open image prox
 
 ### What the devices screen offers, and what it refuses to
 
-Three operations exist on the backend and all three are worth exposing: end one device's session,
-remove a device, and end every session. There is **no bulk delete**, and the screen does not fake
-one by looping requests: a half-failed loop leaves a mess nobody can see, and "sign out everywhere"
-already covers the case that matters, losing a device.
+Five operations exist on the backend and all five are worth exposing: rename a device, end one
+device's session, remove a device, end every session, and remove every device. The bulk delete was
+not always there, and the screen deliberately did **not** fake one by looping `DELETE /{id}` over
+the list: a half-failed loop leaves a mess nobody can see, and removing the current device partway
+through would end the session before the rest of the loop ran. `DELETE /api/devices` now exists and
+revokes by user in one statement, so the button is the backend's own call and nothing is faked.
+
+**Removing every device ends this session, and the action says so by leaving.** The backend revokes
+every refresh token on the account, this browser's included, so the cookie is already worthless: the
+action clears it and redirects to `/login?signedOut=devices`, which is its own notice rather than
+the sign-out-everywhere one, because "every device is removed" is a different sentence from "you are
+signed out". It reads no session first, unlike sign-out-everywhere, whose request body needs the
+refresh token: this one revokes by user, so the access token `serverApi` already attaches is enough.
+
+**One component owns both account-wide buttons.** Each confirmation replaces the footer row it was
+pressed from, so two independent components would let one render its question behind the other's.
+`AllDeviceActions` holds a single `asked` state, which makes "only one question at a time" a
+property of the type rather than something to remember.
 
 A dead session dims its row but **keeps its Remove button at full strength**, since that is exactly
 when removal is the useful action. Its sign-out button disappears instead, because ending a session
@@ -1052,6 +1068,29 @@ three, and the slot is one word.
 Unlike ordinary logout, which swallows a failed revoke, **sign-out-everywhere reports failure**.
 Someone pressing it believes every other session is gone, and a silent failure would leave them
 believing it wrongly.
+
+### Renaming a device edits in place, and the page stays the source of truth
+
+A device's detected name is whatever the user-agent parser made of it, so renaming is the one way to
+tell two identical browsers apart. The name and its pencil are a single button, because two targets
+for one intent is two chances to miss on a phone, and the button carries the 44px the row's text
+line does not.
+
+**The editor's open state is derived, not stored.** Lint forbids `setState` inside an effect, so
+there is nothing watching for the save to answer. Instead the component remembers which action state
+it opened with, and is open only while that is still the current one: an answer arrives as a fresh
+object, which closes the editor by itself. The same trick the appearance picker uses for a refused
+theme, applied to a different question.
+
+**The draft is never the truth.** The row renders the label the page read, so a successful save shows
+the new name through `revalidatePath` and a refused one still shows the old, with no second copy to
+reconcile. That is why the action hands back only whether it worked.
+
+**A press outside aborts, through one `onBlur` rather than a document listener.** Focus leaving the
+form is exactly the signal wanted, and a click on something unfocusable reports `relatedTarget` as
+null, which counts as outside. The catch is Safari, which does not focus a button on press: without
+cancelling `mousedown` on Save, the field would blur and abort the edit before the click ever
+reached the button, so the save would silently do nothing on that one browser.
 
 ### Settings is grouped, and each section is a route
 
@@ -1382,7 +1421,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge.                                                                                                                                 |
 | User settings     | `/api/user-settings`           | The caller's own theme and language. `GET` answers the defaults (`SYSTEM`, `EN`) when nothing was ever saved, so there is no empty state. `PUT` is a **full replace** and `@NotNull` on both fields, so a screen editing one sends the other back unchanged.                                                            |
 | Notification settings | `/api/notification-settings` | The caller's own channels. `GET` always answers one entry per type, defaults included, so there is no empty state. `PUT /batch` replaces the types it is sent, in one transaction, and answers with the whole matrix **re-read** after the writes; an empty list or a duplicate type is a `400`. `PUT /{type}` does one type and we no longer call it. Nothing reads these yet. |
-| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it.                                                   |
+| Devices           | `/api/devices`                 | `GET` is the caller's own devices, scoped by the token, and `POST` is push-token registration, not a settings call. `PATCH /{id}` renames one, `POST /{id}/logout` ends that device's sessions, `DELETE /{id}` removes it, and `DELETE` on the collection removes every one and revokes every session. |
 | Audit logs        | `/api/audit-logs`              | `?groupId=`, or `/entity?entityType=&entityId=`, or `/member/{id}`. Could power a group activity feed.                                                                                                                                            |
 
 ### Status codes and what the UI does

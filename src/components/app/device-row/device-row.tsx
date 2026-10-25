@@ -15,6 +15,7 @@ import {
   signOutDeviceAction,
 } from "@/app/(app)/app/settings/devices/actions/actions";
 import { ConfirmRemove } from "@/components/app/device-row/confirm-remove";
+import { DeviceName } from "@/components/app/device-row/device-name";
 import { DeviceActions } from "@/components/app/device-row/device-actions";
 
 type DeviceRowProps = {
@@ -74,16 +75,43 @@ export function DeviceRow({
     );
   }
 
+  // A smaller top inset than the sides: the name's 44px press target already
+  // adds the rest, so the first line clears the edge like the other cards.
   return (
-    <li className="bg-card border-border/60 p-space-md gap-space-md flex flex-col rounded-xl border sm:flex-row sm:items-start">
-      {/* A row of its own, so the icon sits beside the name while the li stacks. */}
-      <div className="gap-space-md flex min-w-0 sm:flex-1">
-        <Icon className={`text-muted-foreground mt-0.5 size-5 shrink-0 ${dim}`} aria-hidden />
+    <li className="bg-card border-border/60 p-space-lg pt-space-md gap-space-sm flex items-start rounded-xl border">
+      {/* A box as tall as the name's own button, so the icon centres on the
+          name rather than sitting above it. */}
+      <span className="flex min-h-11 shrink-0 items-center">
+        <Icon className={`text-muted-foreground size-5 ${dim}`} aria-hidden />
+      </span>
 
-        <div className="gap-space-xs flex min-w-0 flex-1 flex-col">
-          <div className={`gap-space-xs flex flex-wrap items-center ${dim}`}>
-            <span className="text-label-lg text-foreground">{label}</span>
+      {/* One column beside the icon, so the buttons below line up with the name
+          rather than with the card's own edge. */}
+      <div className="gap-space-md flex min-w-0 flex-1 flex-col">
+        <div className="gap-space-md flex items-start justify-between">
+          <div className="gap-space-xs flex min-w-0 flex-col">
+            {id === null ? (
+              <span className={`text-label-lg text-foreground ${dim}`}>{label}</span>
+            ) : (
+              <DeviceName id={id} label={label} dim={dim} />
+            )}
 
+            {ipAddress ? (
+              <span className={`text-label-sm text-muted-foreground break-all ${dim}`}>
+                Last seen from <span className="text-foreground font-bold">{ipAddress}</span>
+              </span>
+            ) : null}
+
+            {lastUsed ? (
+              <span className={`text-label-sm text-muted-foreground ${dim}`}>
+                Last used <span className="text-foreground font-bold">{lastUsed}</span>
+              </span>
+            ) : null}
+          </div>
+
+          {/* Stacked on a phone, where two pills beside the name would truncate
+              it, and pt-3 drops the first onto the name's own 44px line. */}
+          <div className="gap-space-xs flex shrink-0 flex-col items-end pt-3 sm:min-h-11 sm:flex-row sm:items-center sm:pt-0">
             {current ? (
               <span className="text-label-sm bg-primary text-primary-foreground px-space-sm rounded-full py-0.5">
                 This device
@@ -95,31 +123,25 @@ export function DeviceRow({
                 Signed in
               </span>
             ) : (
-              <span className="text-label-sm text-muted-foreground">Signed out</span>
+              <span
+                className={`text-label-sm bg-muted text-muted-foreground px-space-sm rounded-full py-0.5 ${dim}`}
+              >
+                Signed out
+              </span>
             )}
           </div>
-
-          {ipAddress ? (
-            <span className={`text-label-sm text-muted-foreground break-all ${dim}`}>
-              Last seen from <span className="text-foreground font-bold">{ipAddress}</span>
-            </span>
-          ) : null}
-
-          {lastUsed ? (
-            <span className={`text-label-sm text-muted-foreground ${dim}`}>
-              Last used <span className="text-foreground font-bold">{lastUsed}</span>
-            </span>
-          ) : null}
-
-          {error ? (
-            <p role="alert" className="text-label-sm text-destructive-subtle-foreground">
-              {error}
-            </p>
-          ) : null}
         </div>
-      </div>
 
-      <div className="gap-space-xs flex flex-wrap items-center sm:justify-end">{controls}</div>
+        {error ? (
+          <p role="alert" className="text-label-sm text-destructive-subtle-foreground">
+            {error}
+          </p>
+        ) : null}
+
+        {controls ? (
+          <div className="gap-space-xs flex flex-wrap items-center">{controls}</div>
+        ) : null}
+      </div>
     </li>
   );
 }

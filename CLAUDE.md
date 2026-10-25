@@ -134,8 +134,8 @@ src/
           notifications/  page.tsx and actions.ts: the channels each notification uses
           two-factor/  page.tsx and actions/: the methods on offer, enrolling in an
                        authenticator app, turning it off and reissuing recovery codes
-          devices/     page.tsx with page.helpers.ts, and actions/: list, sign out,
-                       remove, sign out everywhere
+          devices/     page.tsx with page.helpers.ts, and actions/: list, rename,
+                       sign out, remove, sign out everywhere, remove every device
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
           deactivate/  page.tsx and actions.ts: closing the account
@@ -160,8 +160,10 @@ src/
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
                        or-divider, greeting, copy-button, qr-image, google-mark
-    app/               signed-in chrome: app-header, settings-nav, device-row,
-                       sign-out-everywhere, password-form, google-connection,
+    app/               signed-in chrome: app-header, settings-nav, device-row
+                       with device-name (the inline rename), all-device-actions
+                       (sign out everywhere and remove every device),
+                       password-form, google-connection,
                        unlink-google, deactivate-account, appearance-form, theme-preview,
                        language-form with locale-select (the dropdown, ours not
                        the platform's), notifications-form, notification-toggle,
@@ -207,10 +209,11 @@ src/
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
-                       notification type, two-factor code)
+                       notification type, two-factor code, device id, device name)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
+                       rename-device,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
                        two-factor-enable, two-factor-confirm
@@ -462,8 +465,8 @@ routes are `noindex` via the `(auth)` layout.
   `safe-next.ts` owns that constant, so login, Google and Proxy agree.
 - **Logout is best effort at the backend, certain in the browser.** `revokeSession` failing must
   never leave someone in a session they asked to leave, so the cookie is cleared either way. It
-  ends **this device only**; other browsers keep their sessions, and signing out everywhere is a
-  separate call from account settings.
+  ends **this device only**; other browsers keep their sessions. Signing out everywhere and
+  removing every device are separate calls from account settings, and both end this session too.
 - **Every browser carries a device id, minted by Proxy into `tasklean_device`.** The backend binds
   a refresh token to it, so a session has a stable identity across rotation and can be listed and
   revoked per device. A cookie rather than browser storage, because refresh happens in Proxy, which

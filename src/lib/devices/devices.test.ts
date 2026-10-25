@@ -16,7 +16,14 @@ vi.mock("@/lib/auth/session/session", () => ({
   }),
 }));
 
-import { isMobileDevice, listMyDevices, logoutDevice, removeDevice } from "@/lib/devices/devices";
+import {
+  isMobileDevice,
+  listMyDevices,
+  logoutDevice,
+  removeAllDevices,
+  removeDevice,
+  renameDevice,
+} from "@/lib/devices/devices";
 
 const BASE = "http://api.test";
 
@@ -150,5 +157,59 @@ describe("removeDevice", () => {
     await removeDevice(9);
 
     expect(seen.method).toBe("DELETE");
+  });
+});
+
+describe("renameDevice", () => {
+  it("patches the name and answers with the stored device", async () => {
+    const seen: { method?: string; body?: unknown } = {};
+    server.use(
+      http.patch(`${BASE}/api/devices/7`, async ({ request }) => {
+        seen.method = request.method;
+        seen.body = await request.json();
+        return HttpResponse.json({
+          success: true,
+          message: null,
+          data: { id: 7, deviceName: "Work laptop" },
+        });
+      }),
+    );
+
+    const device = await renameDevice(7, "Work laptop");
+
+    expect(seen.method).toBe("PATCH");
+    expect(seen.body).toEqual({ name: "Work laptop" });
+    expect(device.deviceName).toBe("Work laptop");
+  });
+
+  it("throws what the backend refused with", async () => {
+    server.use(
+      http.patch(`${BASE}/api/devices/7`, () =>
+        HttpResponse.json(
+          { success: false, message: "Device not found", data: null },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    await expect(renameDevice(7, "Work laptop")).rejects.toThrow("Device not found");
+  });
+});
+
+describe("removeAllDevices", () => {
+  it("deletes the collection, not one device", async () => {
+    const seen: { method?: string; url?: string } = {};
+    server.use(
+      http.delete(`${BASE}/api/devices`, ({ request }) => {
+        seen.method = request.method;
+        seen.url = request.url;
+        return HttpResponse.json({ success: true, message: "All devices removed", data: null });
+      }),
+    );
+
+    await removeAllDevices();
+
+    expect(seen.method).toBe("DELETE");
+    expect(seen.url).toBe(`${BASE}/api/devices`);
   });
 });

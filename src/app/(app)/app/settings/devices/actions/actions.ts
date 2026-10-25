@@ -11,11 +11,24 @@ import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/
 import { deviceHeaders } from "@/lib/auth/device/device";
 import { clearSession, getSession } from "@/lib/auth/session/session";
 import { revokeAllSessions } from "@/lib/auth/tokens/logout/logout";
-import { listMyDevices, logoutDevice, removeDevice } from "@/lib/devices/devices";
+import {
+  listMyDevices,
+  logoutDevice,
+  removeAllDevices,
+  removeDevice,
+  renameDevice,
+} from "@/lib/devices/devices";
 import { parseDeviceAction } from "@/lib/validation/forms/device-action.schema";
+import { parseRenameDevice } from "@/lib/validation/forms/rename-device.schema/rename-device.schema";
 
 export type DeviceActionState = {
   error: string | null;
+};
+
+export type RenameDeviceState = {
+  error: string | null;
+  // Absent until a save has answered, which is what the status pill waits for.
+  done?: boolean;
 };
 
 const DEVICES_PATH = "/app/settings/devices";
@@ -99,6 +112,51 @@ export async function removeDeviceAction(
 
   revalidatePath(DEVICES_PATH);
   return { error: null };
+}
+
+/**
+ * Renames one device.
+ *
+ * The new name is not handed back: the row renders the label the page read, so
+ * the revalidation is what updates it, and a refused save leaves the old one.
+ */
+export async function renameDeviceAction(
+  _previous: RenameDeviceState,
+  formData: FormData,
+): Promise<RenameDeviceState> {
+  const parsed = parseRenameDevice(Object.fromEntries(formData));
+  if (!parsed.ok) {
+    return { error: parsed.errors.name ?? parsed.errors.deviceId ?? GENERIC_FAILURE };
+  }
+
+  try {
+    await renameDevice(parsed.values.deviceId, parsed.values.name);
+  } catch (error) {
+    return { error: actionFailureMessage(error) };
+  }
+
+  revalidatePath(DEVICES_PATH);
+  return { error: null, done: true };
+}
+
+/**
+ * Removes every device and the sessions on them, this browser's included.
+ *
+ * No session read first, unlike signing out everywhere: the backend revokes by
+ * user, so the access token `serverApi` already carries is all it needs.
+ */
+export async function removeAllDevicesAction(
+  _previous: DeviceActionState,
+): Promise<DeviceActionState> {
+  try {
+    await removeAllDevices();
+  } catch (error) {
+    return { error: actionFailureMessage(error) };
+  }
+
+  await clearSession();
+  // Outside the try: redirect() signals by throwing.
+  redirect("/login?signedOut=devices");
 }
 
 /**

@@ -28,7 +28,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
+  removeAllDevicesAction,
   removeDeviceAction,
+  renameDeviceAction,
   signOutDeviceAction,
 } from "@/app/(app)/app/settings/devices/actions/actions";
 
@@ -129,5 +131,80 @@ describe("removeDeviceAction", () => {
       "REDIRECT:/login?signedOut=device",
     );
     expect(clearSession).toHaveBeenCalled();
+  });
+});
+
+describe("renameDeviceAction", () => {
+  function renameForm(deviceId: string, name: string): FormData {
+    const data = new FormData();
+    data.set("deviceId", deviceId);
+    data.set("name", name);
+    return data;
+  }
+
+  it("sends the trimmed name and reports the save", async () => {
+    const seen: { body?: unknown } = {};
+    server.use(
+      http.patch(`${BASE}/api/devices/7`, async ({ request }) => {
+        seen.body = await request.json();
+        return HttpResponse.json({ success: true, message: null, data: { id: 7 } });
+      }),
+    );
+
+    const state = await renameDeviceAction(EMPTY, renameForm("7", "  Work laptop  "));
+
+    expect(seen.body).toEqual({ name: "Work laptop" });
+    expect(state).toEqual({ error: null, done: true });
+  });
+
+  it("refuses an empty name without calling the backend", async () => {
+    const state = await renameDeviceAction(EMPTY, renameForm("7", "   "));
+
+    expect(state.error).toBe("Enter a name for this device.");
+    expect(state.done).toBeUndefined();
+  });
+
+  it("reports what the backend refused with", async () => {
+    server.use(
+      http.patch(`${BASE}/api/devices/7`, () =>
+        HttpResponse.json(
+          { success: false, message: "Device not found", data: null },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    const state = await renameDeviceAction(EMPTY, renameForm("7", "Work laptop"));
+
+    expect(state.error).toBe("Device not found");
+    expect(state.done).toBeUndefined();
+  });
+});
+
+describe("removeAllDevicesAction", () => {
+  it("clears this browser's session and sends them to sign in again", async () => {
+    server.use(
+      http.delete(`${BASE}/api/devices`, () =>
+        HttpResponse.json({ success: true, message: "All devices removed", data: null }),
+      ),
+    );
+
+    await expect(removeAllDevicesAction(EMPTY)).rejects.toThrow(
+      "REDIRECT:/login?signedOut=devices",
+    );
+    expect(clearSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the session when the removal was refused", async () => {
+    server.use(
+      http.delete(`${BASE}/api/devices`, () =>
+        HttpResponse.json({ success: false, message: "Nope", data: null }, { status: 500 }),
+      ),
+    );
+
+    const state = await removeAllDevicesAction(EMPTY);
+
+    expect(state.error).toBe("Nope");
+    expect(clearSession).not.toHaveBeenCalled();
   });
 });
