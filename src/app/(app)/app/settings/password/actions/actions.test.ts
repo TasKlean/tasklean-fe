@@ -86,7 +86,10 @@ describe("changePasswordAction", () => {
       ),
     );
 
-    await expect(changePasswordAction(EMPTY, GOOD)).resolves.toEqual({ error: null, done: true });
+    await expect(changePasswordAction(EMPTY, GOOD)).resolves.toEqual({
+      error: null,
+      done: "changed",
+    });
     expect(setSession).toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: "at-2", refreshToken: "rt-2" }),
     );
@@ -195,7 +198,7 @@ describe("setPasswordAction", () => {
       form({ newPassword: "Chores12!", confirmPassword: "Chores12!" }),
     );
 
-    expect(state).toEqual({ error: null, done: true });
+    expect(state).toEqual({ error: null, done: "set" });
     expect(setSession).toHaveBeenCalledTimes(1);
   });
 

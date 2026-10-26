@@ -6,19 +6,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type State = {
   error: string | null;
-  done?: boolean;
+  done?: "changed" | "set";
   fieldErrors?: Partial<
     Record<"currentPassword" | "newPassword" | "confirmPassword" | "code", string>
   >;
 };
 
 const changePasswordAction = vi.fn<(previous: unknown, data: FormData) => Promise<State>>(
-  async () => ({ error: null, done: true }),
+  async () => ({ error: null, done: "changed" }),
 );
 const setPasswordAction = vi.fn<(previous: unknown, data: FormData) => Promise<State>>(
   async () => ({
     error: null,
-    done: true,
+    done: "set",
   }),
 );
 
@@ -113,6 +113,23 @@ describe("PasswordForm for a Google-only account", () => {
 
     expect(setPasswordAction).toHaveBeenCalledTimes(1);
     expect(changePasswordAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("PasswordForm success notice", () => {
+  it("says the password was set, even once the page reports there is one", async () => {
+    const user = userEvent.setup({ delay: null });
+    const { rerender } = render(
+      <PasswordForm passwordSet={false} twoFactorEnabled={false} email={null} />,
+    );
+
+    await user.type(screen.getByLabelText("New password"), "Chores12!");
+    await user.type(screen.getByLabelText("Repeat new password"), "Chores12!");
+    await user.click(screen.getByRole("button", { name: "Set password" }));
+
+    rerender(<PasswordForm passwordSet twoFactorEnabled={false} email={null} />);
+
+    expect(await screen.findByRole("status")).toHaveTextContent(/Your password is set/);
   });
 });
 

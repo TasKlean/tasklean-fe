@@ -344,6 +344,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   action does not revalidate, and dismissing them is its own state. Writing a cookie in an action
   re-renders the route just as `revalidatePath` does, so a conditional that unmounts the component
   takes the codes with it.
+- **A success notice says what the action did, not what the page now reports.** Setting a first
+  password turns `passwordSet` on, and the action's `revalidatePath` re-renders the form with the
+  new flag before the notice is read, so the state carries `done: "changed" | "set"` rather than a
+  boolean. A message composed from a flag the same action flipped describes the wrong event.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and

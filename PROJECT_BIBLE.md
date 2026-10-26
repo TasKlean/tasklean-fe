@@ -1155,6 +1155,13 @@ are standing in is already dead. And the device headers have to ride along, or t
 a device it has never seen, writes a new row, and emails a new-sign-in notice for the browser the
 person is sitting at.
 
+**Which of the two happened has to come from the action, because the flag the form renders from
+moves.** Both calls revoke every other session, so both notices say so, but only one of them is a
+change. The notice read `passwordSet`, and `revalidatePath` turns that flag on as the action
+returns, so setting a first password announced "your password is changed" for a password that had
+never existed. The action now reports `done: "changed" | "set"` and the copy follows that, which is
+the general shape: a success message must not be composed from state the same action just moved.
+
 **Linking Google needs a nonce on a page you reach while signed in.** Proxy minted one only on
 `/login` and `/register`, and deleted any leftover on every signed-in request, so the connected
 accounts page is now the one signed-in response that keeps its nonce. Nothing else about the exchange changes: the

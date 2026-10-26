@@ -127,11 +127,13 @@ export function PasswordForm({
     <div className="gap-space-md flex flex-col">
       {state.error ? <FormNotice tone="error">{state.error}</FormNotice> : null}
 
+      {/* What the action did, never `passwordSet`: setting the first password
+          turns that flag on, so the notice would claim a change nobody made. */}
       {state.done ? (
         <FormNotice tone="success">
-          {passwordSet
+          {state.done === "changed"
             ? "Your password is changed. Every other device has been signed out."
-            : "Your password is set. You can sign in with your email address now."}
+            : "Your password is set. You can sign in with your email address now, and every other device has been signed out."}
         </FormNotice>
       ) : null}
 

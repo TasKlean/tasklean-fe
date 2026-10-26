@@ -19,8 +19,9 @@ export type PasswordActionState = {
   fieldErrors?: Partial<
     Record<"currentPassword" | "newPassword" | "confirmPassword" | "code", string>
   >;
-  // The visible success state, since the page it returns to looks unchanged.
-  done?: boolean;
+  // Which of the two happened, not just that one did: the page's own
+  // `passwordSet` flips as this returns, so the notice cannot read that.
+  done?: "changed" | "set";
 };
 
 const PASSWORD_PATH = "/app/settings/password";
@@ -54,7 +55,7 @@ export async function changePasswordAction(
   }
 
   revalidatePath(PASSWORD_PATH);
-  return { error: null, done: true };
+  return { error: null, done: "changed" };
 }
 
 /**
@@ -82,5 +83,5 @@ export async function setPasswordAction(
   }
 
   revalidatePath(PASSWORD_PATH);
-  return { error: null, done: true };
+  return { error: null, done: "set" };
 }
