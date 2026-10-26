@@ -107,6 +107,28 @@ describe("changePassword", () => {
     expect((error as ApiError).message).toBe("Current password is incorrect");
   });
 
+  it("sends a second-factor code when the account has one", async () => {
+    const seen: Seen = {};
+    server.use(record("post", "/api/account/change-password", PAIR, seen));
+
+    await changePassword("Old-Pass1!", "New-Pass1!", "123456");
+
+    expect(seen.body).toEqual({
+      currentPassword: "Old-Pass1!",
+      newPassword: "New-Pass1!",
+      code: "123456",
+    });
+  });
+
+  it("omits the code the field left empty", async () => {
+    const seen: Seen = {};
+    server.use(record("post", "/api/account/change-password", PAIR, seen));
+
+    await changePassword("Old-Pass1!", "New-Pass1!", "");
+
+    expect(seen.body).not.toHaveProperty("code");
+  });
+
   it("throws when a 2xx carries no new pair", async () => {
     server.use(record("post", "/api/account/change-password", { token: "at-2" }, {}));
 
@@ -122,6 +144,31 @@ describe("setPassword", () => {
     await setPassword("New-Pass1!");
 
     expect(seen.body).toEqual({ newPassword: "New-Pass1!" });
+  });
+
+  it("sends a second-factor code beside it", async () => {
+    const seen: Seen = {};
+    server.use(record("post", "/api/account/set-password", PAIR, seen));
+
+    await setPassword("New-Pass1!", "123456");
+
+    expect(seen.body).toEqual({ newPassword: "New-Pass1!", code: "123456" });
+  });
+
+  it("reports a refused code as an ApiError, not an expired session", async () => {
+    server.use(
+      http.post(`${BASE}/api/account/set-password`, () =>
+        HttpResponse.json(
+          { success: false, message: "That code is not valid.", code: "TWO_FACTOR_CODE_INVALID" },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const error = await setPassword("New-Pass1!", "000000").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).not.toBeInstanceOf(SessionExpiredError);
   });
 });
 
@@ -188,5 +235,23 @@ describe("deactivateAccount", () => {
     await deactivateAccount();
 
     expect(seen.body).toEqual({});
+  });
+
+  it("sends the code with the password", async () => {
+    const seen: Seen = {};
+    server.use(record("post", "/api/account/deactivate", null, seen));
+
+    await deactivateAccount("Old-Pass1!", "123456");
+
+    expect(seen.body).toEqual({ password: "Old-Pass1!", code: "123456" });
+  });
+
+  it("sends the code alone for a Google-only account", async () => {
+    const seen: Seen = {};
+    server.use(record("post", "/api/account/deactivate", null, seen));
+
+    await deactivateAccount(undefined, "123456");
+
+    expect(seen.body).toEqual({ code: "123456" });
   });
 });

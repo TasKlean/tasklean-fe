@@ -182,6 +182,7 @@ src/
                        error-codes.ts (the envelope codes more than one module reads),
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message),
+                       credential-field.ts (which credential a 401 was about),
                        action-failure.ts (what every Server Action shows on a throw)
     auth/
       signin/          one per credential exchange: login, register, verify-email, google,
@@ -343,6 +344,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   action does not revalidate, and dismissing them is its own state. Writing a cookie in an action
   re-renders the route just as `revalidatePath` does, so a conditional that unmounts the component
   takes the codes with it.
+- **A success notice says what the action did, not what the page now reports.** Setting a first
+  password turns `passwordSet` on, and the action's `revalidatePath` re-renders the form with the
+  new flag before the notice is read, so the state carries `done: "changed" | "set"` rather than a
+  boolean. A message composed from a flag the same action flipped describes the wrong event.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and
@@ -554,8 +559,8 @@ routes are `noindex` via the `(auth)` layout.
 - **`/two-factor` is public, and guarded twice.** A visitor finishing a gated sign-in has no session
   by definition, so the path is in `PUBLIC_PATHS`; the page redirects to `/login` when there is no
   challenge to answer, and `AUTH_PATHS` bounces anyone who already has a session. Being in
-  `AUTH_PATHS` is also what mints the device id, which `verify` has to send: the device row and the
-  new-sign-in email are created at that step now, not at login.
+  `DEVICE_PATHS` is also what mints the device id, which `verify` has to send: the device row and
+  the new-sign-in email are created at that step now, not at login.
 - **A 401 from `/api/auth/2fa/verify` is about the code, not the session.** Two codes end the
   attempt: `TWO_FACTOR_CHALLENGE_INVALID` clears the cookie and returns to `/login?expired=2fa`,
   and `ACCOUNT_DEACTIVATED` to the notice login already has. Every other 401 shows against the code
@@ -577,9 +582,18 @@ routes are `noindex` via the `(auth)` layout.
   The code may be an authenticator or a recovery code and is **spent** either way. Only `disable`
   answers with a fresh pair, which the action seals, and that write re-renders the page with the
   factor off, so the component holding the confirmation has to outlive it.
-- **A 401 from `/api/account` is routed by its code, not its status.** Only `PASSWORD_INVALID`
-  reaches the password field. Those endpoints answer 401 for a dead session too, carrying no code,
-  and blaming the field for that would hide it.
+- **A 401 from `/api/account` is routed by its code, not its status.** `PASSWORD_INVALID` reaches
+  the password field and `TWO_FACTOR_CODE_INVALID` the code field, and `refusedCredential` in
+  `api/credential-field/credential-field.ts` is the one place that reads them, so three actions
+  cannot disagree. Those endpoints answer 401 for a dead session too, carrying no code, and blaming
+  a field for that would hide it.
+- **Changing a credential asks for the second factor, and only the page knows it is required.**
+  Change-password, set-password and deactivate all run the backend's one gate, so with a factor on a
+  call carrying no code is refused and with no factor the field is ignored. The wire field stays
+  optional in the three schemas, since whether a code is needed is read per page and never posted;
+  the page passes `twoFactorEnabled` down and the component runs `twoFactorCodeError` on top of its
+  schema. `setPassword` therefore carries `credentialCheck: true` as well, or a mistyped code would
+  sign the person out.
 - **Only an authenticator code can confirm a setup.** `/2fa/enable` has no recovery codes to fall
   back on yet, so that form uses `codeRule`, the plain six digits, not `twoFactorCodeRule`.
 - **The QR code is encoded on the server.** `lib/qr/qr-code/qr-code.ts` turns the URI into one SVG path, so
@@ -594,9 +608,11 @@ routes are `noindex` via the `(auth)` layout.
   /api/auth/reset-password` returns no tokens and revokes every refresh token the user holds, so the
   action clears our cookie and sends them to `/login?reset=1`. `/forgot-password` answers the same
   way for an address with no account, and emails a Google-only account a "nothing to reset" notice,
-  so the screen keeps its notice neutral and never redirects. `/reset-password` is public and
-  deliberately **not** in `AUTH_PATHS`: an emailed link has to work even for a browser that still
-  holds a session.
+  so the screen keeps its notice neutral and never redirects. **Neither reset step is in
+  `AUTH_PATHS`**: an emailed link has to work for a browser that still holds a session, and
+  `/app/settings/password` links to `/forgot-password` for someone who cannot produce the current
+  password a change asks for. `DEVICE_PATHS` is the separate list that mints the device id, so
+  asking for a link while signed out still carries one.
 - **Password policy** lives in `validation/password/policy/policy.ts` and the **frontend is the spec**;
   the backend matches it. 8 to 64 characters, one each of upper/lower/digit/non-alphanumeric, and a
   guessable password is rejected. Enforced at register, never at login. `PASSWORD_HINT` in the same
@@ -613,9 +629,10 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **Every response is an envelope**: `{ success, message, code?, data }`, on failure too, never
   HTML. `api/client/client.ts` unwraps it and throws `ApiError`; nothing above it sees the envelope. No
   field is marked `required` in `openapi.json`, so narrow rather than trust.
-- **A code more than one module reads lives in `api/error-codes.ts`.** `PASSWORD_INVALID` is the
-  only one so far: the password section, deactivation and both two-factor confirmations branch on
-  it. A code only one module reads stays a constant in that module.
+- **A code more than one module reads lives in `api/error-codes.ts`.** Two so far:
+  `PASSWORD_INVALID` and `TWO_FACTOR_CODE_INVALID`, which the password section, deactivation and
+  both two-factor confirmations branch on. A code only one module reads stays a constant in that
+  module.
 - **Branch on `ApiError.code`, never on the message.** Only some failures carry one
   (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
   where an older backend build is plausible.

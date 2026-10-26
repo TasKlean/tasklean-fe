@@ -123,10 +123,12 @@ answered: a proxy, or `API_BASE_URL` pointing somewhere wrong. That's a differen
 different fix, so it gets a different type rather than being flattened into a 500.
 
 **A code read by more than one module is a constant, not a literal.** Only some failures carry the
-envelope's `code`, so most checks are local and stay where they are read. `PASSWORD_INVALID` is the
-exception: the password section, deactivation and both two-factor confirmations all branch on it,
-and three copies of one backend string is three chances to misspell it. `api/error-codes.ts` holds
-the shared ones, and nothing else. **The code is also what routes a 401, not the status**, which
+envelope's `code`, so most checks are local and stay where they are read. `PASSWORD_INVALID` and
+`TWO_FACTOR_CODE_INVALID` are the exceptions: the password section, deactivation and both two-factor
+confirmations all branch on them, and three copies of one backend string is three chances to
+misspell it. `api/error-codes.ts` holds the shared ones, and nothing else. Reading the pair is one
+job too, so `api/credential-field` turns a 401 into the field it belongs against and the actions
+each map that field onto their own form. **The code is also what routes a 401, not the status**, which
 matters precisely where `credentialCheck` is on: those endpoints answer 401 for a refused password
 *and* for a dead session, so blaming the field for every 401 would hide the session dying behind
 "current password is incorrect".
@@ -692,8 +694,15 @@ form when the token is missing and leaves the rest to the backend's one 401.
 so a session sealed before the reset is already dead; clearing it in the action saves a pointless
 bounce through Proxy's refusal path. For the same reason `/reset-password` is public but **not** in
 `AUTH_PATHS`: bouncing a signed-in visitor off it would make an emailed link unusable on the one
-browser they are most likely to open it in. `/forgot-password` is in both lists, because a session
-really does make asking for a link pointless.
+browser they are most likely to open it in.
+
+**`/forgot-password` left `AUTH_PATHS` too, once the password page linked to it.** A session does
+not mean the password is known: someone signed in on this browser who cannot produce the current
+password has no way through a change form, and the emailed reset is the way out. Bouncing them to
+`/app` made the link dead. The two jobs that list was doing are now separate: `AUTH_PATHS` is still
+"a session makes this pointless", and `DEVICE_PATHS` spreads it plus `/forgot-password` to say which
+paths mint a device id for a visitor who has none. Without that split, removing the bounce would
+have silently stopped attributing an anonymous reset to a device.
 
 **Two-factor** - `login` and `google` stop returning tokens for an account that has a second
 factor. They answer `{ twoFactorRequired: true, challengeToken }` with `token`, `refreshToken`,
@@ -731,7 +740,7 @@ success.
 **The verify call carries the device headers.** The backend creates the device row and sends the
 new-sign-in email at that step now, not at login, so a verify without `X-Device-Id` costs this
 browser its identity in the devices list and the account its alert. `/two-factor` is therefore in
-`AUTH_PATHS`, which is what makes Proxy mint the id for a visitor who does not have one yet.
+`DEVICE_PATHS`, which is what makes Proxy mint the id for a visitor who does not have one yet.
 
 **A 401 here is not the session.** Two error codes end the attempt and nothing else does:
 `TWO_FACTOR_CHALLENGE_INVALID` means expired, spent or out of attempts, so the cookie is cleared and
@@ -1124,12 +1133,34 @@ endpoints answer 401 for a refused password *and* for a session that has died, s
 Branching on the status alone, which is how this started, showed "current password is incorrect" to
 someone whose session had merely expired.
 
+**The backend gates all three credential changes on the second factor, and the wire field stays
+optional.** `requireSecondFactorIfEnabled` runs on change-password, set-password and deactivate: an
+account with a factor on has its call refused with `TWO_FACTOR_CODE_INVALID` when no code rides
+along, and an account without one has the field ignored. Whether a code is required is therefore not
+a property of the form data, it is account state, and the page is what reads it. So the three
+schemas accept an empty code and the strict check lives in the component, which is handed
+`twoFactorEnabled` beside `passwordSet`. Reading the state inside the action instead would cost a
+second round trip and still race the person turning the factor off in another tab.
+
+**Two traps came with it.** `setPassword` had no `credentialCheck: true`, because until now it
+verified nothing from the body; a mistyped code would have been read as a dead session and signed
+the person out. And `CodeInput` submits its own form once six digits are in, which walks straight
+past a disabled button, so the deactivate confirm had to refuse the submit itself rather than rely
+on the button being unavailable.
+
 Changing or setting a password **revokes every refresh token the account holds**, this browser's
 included, and the backend then issues a fresh pair for the device the `X-Device-Id` header names.
 Two consequences the UI cannot skip. The pair has to be sealed into our cookie, or the session we
 are standing in is already dead. And the device headers have to ride along, or the backend resolves
 a device it has never seen, writes a new row, and emails a new-sign-in notice for the browser the
 person is sitting at.
+
+**Which of the two happened has to come from the action, because the flag the form renders from
+moves.** Both calls revoke every other session, so both notices say so, but only one of them is a
+change. The notice read `passwordSet`, and `revalidatePath` turns that flag on as the action
+returns, so setting a first password announced "your password is changed" for a password that had
+never existed. The action now reports `done: "changed" | "set"` and the copy follows that, which is
+the general shape: a success message must not be composed from state the same action just moved.
 
 **Linking Google needs a nonce on a page you reach while signed in.** Proxy minted one only on
 `/login` and `/register`, and deleted any leftover on every signed-in request, so the connected
@@ -1658,7 +1689,8 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
   pieces rather than as a phase of its own. The **gated sign-in landed first**, because an account
   that enabled a second factor anywhere else could not get into the app at all until it did.
   The settings card that reports the state came next, then enrollment, then turning it off and
-  reissuing recovery codes. That completes the one provider the backend has.
+  reissuing recovery codes, and then the gate on changing a password, setting the first one and
+  deactivating. That completes the one provider the backend has.
   Reasoning under _The second factor is a cookie between two requests_.
 - **Hosting and deployment**: Render, deploying the Docker image the pipeline pushes, the same way
   the backend deploys. The `Dockerfile` written in phase 2 as a local test harness is now also the

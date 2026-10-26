@@ -80,6 +80,9 @@ export const codeRule = z
 // Six digits from an authenticator, or an eight-character recovery code.
 const TWO_FACTOR_CODE = /^(?:\d{6}|[A-Z\d]{8})$/;
 
+// Said once, because the strict rule and the optional one refuse the same shapes.
+const TWO_FACTOR_CODE_SHAPE = "Enter the 6 digits from your app, or a recovery code.";
+
 /**
  * An authenticator code or a recovery code, normalised the way the backend
  * matches them: it strips spaces, the hyphen and the case before comparing.
@@ -88,8 +91,34 @@ export const twoFactorCodeRule = z.string({ error: "Enter your code." }).check(
   z.trim(),
   z.minLength(1, "Enter your code."),
   z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
-  z.regex(TWO_FACTOR_CODE, "Enter the 6 digits from your app, or a recovery code."),
+  z.regex(TWO_FACTOR_CODE, TWO_FACTOR_CODE_SHAPE),
 );
+
+/**
+ * The same code where the form may legitimately send none: an account with no
+ * second factor posts an empty field, or no field at all, and the backend asks
+ * it for nothing.
+ */
+export const optionalTwoFactorCodeRule = z.optional(
+  z.string().check(
+    z.trim(),
+    z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
+    z.refine((value) => value === "" || TWO_FACTOR_CODE.test(value), {
+      error: TWO_FACTOR_CODE_SHAPE,
+    }),
+  ),
+);
+
+/**
+ * Checks a code the form knows is required, which the schema cannot: whether
+ * the account has a second factor is read per page, never posted.
+ *
+ * @returns The first unmet rule, or nothing when the code is usable.
+ */
+export function twoFactorCodeError(code: string): string | undefined {
+  const result = z.safeParse(twoFactorCodeRule, code);
+  return result.success ? undefined : result.error.issues[0]?.message;
+}
 
 /** The device a button was pressed for: a hidden field, so it arrives as a string. */
 export const deviceIdRule = z.pipe(

@@ -6,6 +6,7 @@
 
 "use client";
 
+import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Loader2, UserX } from "lucide-react";
@@ -14,10 +15,14 @@ import {
   deactivateAccountAction,
 } from "@/app/(app)/app/settings/deactivate/actions/actions";
 import { PasswordField } from "@/components/common/password-field";
+import { TwoFactorCodeField } from "@/components/common/two-factor-code-field/two-factor-code-field";
+import { twoFactorCodeError } from "@/lib/validation/rules/rules";
 
 type DeactivateAccountProps = {
   // With a password set the backend requires it, so the form asks for it.
   passwordSet: boolean;
+  // With a factor on it requires a current code as well.
+  twoFactorEnabled: boolean;
 };
 
 const INITIAL: DeactivateState = { error: null };
@@ -26,17 +31,40 @@ const BUTTON =
   "text-label-md gap-space-xs px-space-md flex min-h-11 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Renders the deactivation control and its confirmation. */
-export function DeactivateAccount({ passwordSet }: Readonly<DeactivateAccountProps>) {
+export function DeactivateAccount({
+  passwordSet,
+  twoFactorEnabled,
+}: Readonly<DeactivateAccountProps>) {
   const [state, deactivate, pending] = useActionState(deactivateAccountAction, INITIAL);
   const [confirming, setConfirming] = useState(false);
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-  const ready = !passwordSet || password !== "";
+  const codeError = twoFactorEnabled ? twoFactorCodeError(code) : undefined;
+  const ready = (!passwordSet || password !== "") && codeError === undefined;
+
+  /** Drops what was known about the code the switch just emptied. */
+  function switched() {
+    setSubmitted(false);
+  }
+
+  // A complete code submits the form by itself, so an empty password has to be
+  // stopped here: the button being disabled is not what requestSubmit checks.
+  function confirm(event: FormEvent<HTMLFormElement>) {
+    setSubmitted(true);
+    if (!ready) event.preventDefault();
+  }
 
   return (
     <div className="gap-space-sm flex flex-col">
       {confirming ? (
-        <form action={deactivate} className="gap-space-md flex flex-col" noValidate>
+        <form
+          action={deactivate}
+          onSubmit={confirm}
+          className="gap-space-md flex flex-col"
+          noValidate
+        >
           <p className="text-body-md text-destructive">
             Your account will be deactivated and every session ended. Your groups will keep the
             content you shared with them.{" "}
@@ -61,6 +89,16 @@ export function DeactivateAccount({ passwordSet }: Readonly<DeactivateAccountPro
             />
           ) : null}
 
+          {twoFactorEnabled ? (
+            <TwoFactorCodeField
+              name="code"
+              value={code}
+              onChange={setCode}
+              onSwitch={switched}
+              error={(submitted ? codeError : undefined) ?? state.fieldErrors?.code}
+            />
+          ) : null}
+
           <div className="gap-space-xs flex flex-wrap items-center">
             <button
               type="submit"
@@ -81,6 +119,8 @@ export function DeactivateAccount({ passwordSet }: Readonly<DeactivateAccountPro
               onClick={() => {
                 setConfirming(false);
                 setPassword("");
+                setCode("");
+                setSubmitted(false);
               }}
               disabled={pending}
               className={`${BUTTON} border-border/60 text-muted-foreground hover:bg-muted`}
