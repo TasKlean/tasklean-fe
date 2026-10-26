@@ -6,8 +6,9 @@
 
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, SetStateAction } from "react";
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import {
   changePasswordAction,
   type PasswordActionState,
@@ -17,23 +18,34 @@ import { FormNotice } from "@/components/common/form-notice";
 import { PasswordField } from "@/components/common/password-field";
 import { PasswordStrengthMeter } from "@/components/common/password-strength-meter";
 import { SubmitButton } from "@/components/common/submit-button";
+import { TwoFactorCodeField } from "@/components/common/two-factor-code-field/two-factor-code-field";
 import { validateChangePassword } from "@/lib/validation/forms/change-password.schema/change-password.schema";
 import { validateSetPassword } from "@/lib/validation/forms/set-password.schema/set-password.schema";
 import { PASSWORD_HINT } from "@/lib/validation/password/policy/policy";
+import { twoFactorCodeError } from "@/lib/validation/rules/rules";
 
 type PasswordFormProps = {
   // Picks the form: a change needs the current password, a first one does not.
   passwordSet: boolean;
+  // With a factor on, the backend refuses both calls without a current code.
+  twoFactorEnabled: boolean;
+  // Carried into the reset link, so a forgotten password costs no retyping.
+  // Null when the profile read failed, which only costs the prefill.
+  email: string | null;
 };
 
-type Field = "currentPassword" | "newPassword" | "confirmPassword";
+type Field = "currentPassword" | "newPassword" | "confirmPassword" | "code";
 
 const INITIAL: PasswordActionState = { error: null };
 
-const EMPTY = { currentPassword: "", newPassword: "", confirmPassword: "" };
+const EMPTY = { currentPassword: "", newPassword: "", confirmPassword: "", code: "" };
 
 /** Renders the form that sets a password, and reports how it went. */
-export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
+export function PasswordForm({
+  passwordSet,
+  twoFactorEnabled,
+  email,
+}: Readonly<PasswordFormProps>) {
   const [state, formAction] = useActionState(
     passwordSet ? changePasswordAction : setPasswordAction,
     INITIAL,
@@ -44,9 +56,16 @@ export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
   const [edited, setEdited] = useState<Partial<Record<Field, boolean>>>({});
   const [handled, setHandled] = useState(state);
 
-  const errors: Partial<Record<Field, string>> = passwordSet
-    ? validateChangePassword(fields)
-    : validateSetPassword(fields);
+  const errors: Partial<Record<Field, string>> = {
+    ...(passwordSet ? validateChangePassword(fields) : validateSetPassword(fields)),
+    // The schema lets the code be empty, because only the page knows whether
+    // there is a factor to answer for. That makes the strict check this form's.
+    ...(twoFactorEnabled ? { code: twoFactorCodeError(fields.code) } : {}),
+  };
+
+  const forgotHref = email
+    ? `/forgot-password?email=${encodeURIComponent(email)}`
+    : "/forgot-password";
 
   const passwordsMatch =
     fields.confirmPassword !== "" && fields.confirmPassword === fields.newPassword;
@@ -82,9 +101,24 @@ export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
     return () => setTouched((was) => ({ ...was, [field]: true }));
   }
 
+  /** Takes the code, which arrives as a value or as an updater. */
+  function setCode(next: SetStateAction<string>) {
+    setEdited((was) => ({ ...was, code: true }));
+    setFields((was) => ({
+      ...was,
+      code: typeof next === "function" ? next(was.code) : next,
+    }));
+  }
+
+  /** Forgets what was known about the code the switch just dropped. */
+  function switched() {
+    setSubmitted(false);
+    setTouched((was) => ({ ...was, code: false }));
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     setSubmitted(true);
-    if (errors.currentPassword || errors.newPassword || errors.confirmPassword) {
+    if (errors.currentPassword || errors.newPassword || errors.confirmPassword || errors.code) {
       event.preventDefault();
     }
   }
@@ -117,6 +151,14 @@ export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
             onChange={set("currentPassword")}
             onBlur={touch("currentPassword")}
             error={shown("currentPassword")}
+            labelAction={
+              <Link
+                href={forgotHref}
+                className="text-label-md text-link hover:text-primary-strong underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            }
           />
         ) : null}
 
@@ -144,6 +186,23 @@ export function PasswordForm({ passwordSet }: Readonly<PasswordFormProps>) {
           error={shown("confirmPassword")}
           success={passwordsMatch ? "Passwords match" : undefined}
         />
+
+        {twoFactorEnabled ? (
+          <div className="gap-space-sm flex flex-col">
+            <p className="text-body-sm text-muted-foreground">
+              Your account has two-factor on, so this needs a current code.
+            </p>
+
+            <TwoFactorCodeField
+              name="code"
+              value={fields.code}
+              onChange={setCode}
+              onBlur={touch("code")}
+              onSwitch={switched}
+              error={shown("code")}
+            />
+          </div>
+        ) : null}
 
         <SubmitButton
           pendingLabel={passwordSet ? "Changing your password…" : "Setting your password…"}

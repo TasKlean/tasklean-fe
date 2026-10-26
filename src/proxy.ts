@@ -59,11 +59,17 @@ const PUBLIC_PATHS = [
 
 // The public paths a session makes pointless. `/` is public but not here: it
 // stays readable while signed in, or the redirect below would loop onto itself.
-// `/reset-password` is not here either: an emailed link has to work even for
-// someone whose browser still holds a session, and finishing the reset kills it.
+// Neither reset step is here: the settings page offers the first to someone who
+// forgot the password they are signed in with, and an emailed link has to work
+// for a browser that still holds a session. Finishing the reset kills it anyway.
 // The prompt is one of them: it finishes a sign-in, so a session has already
-// made it pointless, and it needs the device id the verify call sends.
-const AUTH_PATHS = ["/login", "/register", "/verify-email", "/forgot-password", TWO_FACTOR_PROMPT];
+// made it pointless.
+const AUTH_PATHS = ["/login", "/register", "/verify-email", TWO_FACTOR_PROMPT];
+
+// The paths an anonymous visitor still needs a device id on, because a call
+// made from them is bound to one: every sign-in, and the reset that revokes
+// each session this browser holds.
+const DEVICE_PATHS = [...AUTH_PATHS, "/forgot-password"];
 
 // The screens carrying a Google button, which cannot mint their own nonce. The
 // connected accounts page is one, so it keeps a nonce every other path drops.
@@ -214,7 +220,7 @@ function redirectToLogin(request: NextRequest): NextResponse {
  * reader would be a tracking cookie that no sign-in ever asks for.
  */
 function needsDeviceId(pathname: string, session: Session | null): boolean {
-  return session !== null || matches(AUTH_PATHS, pathname);
+  return session !== null || matches(DEVICE_PATHS, pathname);
 }
 
 /**

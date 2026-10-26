@@ -6,10 +6,12 @@
 
 import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
+import { optionalTwoFactorCodeRule } from "@/lib/validation/rules/rules";
 
 export const deactivateAccountSchema = z.object({
   // Never trimmed: it has to reach the backend exactly as it was typed.
   password: z.optional(z.string()),
+  code: optionalTwoFactorCodeRule,
 });
 
 export type DeactivateAccountFields = z.infer<typeof deactivateAccountSchema>;

@@ -93,6 +93,33 @@ describe("deactivateAccountAction", () => {
     expect(clearSession).not.toHaveBeenCalled();
   });
 
+  it("shows a refused code against the code field", async () => {
+    server.use(answers(401, "That code is not valid.", "TWO_FACTOR_CODE_INVALID"));
+
+    await expect(
+      deactivateAccountAction(NOTHING, form({ password: "Chores12!", code: "123456" })),
+    ).resolves.toEqual({
+      error: null,
+      fieldErrors: { code: "That code is not valid." },
+    });
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  it("sends the code the form posted", async () => {
+    let body: unknown;
+    server.use(
+      http.post(PATH, async ({ request }) => {
+        body = await request.json().catch(() => undefined);
+        return HttpResponse.json({ success: true, message: null, data: null });
+      }),
+    );
+
+    await expect(
+      deactivateAccountAction(NOTHING, form({ password: "Chores12!", code: "aaaa-1111" })),
+    ).rejects.toThrow("REDIRECT:");
+    expect(body).toEqual({ password: "Chores12!", code: "AAAA1111" });
+  });
+
   it("does not blame the field for a 401 that said nothing about the password", async () => {
     server.use(answers(401, "Unauthorized"));
 

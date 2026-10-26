@@ -9,15 +9,16 @@
 import { revalidatePath } from "next/cache";
 import { changePassword, setPassword } from "@/lib/account/account";
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
-import { PASSWORD_INVALID } from "@/lib/api/error-codes";
-import { isApiError } from "@/lib/api/errors";
+import { refusedCredential } from "@/lib/api/credential-field/credential-field";
 import { startSession } from "@/lib/auth/start-session/start-session";
 import { parseChangePassword } from "@/lib/validation/forms/change-password.schema/change-password.schema";
 import { parseSetPassword } from "@/lib/validation/forms/set-password.schema/set-password.schema";
 
 export type PasswordActionState = {
   error: string | null;
-  fieldErrors?: Partial<Record<"currentPassword" | "newPassword" | "confirmPassword", string>>;
+  fieldErrors?: Partial<
+    Record<"currentPassword" | "newPassword" | "confirmPassword" | "code", string>
+  >;
   // The visible success state, since the page it returns to looks unchanged.
   done?: boolean;
 };
@@ -27,9 +28,9 @@ const PASSWORD_PATH = "/app/settings/password";
 /**
  * Changes the password and reseals the session with the pair that comes back.
  *
- * Only the code says the password was the problem: this endpoint checks a
- * credential, so its 401 can still be the session, and a field error would
- * hide that.
+ * Only the envelope's code says which credential was the problem: this endpoint
+ * checks two, and its 401 can still be the session, so a 401 carrying no code
+ * stays a banner.
  */
 export async function changePasswordAction(
   _previous: PasswordActionState,
@@ -38,14 +39,16 @@ export async function changePasswordAction(
   const parsed = parseChangePassword(Object.fromEntries(formData));
   if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
 
-  const { currentPassword, newPassword } = parsed.values;
+  const { currentPassword, newPassword, code } = parsed.values;
 
   try {
-    const tokens = await changePassword(currentPassword, newPassword);
+    const tokens = await changePassword(currentPassword, newPassword, code || undefined);
     await startSession(tokens);
   } catch (error) {
-    if (isApiError(error) && error.code === PASSWORD_INVALID) {
-      return { error: null, fieldErrors: { currentPassword: error.message } };
+    const refused = refusedCredential(error);
+    if (refused) {
+      const field = refused.field === "password" ? "currentPassword" : "code";
+      return { error: null, fieldErrors: { [field]: refused.message } };
     }
     return { error: actionFailureMessage(error) };
   }
@@ -54,7 +57,12 @@ export async function changePasswordAction(
   return { error: null, done: true };
 }
 
-/** Sets the first password on an account that has only ever used Google. */
+/**
+ * Sets the first password on an account that has only ever used Google.
+ *
+ * A second-factor code is the only credential this one checks, since there is
+ * no password yet to re-authenticate with.
+ */
 export async function setPasswordAction(
   _previous: PasswordActionState,
   formData: FormData,
@@ -63,9 +71,13 @@ export async function setPasswordAction(
   if (!parsed.ok) return { error: null, fieldErrors: parsed.errors };
 
   try {
-    const tokens = await setPassword(parsed.values.newPassword);
+    const tokens = await setPassword(parsed.values.newPassword, parsed.values.code || undefined);
     await startSession(tokens);
   } catch (error) {
+    const refused = refusedCredential(error);
+    if (refused?.field === "code") {
+      return { error: null, fieldErrors: { code: refused.message } };
+    }
     return { error: actionFailureMessage(error) };
   }
 

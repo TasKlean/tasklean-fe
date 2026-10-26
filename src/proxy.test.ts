@@ -195,11 +195,11 @@ describe("proxy password reset paths", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
-  it("sends a signed-in visitor away from asking for a link", async () => {
+  it("lets a signed-in visitor ask for a link, which the password page offers", async () => {
     const response = await proxy(requestFor("/forgot-password", await sessionCookie(3600)));
 
-    expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("location") ?? "").pathname).toBe("/app");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("lets a signed-in visitor finish a reset they started by email", async () => {
@@ -439,6 +439,12 @@ describe("proxy device id", () => {
     const response = await proxy(requestFor("/", await sessionCookie(3600)));
 
     expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toBeTruthy();
+  });
+
+  it("mints one for an anonymous visitor asking for a reset link", async () => {
+    const response = await proxy(requestFor("/forgot-password"));
+
+    expect(response.cookies.get(DEVICE_COOKIE_NAME)?.value).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it("mints none for an anonymous reader of the public site", async () => {

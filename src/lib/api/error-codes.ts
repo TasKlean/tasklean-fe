@@ -6,3 +6,6 @@
 
 /** A password the backend re-authenticated with and refused. */
 export const PASSWORD_INVALID = "PASSWORD_INVALID";
+
+/** A second-factor code the backend refused, or asked for and did not get. */
+export const TWO_FACTOR_CODE_INVALID = "TWO_FACTOR_CODE_INVALID";
