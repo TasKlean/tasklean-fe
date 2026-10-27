@@ -53,7 +53,9 @@ export default async function ConnectedAccountsPage() {
           message={failure ?? "Please try again."}
         />
       ) : (
-        <div className="bg-card border-border/60 p-space-lg gap-space-md flex flex-col rounded-xl border">
+        // `relative` is load-bearing: it is what `BusyOverlay` covers while the
+        // link is in flight.
+        <div className="bg-card border-border/60 p-space-lg gap-space-md relative flex flex-col rounded-xl border">
           {/* A row at every width, so the state reads as this account's badge
               rather than as a banner over the control below it. */}
           <div className="gap-space-md flex items-start justify-between">

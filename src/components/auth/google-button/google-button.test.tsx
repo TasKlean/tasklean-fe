@@ -278,6 +278,44 @@ describe("GoogleButton credential handling", () => {
     });
   });
 
+  it("covers the card while the action runs, rather than a line under the button", async () => {
+    let release: (result: { error: string | null }) => void = () => {};
+    googleSignInAction.mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    render(
+      <GoogleButton
+        action={googleSignInAction}
+        clientId="client-123"
+        intent="signin"
+        nonceHash="hash-1"
+      />,
+    );
+
+    await act(async () => credentialCallback({ credential: "id-token-1" }));
+
+    expect(screen.getByRole("status").parentElement).toHaveClass("absolute", "inset-0");
+
+    await act(async () => {
+      release({ error: null });
+    });
+  });
+
+  it("covers nothing before an attempt starts", () => {
+    render(
+      <GoogleButton
+        action={googleSignInAction}
+        clientId="client-123"
+        intent="signin"
+        nonceHash="hash-1"
+      />,
+    );
+
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("keeps its nonce when an attempt is refused", async () => {
     googleSignInAction.mockResolvedValue({ error: "Invalid Google token" });
     render(
