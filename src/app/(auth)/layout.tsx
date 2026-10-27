@@ -29,6 +29,8 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           className="bg-accent/40 pointer-events-none absolute -right-10 -bottom-16 size-56 rounded-full blur-3xl md:size-72"
         />
 
+        {/* `relative` is load-bearing: it is what `BusyOverlay` covers while a
+            Google sign-in is in flight. */}
         <div className="bg-card shadow-level-3 relative grid grid-cols-1 overflow-hidden rounded-xl lg:grid-cols-12">
           {/* Hidden below lg: on a phone it would push the form below the fold. */}
           <aside className="bg-muted text-foreground p-margin-desktop relative hidden flex-col justify-between overflow-hidden lg:col-span-5 lg:flex">

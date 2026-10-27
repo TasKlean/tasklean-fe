@@ -22,6 +22,7 @@ import type {
   GoogleButtonProps,
   GoogleCredentialResponse,
 } from "@/components/auth/google-button/google-button.types";
+import { BusyOverlay } from "@/components/common/busy-overlay/busy-overlay";
 import {
   announceGis,
   configureGis,
@@ -137,13 +138,15 @@ export function GoogleButton({
       <div
         ref={slot}
         aria-busy={pending}
-        className={`flex h-13 items-center justify-center overflow-hidden [&_iframe]:[color-scheme:light] ${pending ? "pointer-events-none opacity-70" : ""}`}
+        className="flex h-13 items-center justify-center overflow-hidden [&_iframe]:[color-scheme:light]"
       />
 
+      {/* Over the whole card, not a line under the button: Google's popup has
+          closed by now, so a quiet strip reads as nothing happening. */}
       {pending ? (
-        <output className="text-body-md text-muted-foreground block text-center">
+        <BusyOverlay>
           {intent === "link" ? "Linking your Google account…" : "Signing you in with Google…"}
-        </output>
+        </BusyOverlay>
       ) : null}
     </div>
   );

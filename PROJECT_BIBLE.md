@@ -653,6 +653,16 @@ needs. And the credential arrives through Google's own `postMessage`, not a Reac
 dispatch has to open its own `startTransition`: without it the action still runs, but `pending`
 never flips and the button shows no progress.
 
+**The wait after Google's popup closes covers the card.** The action takes as long as the backend's
+synchronous email, which is seconds on a first sign-in for a device, and all the screen used to show
+was a dimmed widget and a muted caption under it: the popup had gone, so the page read as idle and
+people pressed again. `BusyOverlay` is a scrim over the whole card with a spinner and one line. The
+card, not the viewport: a full-screen scrim hides the brand panel and would have to be owned by a
+layout rather than by the button. The cost is that `absolute inset-0` resolves against the nearest
+positioned ancestor, so the card's `relative` is now load-bearing in two files, both of which say so
+in a comment. Keyboard focus can still reach the form behind it, which is no worse than before,
+where the form stayed live throughout.
+
 **The code flow is not an option.** The backend verifies ID tokens only; an authorization code would
 need a token exchange with our own client secret and an endpoint that does not exist. The dev
 profile's `google.redirect-uri` is leftover config that nothing reads.

@@ -159,7 +159,8 @@ src/
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
-                       or-divider, greeting, copy-button, qr-image, google-mark
+                       or-divider, greeting, copy-button, qr-image, google-mark,
+                       busy-overlay (the scrim over a card while an action runs)
     app/               signed-in chrome: app-header, settings-nav, device-row
                        with device-name (the inline rename), all-device-actions
                        (sign out everywhere and remove every device),
@@ -371,6 +372,11 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   one origin and as an `<iframe>` on another, and the iframe measures 80px for a frame before
   settling at 44. The slot is `h-13` with `overflow-hidden` so neither rendering can resize the
   page around it. Local only ever serves the inline one, so this is a staging check.
+- **A wait that cannot be missed covers the card, not a line under the button.** Google's own popup
+  has already closed when the action starts, so a caption below the widget read as nothing
+  happening. `BusyOverlay` is an `absolute inset-0` scrim with a spinner and one line, which makes
+  the card's `relative` load-bearing: the `(auth)` layout and the connected accounts card both
+  carry it with a comment saying why.
 - **A field that appears on a press takes focus through a ref, never `autoFocus`.** The attribute
   cannot tell an editor that was asked for from one that loaded on its own, so it is an
   accessibility finding wherever it sits. A `useCallback` ref calling `focus()` on mount says the
