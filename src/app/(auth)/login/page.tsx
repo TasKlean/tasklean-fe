@@ -9,6 +9,7 @@ import Link from "next/link";
 import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form/login-form";
+import { FormNotice } from "@/components/common/form-notice";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
@@ -45,28 +46,26 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </header>
 
       {reset === "1" ? (
-        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
+        <FormNotice tone="success">
           Your password is set. Sign in with it, on this device and any other.
-        </output>
+        </FormNotice>
       ) : null}
 
+      {/* `info`, never the muted grey these wore: `bg-muted` is what every
+          input on the screen is painted in, so a notice in it read as a field. */}
       {expired === "2fa" ? (
-        <output className="bg-muted text-foreground text-body-md p-space-md block rounded-md">
+        <FormNotice tone="info">
           That verification expired or ran out of tries. Sign in again for a new one.
-        </output>
+        </FormNotice>
       ) : null}
 
       {deactivated === "1" ? (
-        <output className="bg-muted text-foreground text-body-md p-space-md block rounded-md">
+        <FormNotice tone="info">
           Your account is deactivated. Write to us if you ever want it back.
-        </output>
+        </FormNotice>
       ) : null}
 
-      {signedOutNotice ? (
-        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
-          {signedOutNotice}
-        </output>
-      ) : null}
+      {signedOutNotice ? <FormNotice tone="success">{signedOutNotice}</FormNotice> : null}
 
       <LoginForm next={nextPath} />
 
