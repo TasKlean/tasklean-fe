@@ -14,10 +14,10 @@ Never restate backend internals here — link to them.
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. **The groups API layer exists and
-has no screens yet**: `lib/groups/` covers every group and membership endpoint and its validation is
-written, but nothing renders a group, so none of it has a caller and none of it has run against a
-backend. **Two-factor is complete for the one
+and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
+lists them, creating one and joining by code both work, and `/app/groups/[uid]` shows a group with
+its invite code, but there is no switcher, no aside, no roster and no way to edit or leave a group
+yet. The group endpoints have never run against a backend. **Two-factor is complete for the one
 provider the backend has**: a sign-in the backend gates is answered end to end, the settings page
 lists the methods, and enrolling, turning it off and reissuing recovery codes all work, so every
 `/api/account/2fa` endpoint has a caller. Register, verification, password login, password reset and
@@ -128,7 +128,10 @@ src/
     api/health/        route.ts, the 200 Render polls; outside Proxy's matcher
     (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
       app/             everything behind the session lives under /app
-        page.tsx       the signed-in landing page
+        page.tsx       the signed-in landing page: every group the caller is in,
+                       split into the ones they admin and the ones they only joined
+        groups/        new/ and join/ (page.tsx and actions/ each), and [uid]/page.tsx,
+                       the group itself with its invite code for an admin
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
                        (grouped: Preferences, Security, Account) and sections.types.ts
@@ -163,7 +166,8 @@ src/
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
                        or-divider, greeting, copy-button, qr-image, google-mark,
-                       busy-overlay (the scrim over a card while an action runs)
+                       busy-overlay (the scrim over a card while an action runs),
+                       text-area (multi-line, painted like text-field)
     app/               signed-in chrome: app-header, settings-nav, device-row
                        with device-name (the inline rename), all-device-actions
                        (sign out everywhere and remove every device),
@@ -173,7 +177,10 @@ src/
                        the platform's), notifications-form, notification-toggle,
                        switch-track, two-factor-method (the shell every method shares),
                        two-factor-card, two-factor-enroll, two-factor-manage,
-                       two-factor-confirm, recovery-codes
+                       two-factor-confirm, recovery-codes, group-card, group-section
+                       (one labelled band of the list), add-group (the only two ways
+                       in), no-groups (the onboarding empty state), create-group-form,
+                       join-group-form
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -206,8 +213,9 @@ src/
     groups/            groups.ts (create, join, mine, detail, update, rotate the invite
                        code, delete) with groups.types.ts, members/members.ts (the roster,
                        a role change, and the removal that is also a leave), role.ts (the
-                       one place a role string is compared), unavailable.ts (what a 403 on
-                       a group route means) and last-admin.ts (the shared 409)
+                       one place a role string is compared), labels.ts (the lines a card
+                       shows), unavailable.ts (what a 403 on a group route means) and
+                       last-admin.ts (the shared 409)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -329,6 +337,15 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A `labelAction` renders after the input, not before it.** It sits on the label row but comes
   later in source order and is placed back with `absolute`, so tab leads into the field rather than
   past it. "Forgot password?" on the login screen is the one that proved it.
+- **The client's complaint wins while it is visible; the backend's stands until the field is
+  edited.** `shown = (visible ? clientError : undefined) ?? (edited ? undefined : serverError)`.
+  Reading it the other way round, as `visible ? clientError : serverError`, silently swallows every
+  refusal of a well-formed value, because `submitted` is true from the press onwards: an unknown
+  invite code is the case that proved it, since the client has nothing to say about one. The forms
+  that carry it reset `edited` when a new action state arrives, in render rather than an effect.
+- **A group screen reads its uid from the route, never from state.** `/app/groups/[uid]` is the
+  authority, `GET /api/groups/{uid}` answers with `myRole`, and there is no active-group cookie or
+  context to go stale. `/app` is the list, so nothing has to remember which group you were in.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary

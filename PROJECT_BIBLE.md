@@ -1354,6 +1354,27 @@ That is the whole difference, and it is why the code prompt keeps a refused code
 nothing added, while the language picker could not while it was a `select`. A hidden input is a text
 input for this purpose, so the language field dropped the guard when the native control went.
 
+### Two errors compete for one line under a field, and the order matters
+
+A field can be refused twice over: by the schema in the browser, and by the backend. They need
+different precedence at different moments, and getting it backwards is silent.
+
+The rule is `(visible ? clientError : undefined) ?? (edited ? undefined : serverError)`. The client
+error shows only once the field is worth complaining about, which is after a submit or after a blur
+with content in it. The backend's verdict shows whenever the client has nothing to say, and stops
+the moment that field is edited, because only the backend can tell a wrong current password from a
+right one and the answer stops applying as soon as the value changes.
+
+Written the obvious way instead, as `visible ? clientError : serverError`, it breaks the case it
+exists for. `submitted` never goes back to false, so from the first press onwards the field shows
+only what the schema thinks, and the schema is happy: **the values the backend refuses are the
+well-formed ones**. An unknown invite code is the clearest example, since it has the right shape by
+definition, and a wrong current password is the same shape of problem. The join form was written the
+wrong way round first and its own test caught it.
+
+Each form holding this resets `edited` when a new action state arrives, and does it in render rather
+than in an effect, which is what React prescribes for state derived from a prop change.
+
 ### The one dropdown in the app is ours
 
 The language picker started as a native `select`, on the reasoning that it is the control a phone
