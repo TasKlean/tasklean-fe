@@ -14,7 +14,6 @@ vi.mock("@/lib/auth/session/session", () => ({
     accessToken: "at-1",
     refreshToken: "rt-1",
     userUid: "u1",
-    activeGroupId: null,
   }),
 }));
 

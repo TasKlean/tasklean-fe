@@ -7,7 +7,6 @@ const getSession = vi.fn(async () => ({
   accessToken: "at-1",
   refreshToken: "rt-1",
   userUid: "u1",
-  activeGroupId: null,
 }));
 
 vi.mock("@/lib/auth/session/session", () => ({
@@ -89,7 +88,6 @@ describe("logoutAction device binding", () => {
       accessToken: "at-1",
       refreshToken: "rt-1",
       userUid: "u1",
-      activeGroupId: null,
     });
     const seen: { headers?: Headers } = {};
     server.use(

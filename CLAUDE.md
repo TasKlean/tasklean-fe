@@ -14,13 +14,16 @@ Never restate backend internals here — link to them.
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. **Two-factor is complete for the one
+and logout exist. Everything else behind the session does not. **The groups API layer exists and
+has no screens yet**: `lib/groups/` covers every group and membership endpoint and its validation is
+written, but nothing renders a group, so none of it has a caller and none of it has run against a
+backend. **Two-factor is complete for the one
 provider the backend has**: a sign-in the backend gates is answered end to end, the settings page
 lists the methods, and enrolling, turning it off and reissuing recovery codes all work, so every
 `/api/account/2fa` endpoint has a caller. Register, verification, password login, password reset and
 token rotation have all run against the real backend in Docker, and the whole two-factor section
 against a local one; the account, user-settings and notification-settings endpoints have run against
-a stub only; every automated test is MSW.
+a stub only; the group endpoints have not run at all; every automated test is MSW.
 
 ## Quick reference
 
@@ -200,6 +203,11 @@ src/
                        the two-factor prompt's path
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
+    groups/            groups.ts (create, join, mine, detail, update, rotate the invite
+                       code, delete) with groups.types.ts, members/members.ts (the roster,
+                       a role change, and the removal that is also a leave), role.ts (the
+                       one place a role string is compared), unavailable.ts (what a 403 on
+                       a group route means) and last-admin.ts (the shared 409)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -211,14 +219,16 @@ src/
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
-                       notification type, two-factor code, device id, device name)
+                       notification type, two-factor code, device id, device name, uid,
+                       group name and description, invite code, group role)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
                        rename-device,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
-                       two-factor-enable, two-factor-confirm
+                       two-factor-enable, two-factor-confirm, group-details (one schema
+                       for create and edit), join-group, group-action, member-action
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -248,10 +258,14 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   every feature module that calls `serverApi` or touches a cookie: `config/env/env.ts`, `api/client/client.ts`,
   `api/server/server.ts`, `api/action-failure/action-failure.ts`, `auth/session/session.ts`, `auth/device/device.ts`, `auth/signin/*`,
   `auth/tokens/refresh/refresh.ts`, `auth/two-factor-challenge/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
+  `groups/groups.ts`, `groups/members/members.ts`,
   `qr/qr-code/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
   `notifications/settings/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie/theme-cookie.ts`. `validation/` must **not**, since
   client components import it, and neither may `qr/qr-code/qr-code.types.ts`, `preferences/preferences.types.ts`,
-  `preferences/theme-attribute/theme-attribute.ts` or `notifications/settings/settings.types.ts`, which the forms read.
+  `preferences/theme-attribute/theme-attribute.ts`, `notifications/settings/settings.types.ts`, which the forms read,
+  or the four group modules a row in the browser reads: `groups/groups.types.ts` (which `rules.ts`
+  imports for the role enum), `groups/role/role.ts`, `groups/unavailable/unavailable.ts` and
+  `groups/last-admin/last-admin.ts`.
 - **Environment comes from `config/env/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
@@ -355,6 +369,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   password turns `passwordSet` on, and the action's `revalidatePath` re-renders the form with the
   new flag before the notice is read, so the state carries `done: "changed" | "set"` rather than a
   boolean. A message composed from a flag the same action flipped describes the wrong event.
+- **A read two renders in one request both need is wrapped in `cache()`.** `getMyGroups` and
+  `getGroup` are, because a layout and the page inside it ask for the same thing and `request()`
+  sends `cache: "no-store"`, so fetch will not dedupe them. React memoises per request, so the
+  second caller gets the first one's promise and a failure still reaches both.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and
@@ -466,7 +484,7 @@ routes are `noindex` via the `(auth)` layout.
 
 - **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a **JWE** (not
   signed — a signed payload is readable base64url and ours carries the refresh token). Holds the
-  token pair, `userUid`, `activeGroupId`. `auth/session/session.ts` exports the name and options so
+  token pair and `userUid`. `auth/session/session.ts` exports the name and options so
   `proxy.ts` can't drift. **There is no server-side store**; the sealed tokens live in the browser.
 - **The chrome knows whether you are signed in, and that costs `/` its static render.** Both
   layouts read the session once and pass `signedIn` and `name` down, so the header and footer stay
@@ -649,10 +667,12 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
   where an older backend build is plausible.
 - **Never branch on the exact 2xx code** — POSTs return `201` while the spec says `200`.
-- **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` are addressed by string `uid`;
-  everything else by numeric `id`. Payloads are flat — foreign keys are ids, never nested objects.
+- **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` and now **GroupMember** are
+  addressed by string `uid`; everything else by numeric `id`. Payloads are flat — foreign keys are
+  ids, never nested objects, except that a membership carries its `user` nested.
 - **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
-  them `memberId`, never `userId`. Resolve yours from `GET /api/group-members?groupId=`.
+  them `memberId`, never `userId`. Still numeric on the task and completion endpoints; the
+  membership routes themselves now take the membership's own `uid`.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
   goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
   (the backend parses `ISO_LOCAL_DATE_TIME`).
@@ -661,8 +681,18 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   checks a credential from the request body, where `401` is that credential's verdict.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
   `api/retry-phrase/retry-phrase.ts` composes the two into one message and every auth action uses it.
+- **A 403 on a group route means "not available to you", and never "no such group".** The
+  membership check answers false for a group that is not yours and for a uid that does not exist
+  alike, and the framework refuses before any service code runs, so the two cannot be told apart.
+  That is deliberate: the alternative lets someone probe for real uids. `groups/unavailable/` owns
+  the check and the path it bounces to, so no screen decides for itself.
+- **The group routes carry no `code`, so they are told apart by status plus route.** A 409 is the
+  last-admin guard on a role change, a removal or a leave, which `groups/last-admin/` phrases, and
+  the caller-is-already-a-member refusal on join, which is a different thing with the same status.
 - **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
-  `400`, not an empty list.
+  `400`, not an empty list. **The group and membership routes are the exception**: their scope is in
+  the path (`/api/groups/mine`, `/api/groups/{uid}/members`) and `?groupId=` is gone from them,
+  though tasks, categories, tags and audit logs still take it.
 - **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping
   the predicates in one place per resource.
 - **Types are hand-written per feature** from `openapi.json` — we do not generate a client.

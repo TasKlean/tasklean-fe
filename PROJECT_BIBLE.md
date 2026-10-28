@@ -1416,6 +1416,41 @@ an opt-in prop with one caller: `/verify-email` leaves it off, because its code 
 and is a value to look over rather than a field to fill. The test asserts real focus, not the
 attribute, so it would have caught the behaviour being dropped instead of moved.
 
+### A group is addressed by its uid, and the URL is what holds one
+
+Every screen in the group phase lives at `/app/groups/[uid]/...` and reads `params.uid`. There is no
+client context provider and no store, because `GET /api/groups/{uid}` answers with `myRole` and
+`memberCount`, so a Server Component gates its own admin controls from the one response it already
+had to make. A provider would duplicate state the URL already holds, break deep links, and still
+leave the 403 to be handled per render.
+
+**`activeGroupId` left the session rather than becoming a uid.** The backend handoff asked for the
+field to hold the group's uid, since no endpoint accepts the numeric id any more. Removing it is the
+better version of that fix. The session is a JWE that Proxy reseals whenever it rotates the token
+pair, and a Server Action reseals from the cookie the *request* carried: a group switch racing a
+rotation would write the already-revoked refresh token back and end the session. A UI preference has
+no business in the cookie that holds credentials. Nothing is lost, because `/app` is the group list,
+so "which group was I in" is a question the URL answers and nobody has to remember. Old cookies keep
+working: `toSession` rebuilds field by field, so the stale field is simply dropped and no one is
+signed out.
+
+**The two reads are memoised with `cache()`.** A layout renders the group switcher and the page
+inside it renders the group, and both want the same call. `request()` sends `cache: "no-store"`, so
+fetch does not dedupe, and React's per-request memo is what makes one call serve both. A rejection
+memoises too, which is what lets the layout degrade quietly while the page still reports the failure
+properly.
+
+**Types are hand-written, against the handoff's advice.** It suggested generating them from
+`docs/openapi.json`. We do not generate a client anywhere, and the reason holds here: nothing in
+that spec is marked `required`, so a generator would emit optional everything and we would narrow by
+hand regardless, while losing the comments that say *why* a field is absent. `inviteCode` is the
+example: its absence is a permission, not a missing value.
+
+**One schema serves creating a group and editing one**, because `POST /api/groups` and
+`PUT /api/groups/{uid}` take the same body. The same reason disable and recovery-codes share one.
+
+---
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -1426,10 +1461,12 @@ Two role namespaces that behave completely differently:
 | Where it lives | **in the access token** (`role` claim) | **not in the token** — per membership |
 | Source | the JWT we already hold | `MyGroupResponse.myRole`, `GroupMemberResponse.role` |
 | Scope | global | **per group** — admin of one, member of another |
-| Spring enforces via | `ROLE_<role>` authority | service code, not annotations |
+| Spring enforces via | `ROLE_<role>` authority | `@PreAuthorize` plus a `@groupSecurity` bean |
 
-That last row is why the spec cannot express authorization and why a 403 is always a runtime
-discovery.
+The spec still cannot express authorization, so a 403 is always a runtime discovery. What changed
+with the group phase is where it comes from: the check is declarative, so the framework refuses
+before any service code runs, which is also why it cannot distinguish a group that is not yours
+from a uid that does not exist.
 
 **Platform role barely matters to this product.** Every real user is `USER`; listing all users is
 ADMIN-only and changing a role is SUPER_ADMIN-only, neither of which belongs in the product UI.
@@ -1447,10 +1484,12 @@ The access token also carries `userId` and `uid` claims, so the numeric id is av
 storing it in the session or calling `/me` for it. Claims are decoded, never verified: only Spring
 can verify its own signature, and we do not need to, because none of this is a security boundary.
 
-**Not built yet.** When it arrives it should be capability predicates (`canManageMembers(role)`),
-not `role === "GROUP_ADMIN"` scattered around, so the mapping sits in one place when the backend
-rules shift. Group role needs a fetch, so it belongs with phase 3, where an active group first
-exists.
+**Half built.** `groups/role/role.ts` is the one place a role string is compared, so there is no
+`role === "GROUP_ADMIN"` scattered around, and its constant is typed as `GroupRole` so a typo fails
+the build rather than quietly matching nobody. It stays one predicate rather than a set of
+capability predicates (`canManageMembers`, `canRotateCode`) because every capability the backend has
+is the same check today; the moment two of them diverge, this is the module that gains them. It
+carries no `server-only`, since a member row deciding which buttons it owns renders in the browser.
 
 ---
 
@@ -1464,8 +1503,8 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
 | Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Every one of them has a caller**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, where the code may be an authenticator or a recovery code and is spent either way; `disable` answers with a fresh pair and `recovery-codes` with the new set alone. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
-| Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
-| Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
+| Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole`, `memberCount` and `dateJoined` per group, and `GET /{uid}` carries the first two as well. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click. `inviteCode` is sent only to that group's admin. |
+| Group members     | `/api/group-members`           | The roster is `GET /api/groups/{uid}/members`, not here: `?groupId=` is gone. Addressed by the membership's own `uid`. Role change is `PATCH /{memberUid}/role` with `{ role }` in the **body**. `DELETE /{memberUid}` is both "remove" and "leave". `POST` is SUPER_ADMIN-only platform tooling, so a group admin cannot add anyone. |
 | Tasks             | `/api/tasks`                   | `GET` needs `?groupId=`. Addressed by `uid`. Creating one requires `groupId`, `createdById` (a GroupMember id), `name`, `priority`, `status`.                                                                                                     |
 | Task completions  | `/api/task-completions`        | `GET` needs `?taskId=`, or `/member/{groupMemberId}`. Append-only — there's no delete, so "undo a completion" isn't available.                                                                                                                    |
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group → `409`.                                                                                                                                                                        |
@@ -1522,11 +1561,13 @@ From the backend bible. Getting these wrong produces UI that lies:
 Found by reading the spec against the MVP list. Each needs a backend change or a documented
 workaround **before** the feature depending on it gets built.
 
-1. **A group member's name can't be resolved.** `GroupMemberResponse` carries `userId` (numeric), but
-   users are fetched by `uid` and `GET /api/users` is platform-ADMIN only. So a normal user can't turn
-   a group member into a display name or avatar — which blocks assignee pickers, "completed by", and
-   the member list. Needs the backend to embed user display fields in `GroupMemberResponse`, or a
-   group-scoped members-with-users endpoint. No clean client-side workaround.
+1. ~~**A group member's name can't be resolved.**~~ **Closed.** `GroupMemberResponse` now nests a
+   `user` of `{ uid, name, lastName, photoUrl }`, so a roster renders from the one call and the
+   numeric `userId` is gone. Deliberately no email on it: an invite code admits whoever holds it, so
+   the roster shows display fields only. Kept numbered, because the gaps below are referred to by
+   number. Two smaller things are still owed and are noted where they matter: `addedBy` and
+   `removedBy` exist on the response and are always null, and a soft-deleted group neither
+   deactivates its memberships nor stops answering a direct read.
 2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
    and the `TaskTag` junction has no controller. Tags are creatable and listable but not assignable,
    so filter-by-tag isn't buildable.
@@ -1676,10 +1717,10 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
-| 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
+| 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create a group, join by invite code, the no-group empty state, the switcher in the header, and the group shell with its aside: overview, members, invite, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state at all. |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
-| 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
+| 6     | ~~**Members and roles**~~  | Folded into phase 4. Gap 1 is closed, so the roster, invite, role change, remove and the last-admin handling ship with the groups work rather than after tasks.      | It was only separate because a member's display name could not be resolved; the membership now carries its user.                                                                                            |
 | 7     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 5 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
 | 9     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
@@ -1723,8 +1764,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   active session never ends. A cap needs a limit *and* a decision on where the clock lives: one the
   cookie reports is one the cookie can lie about, so it must be sealed at first login and carried
   through every rotation.
-- **Active group** — a user is in several groups and nearly every list endpoint needs `?groupId=`, so
-  this is app-level state. Session cookie, URL, or both — undecided.
 - **Error tracking** — nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into
   error reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.

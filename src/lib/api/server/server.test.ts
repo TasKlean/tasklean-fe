@@ -21,7 +21,6 @@ const session: Session = {
   accessToken: "access-token-value",
   refreshToken: "refresh-token-value",
   userUid: "u1",
-  activeGroupId: 3,
 };
 
 beforeAll(() => {

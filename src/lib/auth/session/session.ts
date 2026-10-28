@@ -13,7 +13,6 @@ export type Session = {
   accessToken: string;
   refreshToken: string;
   userUid: string;
-  activeGroupId: number | null;
   // Display only, for the chrome. Absent on a session sealed before it existed.
   name?: string;
   photoUrl?: string;
@@ -67,19 +66,18 @@ function toSession(payload: unknown): Session | null {
   if (
     typeof value.accessToken !== "string" ||
     typeof value.refreshToken !== "string" ||
-    typeof value.userUid !== "string" ||
-    !(value.activeGroupId === null || typeof value.activeGroupId === "number")
+    typeof value.userUid !== "string"
   ) {
     return null;
   }
 
   // Rebuilt field by field so the JWT's own iat/exp claims don't leak into the
-  // Session that callers see.
+  // Session that callers see. A cookie sealed with the old `activeGroupId` is
+  // dropped the same way, rather than costing everyone a sign-out.
   return {
     accessToken: value.accessToken,
     refreshToken: value.refreshToken,
     userUid: value.userUid,
-    activeGroupId: value.activeGroupId,
     // Spread so the key stays absent rather than present-and-undefined.
     ...(typeof value.name === "string" ? { name: value.name } : {}),
     ...(typeof value.photoUrl === "string" ? { photoUrl: value.photoUrl } : {}),
