@@ -71,6 +71,13 @@ const GOOD = form({
   confirmPassword: "Chores12!",
 });
 
+const WITH_CODE = form({
+  currentPassword: "oldpass",
+  newPassword: "Chores12!",
+  confirmPassword: "Chores12!",
+  code: "123456",
+});
+
 describe("changePasswordAction", () => {
   it("seals the pair the backend hands back, which replaces the revoked one", async () => {
     server.use(
@@ -79,7 +86,10 @@ describe("changePasswordAction", () => {
       ),
     );
 
-    await expect(changePasswordAction(EMPTY, GOOD)).resolves.toEqual({ error: null, done: true });
+    await expect(changePasswordAction(EMPTY, GOOD)).resolves.toEqual({
+      error: null,
+      done: "changed",
+    });
     expect(setSession).toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: "at-2", refreshToken: "rt-2" }),
     );
@@ -134,6 +144,37 @@ describe("changePasswordAction", () => {
     expect(state.error).toBe("This account has no password yet. Set a password instead.");
   });
 
+  it("passes a second-factor code on to the backend", async () => {
+    let body: unknown;
+    server.use(
+      http.post(`${BASE}/api/account/change-password`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ success: true, message: null, data: PAIR });
+      }),
+    );
+
+    await changePasswordAction(EMPTY, WITH_CODE);
+
+    expect(body).toMatchObject({ code: "123456" });
+  });
+
+  it("shows a refused code against the code field", async () => {
+    server.use(
+      http.post(`${BASE}/api/account/change-password`, () =>
+        HttpResponse.json(
+          { success: false, message: "That code is not valid.", code: "TWO_FACTOR_CODE_INVALID" },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    await expect(changePasswordAction(EMPTY, WITH_CODE)).resolves.toEqual({
+      error: null,
+      fieldErrors: { code: "That code is not valid." },
+    });
+    expect(setSession).not.toHaveBeenCalled();
+  });
+
   it("validates before calling anything", async () => {
     const state = await changePasswordAction(
       EMPTY,
@@ -157,7 +198,41 @@ describe("setPasswordAction", () => {
       form({ newPassword: "Chores12!", confirmPassword: "Chores12!" }),
     );
 
-    expect(state).toEqual({ error: null, done: true });
+    expect(state).toEqual({ error: null, done: "set" });
     expect(setSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a refused code against the code field", async () => {
+    server.use(
+      http.post(`${BASE}/api/account/set-password`, () =>
+        HttpResponse.json(
+          { success: false, message: "That code is not valid.", code: "TWO_FACTOR_CODE_INVALID" },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const state = await setPasswordAction(
+      EMPTY,
+      form({ newPassword: "Chores12!", confirmPassword: "Chores12!", code: "123456" }),
+    );
+
+    expect(state.fieldErrors).toEqual({ code: "That code is not valid." });
+  });
+
+  it("keeps a 401 that named no credential as a banner, since that is the session", async () => {
+    server.use(
+      http.post(`${BASE}/api/account/set-password`, () =>
+        HttpResponse.json({ success: false, message: "Unauthorized" }, { status: 401 }),
+      ),
+    );
+
+    const state = await setPasswordAction(
+      EMPTY,
+      form({ newPassword: "Chores12!", confirmPassword: "Chores12!", code: "123456" }),
+    );
+
+    expect(state.fieldErrors).toBeUndefined();
+    expect(state.error).toBe("Unauthorized");
   });
 });

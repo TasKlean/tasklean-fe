@@ -1,6 +1,13 @@
 import * as z from "zod/mini";
 import { describe, expect, it } from "vitest";
-import { codeRule, emailRule, passwordRule, singleWordRule } from "@/lib/validation/rules/rules";
+import {
+  codeRule,
+  emailRule,
+  optionalTwoFactorCodeRule,
+  passwordRule,
+  singleWordRule,
+  twoFactorCodeError,
+} from "@/lib/validation/rules/rules";
 
 function check(rule: Parameters<typeof z.safeParse>[0], value: unknown): string | null {
   const result = z.safeParse(rule, value);
@@ -95,5 +102,37 @@ describe("singleWordRule", () => {
 
   it("uses the given message when absent", () => {
     expect(check(singleWordRule("Enter your first name."), "  ")).toBe("Enter your first name.");
+  });
+});
+
+describe("optionalTwoFactorCodeRule", () => {
+  it.each(["123456", "aaaa-1111", "AAAA 1111", "", "   ", undefined])("accepts %j", (value) => {
+    expect(check(optionalTwoFactorCodeRule, value)).toBeNull();
+  });
+
+  it.each(["12345", "abc", "aaaa-111", "aaaa-11111"])("rejects %j", (value) => {
+    expect(check(optionalTwoFactorCodeRule, value)).toBe(
+      "Enter the 6 digits from your app, or a recovery code.",
+    );
+  });
+
+  it("normalises a recovery code the way the backend matches it", () => {
+    const result = z.safeParse(optionalTwoFactorCodeRule, " aaaa-1111 ");
+
+    expect(result.success && result.data).toBe("AAAA1111");
+  });
+});
+
+describe("twoFactorCodeError", () => {
+  it.each(["123456", "aaaa-1111"])("passes %j", (value) => {
+    expect(twoFactorCodeError(value)).toBeUndefined();
+  });
+
+  it("asks for the code the optional rule lets through empty", () => {
+    expect(twoFactorCodeError("")).toBe("Enter your code.");
+  });
+
+  it("reports the shape a half-typed code does not have", () => {
+    expect(twoFactorCodeError("123")).toBe("Enter the 6 digits from your app, or a recovery code.");
   });
 });
