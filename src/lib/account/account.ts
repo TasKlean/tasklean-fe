@@ -53,15 +53,20 @@ export async function getConnectedAccounts(): Promise<ConnectedAccounts> {
 /**
  * Changes the password, keeping this browser signed in.
  *
+ * @param code A current second-factor code, required while the account has a
+ * factor on and ignored otherwise.
  * @returns The fresh pair for this device, which the caller must seal.
- * @throws ApiError on 401 for a wrong current password, and 409 when the
- * account has no password to change.
+ * @throws ApiError on 401 for a wrong current password or code, and 409 when
+ * the account has no password to change.
  */
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
+  code?: string,
 ): Promise<SignedInTokens> {
-  const body: ChangePasswordRequest = { currentPassword, newPassword };
+  const body: ChangePasswordRequest = code
+    ? { currentPassword, newPassword, code }
+    : { currentPassword, newPassword };
   const response = await serverApi<AuthResponse>("/api/account/change-password", {
     method: "POST",
     body,
@@ -74,14 +79,18 @@ export async function changePassword(
 /**
  * Sets a first password on a Google-only account.
  *
+ * @param code A current second-factor code, required while the account has a
+ * factor on. It is the only credential here, since there is no password yet.
  * @returns The fresh pair for this device, which the caller must seal.
- * @throws ApiError on 409 when the account already has a password.
+ * @throws ApiError on 401 for a refused code, and 409 when the account already
+ * has a password.
  */
-export async function setPassword(newPassword: string): Promise<SignedInTokens> {
-  const body: SetPasswordRequest = { newPassword };
+export async function setPassword(newPassword: string, code?: string): Promise<SignedInTokens> {
+  const body: SetPasswordRequest = code ? { newPassword, code } : { newPassword };
   const response = await serverApi<AuthResponse>("/api/account/set-password", {
     method: "POST",
     body,
+    credentialCheck: true,
   });
 
   return rotatedTokens(response);
@@ -117,10 +126,15 @@ export async function unlinkGoogle(): Promise<ConnectedAccounts> {
  *
  * @param password Required where the account has one. A Google-only account
  * sends nothing and is confirmed by the session.
- * @throws ApiError on 401 for a wrong or missing password.
+ * @param code A current second-factor code, required while the account has a
+ * factor on and ignored otherwise.
+ * @throws ApiError on 401 for a wrong or missing password or code.
  */
-export async function deactivateAccount(password?: string): Promise<void> {
-  const body: DeactivateAccountRequest = password ? { password } : {};
+export async function deactivateAccount(password?: string, code?: string): Promise<void> {
+  const body: DeactivateAccountRequest = {
+    ...(password ? { password } : {}),
+    ...(code ? { code } : {}),
+  };
   await serverApi<void>("/api/account/deactivate", {
     method: "POST",
     body,

@@ -10,15 +10,20 @@ export type ConnectedAccounts = {
   googleLinked?: boolean;
 };
 
+// `code` is a current second-factor code, which the backend demands on all
+// three of these only while the account has a factor turned on.
 export type ChangePasswordRequest = {
   currentPassword: string;
   newPassword: string;
+  code?: string;
 };
 
 export type SetPasswordRequest = {
   newPassword: string;
+  code?: string;
 };
 
 export type DeactivateAccountRequest = {
   password?: string;
+  code?: string;
 };

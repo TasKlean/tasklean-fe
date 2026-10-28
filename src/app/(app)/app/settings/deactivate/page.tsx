@@ -6,6 +6,8 @@ import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";
 import { getConnectedAccounts } from "@/lib/account/account";
+import { getTwoFactorStatus } from "@/lib/account/two-factor/two-factor";
+import type { TwoFactorStatus } from "@/lib/account/two-factor/two-factor.types";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
 
@@ -16,10 +18,13 @@ export const metadata: Metadata = {
 /** Renders the deactivation section: closing the account, and nothing else. */
 export default async function DangerZonePage() {
   let connectedAccounts: ConnectedAccounts | null = null;
+  let status: TwoFactorStatus | null = null;
   let failure: string | null = null;
 
   try {
-    connectedAccounts = await getConnectedAccounts();
+    // Both or neither: the confirm has to ask for every credential the backend
+    // will check, and a missing code is refused the same way a wrong one is.
+    [connectedAccounts, status] = await Promise.all([getConnectedAccounts(), getTwoFactorStatus()]);
   } catch (error) {
     // A render cannot clear the cookie, so hand it back to Proxy via /login.
     if (isSessionExpiredError(error)) redirect("/login");
@@ -41,8 +46,8 @@ export default async function DangerZonePage() {
         </p>
       </div>
 
-      {/* Without the flags there is no knowing whether the confirm needs a password. */}
-      {failure || !connectedAccounts ? (
+      {/* Without the flags there is no knowing which credentials the confirm needs. */}
+      {failure || !connectedAccounts || !status ? (
         <LoadError
           title="We could not load your sign-in methods."
           message={failure ?? "Please try again."}
@@ -59,7 +64,10 @@ export default async function DangerZonePage() {
             </p>
           </div>
 
-          <DeactivateAccount passwordSet={connectedAccounts.passwordSet === true} />
+          <DeactivateAccount
+            passwordSet={connectedAccounts.passwordSet === true}
+            twoFactorEnabled={status.enabled}
+          />
         </div>
       )}
     </section>

@@ -5,7 +5,7 @@
 
 import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
-import { passwordRule } from "@/lib/validation/rules/rules";
+import { optionalTwoFactorCodeRule, passwordRule } from "@/lib/validation/rules/rules";
 
 export const setPasswordSchema = z
   .object({
@@ -13,6 +13,7 @@ export const setPasswordSchema = z
     confirmPassword: z
       .string({ error: "Repeat your new password." })
       .check(z.minLength(1, "Repeat your new password.")),
+    code: optionalTwoFactorCodeRule,
   })
   .check(
     z.refine((fields) => fields.confirmPassword === fields.newPassword, {
