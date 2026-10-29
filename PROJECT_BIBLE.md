@@ -1455,11 +1455,11 @@ so "which group was I in" is a question the URL answers and nobody has to rememb
 working: `toSession` rebuilds field by field, so the stale field is simply dropped and no one is
 signed out.
 
-**The two reads are memoised with `cache()`.** A layout renders the group switcher and the page
-inside it renders the group, and both want the same call. `request()` sends `cache: "no-store"`, so
-fetch does not dedupe, and React's per-request memo is what makes one call serve both. A rejection
-memoises too, which is what lets the layout degrade quietly while the page still reports the failure
-properly.
+**The two reads are memoised with `cache()`.** `getMyGroups` serves the signed-in layout's switcher
+and `/app`'s own list; `getGroup` serves the group shell and the screen inside it. `request()` sends
+`cache: "no-store"`, so fetch does not dedupe, and React's per-request memo is what makes one call
+serve both callers. A rejection memoises too, which is what lets the chrome degrade quietly while
+the page still reports the failure properly.
 
 **Types are hand-written, against the handoff's advice.** It suggested generating them from
 `docs/openapi.json`. We do not generate a client anywhere, and the reason holds here: nothing in
@@ -1469,6 +1469,146 @@ example: its absence is a permission, not a missing value.
 
 **One schema serves creating a group and editing one**, because `POST /api/groups` and
 `PUT /api/groups/{uid}` take the same body. The same reason disable and recovery-codes share one.
+
+### The shell carries the group, the header carries which one
+
+A group has sections, and only one of them existed when the shell was built. `GroupSidebar`
+therefore owns everything that is about the group rather than about one of its screens: the card at
+the top of the rail carries the name as the page's `h1`, the description and the member and role
+line, and a section page renders only its own content. That is the settings shell inverted: there
+the layout's heading is the word "Settings" and each section names itself, here the heading is the
+group's name and each section is a subheading inside it. The win is that the name is written once,
+and the overview stopped repeating a heading the shell was already showing.
+
+**The header is as wide as the page under it.** A group's rail starts at the window's left edge, so
+on those screens the header drops `max-w-app` and the brand, the pill and the account spread to the
+edges. Everywhere else the header keeps the column, because a header wider than the page beneath it
+reads as two layouts rather than one, which is what a full-width header everywhere looked like on
+the account and settings pages. `HeaderBar` is the client component that reads the path and picks,
+through the same `openGroupUid` the pill uses, so "which group is this path about" has one answer.
+
+**The shell is a grid, so the rail can run the full height.** `(app)/layout.tsx` is
+`grid-cols-1 grid-rows-[auto_minmax(0,1fr)]` around a plain `<main>`, and the group shell asks for
+`lg:min-h-full`, which is what carries the rail's `border-r` from the header to the bottom of the
+window. A flex column was the first attempt and it was wrong twice over, both measured in gotcha 29.
+The section inside the row keeps its own `max-w-app` column, so prose never stretches across a
+2560px display.
+
+**The pill is two controls in one border.** Its left half is a link into the group you are in, its
+right half is the button that opens the list, and a rule between them says they are two things.
+Pressing the name is the move people make most and it now costs no popup at all. One button that
+opened a panel the group itself sat in was the alternative, and it buried that move. The arrow is
+`ChevronsUpDown` rather than a chevron down, because the panel swaps one group for another rather
+than dropping a menu of actions.
+
+**A phone gets the same tree, read as a page rather than a rail.** The card loses its border and
+padding below `lg` and reads as the page's own header, the band headings go, and the two bands part
+company: Workspace scrolls in a strip above the section and Administration moves into the bottom
+bar's menu. The strip and the rail are still one tree, and the collapse control is simply not
+rendered below `lg`, where there is no width to give back.
+
+**The bottom bar holds what you do, the strip holds where you go.** A reader opens a group to do
+something in it, so `GroupBar` is fixed over the end of the section with the task pill, the invite
+control and the Administration button, while the sections stay above the content where reading
+starts. One label at a time is the rule that makes it fit: the task pill is named while nothing is
+open, opening the invite shrinks it to a `+` and names the invite instead, and opening the menu
+names that. A phone fits one name, and the thing just pressed is the one worth naming.
+
+**The bar is edge to edge, and colour says which control is listening.** It is `inset-x-margin`
+with the task pill at `flex-2` beside a `flex-1` pill holding the other two, so the thing the bar
+exists for takes two thirds of it. The words "Add task" are wider than a third of a 360px bar, so
+the pill never gives ground and the split measures 2.3:1 there, settling to 2.1:1 by 640px rather
+than landing exactly on 2:1. Each of the two controls is its own pill inside the shelf, resting on `bg-muted` and
+turning `bg-secondary` while its panel is open. The task pill wears `bg-primary` even though it is
+disabled, which is the one place a dead control keeps a live colour: it is the single thing the bar
+exists for, its name still says "coming soon", and the alternative was a grey primary action that
+teaches the wrong shape.
+
+**The bar's menu renders the same entries as the rail, from the same data.** `NavEntry` is the one
+place an entry becomes a link or a disabled promise, and the band declares where it goes on a phone
+(`phone: "strip" | "menu"`) rather than the nav guessing from its position. The rail's copy of that
+band is `hidden lg:flex` and the bar is `lg:hidden`, so exactly one of the two is ever in the
+accessibility tree, which is what the earlier one-tree rule was protecting.
+
+**The bar offers the invite code, which is not phase five arriving early.** The shell has already
+read the group, so the code is in hand, and the control is gated on the role exactly as the
+overview's card is: an admin sees it, everyone else is offered nothing to press rather than a
+disabled button, since a member inviting is not a thing that is coming. Phase five still owns the
+invite panel proper and rotating the code. Both panels hang off the pill rather than the control
+that opened them, because the bar is centred and a panel anchored further in ran off the left edge
+of a 360px screen.
+
+**The bar is one popup surface, not two.** A disclosure closes on a press outside its root, so
+giving each control its own made the shelf's other control "outside": pressing Administration while
+the invite was open closed the invite on `pointerdown`, which re-expanded the task pill and slid
+both controls along, and the click that followed landed on the invite button and reopened it. That
+read as a flash and a refusal to switch. One `useDisclosure` rooted at the shelf fixes it at the
+cause: a press anywhere inside the pill closes nothing, so the click reaches the control it was
+aimed at, and which panel is open is a second piece of state beside the boolean. Pressing the open
+control still closes it, and a press outside the shelf or Escape still closes whichever is open.
+
+**One nav, two bands, one DOM tree.** Workspace is the daily work and Administration is the group
+itself, so the rail is a flex column with `justify-between` and the band nobody needs every day sits
+at the bottom. Below `lg` the same markup is a horizontally scrollable strip above the content and
+the band headings go `sr-only`. Rendering two trees and hiding one was the alternative, and it costs
+a duplicate accessible name for every entry plus two places to edit when a section lands.
+
+**Collapsing is a rail behaviour, so it is expressed in `lg:` classes.** `GroupSidebar` holds one
+boolean and every class it drives is `lg:`-prefixed: the width, the hidden labels, the centred
+icons, the group's heading going `lg:sr-only` rather than away. The strip below `lg` is untouched,
+which is right, since a strip has no width to give back. A hidden label also leaves the accessible
+name, so every entry carries its name in an `aria-label` and a collapsed rail reads like an open
+one.
+
+**The collapse choice is not persisted.** It is `useState`, so it survives moving between a group's
+sections, which is the only navigation that keeps the layout mounted, and it is gone after a reload.
+Persisting it means a cookie read in the layout, the way the theme is painted, or a `localStorage`
+read that flashes the wrong width on first paint. A rail that re-expands costs one press, where
+painting the wrong colour scheme costs more, which is why the theme pays for a cookie and this does
+not.
+
+**The unbuilt sections are listed as dead buttons, not hidden.** Tasks, tags and categories,
+members, settings and leaving each render as a disabled control wearing a "Soon" chip, which is the
+answer the two-factor page already gives for email and text message, and the header's add-task
+button is the same thing again. A reader can see the shape of what a group will hold, and no entry
+is ever a link into a 404. The alternative, adding each entry as its phase lands, keeps the nav
+honest but says nothing about what is coming, and a nav that grows under you reads as instability.
+
+**Leaving a group is an entry with no href.** It is an action rather than a screen, so there will
+never be a route to point at, and `GroupNavItem.href` is optional for exactly that case. It also
+needs the caller's own membership uid, which only the roster call returns, so it stays dead until
+the phase that builds the roster and the settings section.
+
+**The pill is chrome rather than data.** `(app)/layout.tsx` reads `/api/groups/mine` for it and
+swallows every failure, so a backend outage costs the header its pill and never costs the page the
+reader asked for. With no groups at all it renders nothing, because `/app` is already the list and
+already offers both ways in, so a pill reading "Groups" over a one-item panel would be noise on a
+brand-new account. It is a disclosure of links, so Tab already moves through it correctly and
+`LocaleSelect`'s listbox machinery would only take that away: that pattern exists because the
+language picker posts a value, which a pill that navigates never does.
+
+**The header's add-task button says "Add task", not "Task".** It is the same offer as the bar's
+pill, so the two carry the same words rather than a short form in one place and a sentence in the
+other, and the header has the room: at 640px the button is 99px wide beside the greeting and the
+avatar.
+
+**The header drops the add-task button below `sm`.** The brand, the group pill and the account
+already fill a 360px header, and a fourth control crowds all three. A phone has the bar's task pill
+instead, which is the bigger target anyway, so the control is not lost, only moved to where a thumb
+reaches it.
+
+**Pressing add-task will mean the group the path is about, and the pill is the fallback.** On a
+group's own screen the uid is already in the URL, so the press can open the form against that group
+with nothing else asked. Anywhere else there is no group to add to, so the press opens the
+switcher, and choosing one navigates into it and opens the form there. That keeps the control
+honest in both places without an active-group cookie to go stale, which is the same reason the
+group screens read their uid from the route. Nothing of it is built: the button is disabled and
+named "coming soon" until tasks exist.
+
+**`useDisclosure` moved to `src/hooks/`.** The account menu and the switcher ran the same twenty
+lines of open state, outside-press close and Escape-with-focus-return. A hook is neither a component
+nor the non-UI logic `lib/` is for, so it got a directory of its own rather than being bent into
+either.
 
 ---
 
@@ -1723,6 +1863,35 @@ workaround **before** the feature depending on it gets built.
     renderings and lets neither reach the page. **It cannot be reproduced locally**, because local
     never gets the iframe.
 
+28. **An accessible name built from two elements loses the space between them.** A nav entry
+    reading "Members" beside a "Soon" chip computes as `MembersSoon`, and a hidden separator span
+    does not help: the name computation trims every node it concatenates. JSX also strips the
+    whitespace between two sibling elements, so there is no text node for a browser to keep either,
+    and this is not a jsdom artifact. The fix is an explicit `aria-label` spelling the whole name
+    out, which every entry in a group's nav now carries, and which is also what keeps a collapsed
+    rail labelled once its labels are `lg:hidden`. Found by printing the rendered names rather than
+    by reading the markup.
+
+29. **A centred page shrinks to its own text under a flex column, and `min-height: 100%` does not
+    resolve against a flex item.** Making `(app)/layout.tsx`'s `main` a flex column, so a group's
+    rail could stretch, broke every page whose root is `mx-auto max-w-app`: auto cross-axis margins
+    cancel `align-items: stretch`, so the root takes its fit-content width, measured at 85px where
+    1200px was expected. Giving the row `min-h-full` instead did nothing either: 18px where the
+    viewport offered 725. A grid shell with `grid-rows-[auto_minmax(0,1fr)]` and a block `main`
+    fixes both, because a grid area's height is definite for a percentage while block children keep
+    their stretch, and content taller than the viewport still grows the row. Found by measuring the
+    candidates in headless Chrome rather than by reading the spec.
+
+30. **A grid shell needs an explicit column, and `sr-only` inside a scroller leaks out of it.**
+    The group's tab strip is `overflow-x-auto`, which still hands its content's max-content width
+    to the track above it, so the shell's implicit `auto` column sized `main` to **1068px inside a
+    360px phone** and the whole page scrolled sideways. `grid-cols-1` is
+    `repeat(1, minmax(0, 1fr))`, which cannot exceed its container, and that took it to 434px. The
+    rest was the `sr-only` band headings: nothing between them and `<html>` is positioned, so their
+    static position deep inside the scrolled strip became page overflow. They are `hidden lg:block`
+    now, and `aria-labelledby` still names each list from a `display: none` heading. Measured at
+    1068, then 434, then 360.
+
 ---
 
 ## Roadmap
@@ -1739,7 +1908,7 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
 | 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
-| 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create a group, join by invite code, the no-group empty state, the switcher in the header, and the group shell with its aside: overview, members, invite, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state at all. |
+| 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create a group, join by invite code, the no-group empty state, the group pill in the header, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state at all. |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
 | 6     | ~~**Members and roles**~~  | Folded into phase 4. Gap 1 is closed, so the roster, invite, role change, remove and the last-admin handling ship with the groups work rather than after tasks.      | It was only separate because a member's display name could not be resolved; the membership now carries its user.                                                                                            |
 | 7     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |

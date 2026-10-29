@@ -7,11 +7,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId } from "react";
 import { Settings, UserRound } from "lucide-react";
 import { logoutAction } from "@/app/(app)/actions/actions";
 import { Avatar } from "@/components/common/avatar/avatar";
 import { LogoutButton } from "@/components/common/logout-button";
+import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 
 type AccountMenuProps = {
   name: string | null;
@@ -23,32 +24,8 @@ const ITEM =
 
 /** Renders the account avatar with its menu of account, settings and logout. */
 export function AccountMenu({ name, photoUrl }: Readonly<AccountMenuProps>) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
+  const { open, toggle, close, root, trigger } = useDisclosure();
   const panelId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-
-    function onPointerDown(event: PointerEvent) {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      // Sending focus back is what makes Escape usable without a mouse.
-      trigger.current?.focus();
-    }
-
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   return (
     <div ref={root} className="relative">
@@ -59,7 +36,7 @@ export function AccountMenu({ name, photoUrl }: Readonly<AccountMenuProps>) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        onClick={toggle}
         className="hover:bg-muted flex size-11 shrink-0 items-center justify-center rounded-full transition-colors"
       >
         <Avatar photoUrl={photoUrl} name={name} />
@@ -76,12 +53,12 @@ export function AccountMenu({ name, photoUrl }: Readonly<AccountMenuProps>) {
             </p>
           ) : null}
 
-          <Link href="/app/account" className={ITEM} onClick={() => setOpen(false)}>
+          <Link href="/app/account" className={ITEM} onClick={close}>
             <UserRound className="size-4" aria-hidden />
             Account
           </Link>
 
-          <Link href="/app/settings" className={ITEM} onClick={() => setOpen(false)}>
+          <Link href="/app/settings" className={ITEM} onClick={close}>
             <Settings className="size-4" aria-hidden />
             Settings
           </Link>

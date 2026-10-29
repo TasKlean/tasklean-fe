@@ -15,15 +15,17 @@ Never restate backend internals here — link to them.
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
 and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
-lists them, creating one and joining by code both work, and `/app/groups/[uid]` shows a group with
-its invite code, but there is no switcher, no aside, no roster and no way to edit or leave a group
-yet. The group endpoints have never run against a backend. **Two-factor is complete for the one
-provider the backend has**: a sign-in the backend gates is answered end to end, the settings page
-lists the methods, and enrolling, turning it off and reissuing recovery codes all work, so every
-`/api/account/2fa` endpoint has a caller. Register, verification, password login, password reset and
-token rotation have all run against the real backend in Docker, and the whole two-factor section
-against a local one; the account, user-settings and notification-settings endpoints have run against
-a stub only; the group endpoints have not run at all; every automated test is MSW.
+lists them, creating one and joining by code both work, a pill in the header reaches every group
+from anywhere, and `/app/groups/[uid]` is a shell with its own rail holding the group's overview and
+invite code. Tasks, tags and categories, members, settings and leaving sit in that rail as dead
+entries, so there is still no roster and no way to edit or leave a group. The group endpoints have
+never run against a backend. **Two-factor is complete for the one provider the backend has**: a
+sign-in the backend gates is answered end to end, the settings page lists the methods, and
+enrolling, turning it off and reissuing recovery codes all work, so every `/api/account/2fa`
+endpoint has a caller. Register, verification, password login, password reset and token rotation
+have all run against the real backend in Docker, and the whole two-factor section against a local
+one; the account, user-settings and notification-settings endpoints have run against a stub only;
+the group endpoints have not run at all; every automated test is MSW.
 
 ## Quick reference
 
@@ -130,8 +132,10 @@ src/
       app/             everything behind the session lives under /app
         page.tsx       the signed-in landing page: every group the caller is in,
                        split into the ones they admin and the ones they only joined
-        groups/        new/ and join/ (page.tsx and actions/ each), and [uid]/page.tsx,
-                       the group itself with its invite code for an admin
+        groups/        new/ and join/ (page.tsx and actions/ each), and [uid]/, the
+                       group's own shell: layout.tsx (the rail beside the section),
+                       page.tsx (the overview and the invite code for an admin) and
+                       group.helpers.ts, the one read both of them share
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
                        (grouped: Preferences, Security, Account) and sections.types.ts
@@ -160,6 +164,9 @@ src/
     not-found.tsx      the 404, for any path no route matches
   assets/              images components import; next/image reads their size from the file
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
+  hooks/               shared React state, which is neither a component nor the
+                       non-UI logic lib/ is for: use-disclosure, the open state a
+                       popup needs and the two ways out of it
   components/
     common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
                        masked-email, load-error, form-notice, brand-mark, text-field,
@@ -168,7 +175,8 @@ src/
                        or-divider, greeting, copy-button, qr-image, google-mark,
                        busy-overlay (the scrim over a card while an action runs),
                        text-area (multi-line, painted like text-field)
-    app/               signed-in chrome: app-header, settings-nav, device-row
+    app/               signed-in chrome: app-header with header-bar (how wide the
+                       row is), settings-nav, device-row
                        with device-name (the inline rename), all-device-actions
                        (sign out everywhere and remove every device),
                        password-form, google-connection,
@@ -180,7 +188,13 @@ src/
                        two-factor-confirm, recovery-codes, group-card, group-section
                        (one labelled band of the list), add-group (the only two ways
                        in), no-groups (the onboarding empty state), create-group-form,
-                       join-group-form
+                       join-group-form, add-task-button (the header's one offer,
+                       disabled until tasks exist), group-switcher with
+                       open-group-uid (which group the path is about), group-sidebar
+                       with group-summary (the group's card), group-bar (what a
+                       phone offers in place of the rail), group-nav with
+                       nav-sections (a group's sections), nav-entry (one of them,
+                       wherever it is shown) and item-tone (how it reads)
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -346,6 +360,46 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A group screen reads its uid from the route, never from state.** `/app/groups/[uid]` is the
   authority, `GET /api/groups/{uid}` answers with `myRole`, and there is no active-group cookie or
   context to go stale. `/app` is the list, so nothing has to remember which group you were in.
+- **A group's rail owns its identity, and a screen inside it owns only its section.** The card at
+  the top of `GroupSidebar` carries the group's `h1`, its description and the member and role line,
+  so a section page never repeats them, and the pill in the header is what says which group you are
+  in from anywhere else. It is a card only at `lg`: on a phone it is a plain page header, because a
+  box drawn around the page's own title is a box inside a box. `group.helpers.ts` holds the one
+  `loadGroup` the shell and every page call, so the 403 bounce and the inline failure are written
+  once.
+- **The header is as wide as the page under it.** `HeaderBar` reads the path: on a group's own
+  screens it spans the window, so the brand lines up with the rail starting at the left edge, and
+  everywhere else it keeps `max-w-app` and matches the column it sits above. A rail inside the
+  page's column would leave its line floating in the middle of the screen.
+- **The signed-in shell is a grid, so a page can fill the height.** `(app)/layout.tsx` is
+  `grid-cols-1 grid-rows-[auto_minmax(0,1fr)]` around a plain `<main>`, and the group shell takes
+  `lg:min-h-full` from it. Both halves are load-bearing: a flex column shrinks every centred page,
+  and without an explicit column the implicit one takes the width of the widest thing on the page,
+  which the group's tab strip made 1068px at a 360px viewport. Measured, in gotchas 29 and 30.
+- **The group pill is two controls in one border.** The name navigates into the group and the
+  `ChevronsUpDown` arrow opens the list, so the common move costs no popup, and each half is a real
+  element with its own name rather than one button guessing from where the press landed.
+- **A collapsed rail is an `lg:` class, never a second tree.** `GroupSidebar` holds the state and
+  every piece of it is `lg:`-prefixed, so the strip below `lg` keeps its labels. A collapsed label
+  is `lg:hidden`, which takes it out of the accessible name, so every entry spells its name out in
+  an `aria-label` and the group's `h1` goes `lg:sr-only` rather than away.
+- **A group's sections are two bands, and each one behaves differently below `lg`.** Workspace is
+  the daily work and Administration is the group itself, so the rail is a flex column with
+  `justify-between`. Below that, Workspace is the strip scrolling above the section and
+  Administration moves into the bottom bar's More menu, which the band itself says
+  (`phone: "strip" | "menu"`). `NavEntry` renders an entry wherever it lands, so the rail, the strip
+  and the menu cannot disagree about what a section is called or whether it is built.
+- **A phone's bottom bar carries one label at a time.** `GroupBar` runs edge to edge over the end
+  of the section: the add-task pill at `flex-2`, then a `flex-1` pill holding the invite control for
+  an admin and the Administration button. Whichever panel is open takes the label, so opening the
+  invite shrinks the task pill to its icon and opening the menu shrinks both. The task pill wears
+  `bg-primary` and an open control wears `bg-secondary`, which is how a phone says which one it is
+  listening to. The section column pays `pb-space-3xl` so the bar never covers its last card, and
+  both panels hang off the `flex-1` pill rather than off the control that opened them, which is what
+  keeps a panel on a 360px screen. **The two controls share one `useDisclosure`, rooted at the
+  pill**, so pressing one while the other is open switches panels: with a disclosure each, the
+  press closed the open one on `pointerdown` and the relayout that followed put the first control
+  back under the finger before the click landed.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
@@ -409,6 +463,12 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
   the thing being clicked is a real control while the tab order still holds one stop. The cost is
   that it needs JavaScript, where a native `select` did not.
+- **A popup that navigates is a disclosure, not a listbox.** `AccountMenu` and `GroupSwitcher` both
+  hold links and a press closes them, so Tab already moves correctly and a roving tabindex would
+  only take that away. `LocaleSelect` is a listbox because it posts a value instead.
+- **A popup's open state is `useDisclosure`, never a second copy of it.** `src/hooks/` holds the
+  state, the press-outside close and the Escape that hands focus back to the trigger. Two popups ran
+  the same twenty lines before the switcher would have made it three.
 - **Google's button sits in a fixed box, not a floor.** Google renders it as inline elements on
   one origin and as an `<iframe>` on another, and the iframe measures 80px for a frame before
   settling at 44. The slot is `h-13` with `overflow-hidden` so neither rendering can resize the
@@ -425,6 +485,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A live region with no name is an `<output>`.** It carries `role="status"` already, so the role
   attribute is noise, and `getByRole("status")` still finds it. `role="alert"` has no element of its
   own and stays an attribute.
+- **A name built from two elements needs an `aria-label`, because the computation trims each node.**
+  A label beside a chip comes out as `MembersSoon`, and a hidden separator span does not survive
+  either, so every entry in a group's nav spells its name out. JSX also
+  strips the whitespace between two elements, so this is not a jsdom artifact.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone. It is an outlined red pill
@@ -436,7 +500,12 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A control that cannot be used yet stays a disabled button, with the reason beside it.** Prose
   where a button belongs reads as a stray notice, so the two-factor page's "Coming soon" and the
   blocked unlink both render the real control disabled and say why underneath, the unlink linking to
-  `/app/settings/password`.
+  `/app/settings/password`. **Where there is no room beside it, the reason is in its name**: the
+  add-task button and a group's unbuilt sections are named "coming soon", since a header, a narrow
+  rail and a bottom bar have nowhere to put a sentence. The header's copy is dropped below `sm`,
+  where the brand, the group and the account are already all it holds, and a group's bottom bar
+  carries the phone's copy instead. **That one keeps its brand colour while disabled**, because it
+  is the single thing the bar exists for and the shape it will have is worth showing early.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
@@ -506,6 +575,10 @@ routes are `noindex` via the `(auth)` layout.
 - **The chrome knows whether you are signed in, and that costs `/` its static render.** Both
   layouts read the session once and pass `signedIn` and `name` down, so the header and footer stay
   presentational. Signed in, the public chrome swaps "Log in" and "Get started" for "Go to app".
+- **The signed-in chrome costs one group read per render, and a failed one costs only the switcher.**
+  `(app)/layout.tsx` reads `/api/groups/mine` for `GroupSwitcher` and catches everything, so an
+  outage leaves the header without a switcher rather than taking the page. `getMyGroups` is
+  `cache()`d, so `/app` and the layout share the one call.
 - **The display name rides in the session cookie.** Every auth response carries it, including
   refresh, so the chrome can greet by name without an API call on every page. It is display only
   and may be stale; anything that matters reads the backend.

@@ -11,6 +11,9 @@ import logo from "@/assets/logo.png";
 
 type BrandMarkProps = {
   size?: keyof typeof SIZES;
+  // Where the wordmark appears. `sm-up` drops it on a phone, which is the only
+  // way the app header fits a logo, a group name and an avatar at 360px.
+  wordmark?: keyof typeof WORDMARKS;
 };
 
 const SIZES = {
@@ -18,8 +21,15 @@ const SIZES = {
   md: { px: 36, className: "size-9" },
 };
 
+// `sr-only` rather than `hidden`, so the link keeps its name on a phone: both
+// images carry an empty alt and the wordmark is all that reads "TasKlean".
+const WORDMARKS = {
+  always: "",
+  "sm-up": "sr-only sm:not-sr-only",
+};
+
 /** Renders the logo and wordmark as a single inline unit. */
-export function BrandMark({ size = "md" }: Readonly<BrandMarkProps>) {
+export function BrandMark({ size = "md", wordmark = "always" }: Readonly<BrandMarkProps>) {
   const { px, className } = SIZES[size];
 
   return (
@@ -33,7 +43,9 @@ export function BrandMark({ size = "md" }: Readonly<BrandMarkProps>) {
         height={px}
         className={`${className} hidden dark:block`}
       />
-      <span className="text-headline-sm text-primary-strong">TasKlean</span>
+      <span className={`text-headline-sm text-primary-strong ${WORDMARKS[wordmark]}`}>
+        TasKlean
+      </span>
     </span>
   );
 }
