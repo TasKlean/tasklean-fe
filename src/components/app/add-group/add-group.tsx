@@ -1,6 +1,9 @@
 /**
  * The two ways into a group, which is all there are: make one, or redeem a
  * code. There is no third, because a group admin cannot add anybody directly.
+ *
+ * Both layouts are `lg` and up: below that `AddGroupBar` offers the same two
+ * destinations from the bottom of the screen, so these would say it twice.
  */
 
 import Link from "next/link";
@@ -18,8 +21,8 @@ const QUIET =
   "border-border/60 text-foreground hover:bg-muted text-label-lg focus-visible:ring-ring flex min-h-13 items-center justify-center gap-2 rounded-full border px-6 transition-colors focus-visible:ring-2 focus-visible:outline-none";
 
 const LAYOUTS = {
-  stacked: "gap-space-sm flex flex-col sm:flex-row",
-  inline: "gap-space-sm flex flex-wrap",
+  stacked: "gap-space-sm hidden flex-col sm:flex-row lg:flex",
+  inline: "gap-space-sm hidden flex-wrap lg:flex",
 } as const;
 
 /** Renders the create and join links. */

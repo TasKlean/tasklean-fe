@@ -15,11 +15,13 @@ Never restate backend internals here — link to them.
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
 and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
-lists them, creating one and joining by code both work, a pill in the header reaches every group
-from anywhere, and `/app/groups/[uid]` is a shell with its own rail holding the group's overview and
-invite code. `/app/groups/[uid]/members` is the roster: an admin promotes, demotes and removes from
-it, and anybody leaves from the band at its end. Tasks, tags and categories and a group's settings
-sit in that rail as dead entries, so there is still no way to edit or delete a group. **Two-factor
+lists them behind a search, a role filter and a sort that all live in the URL and all run in the
+browser, since no endpoint takes them yet; creating one and joining by code both work, a pill in
+the header reaches every group from anywhere, and `/app/groups/[uid]` is a shell with its own rail
+holding the group's overview and invite code. `/app/groups/[uid]/members` is the roster: an admin
+promotes, demotes and removes from it, and anybody leaves from the band at its end. Tasks, tags
+and categories and a group's settings sit in that rail as dead entries, so there is still no way to
+edit or delete a group. **Two-factor
 is complete for the one provider the backend has**: a sign-in the backend gates is answered end to
 end, the settings page lists the methods, and
 enrolling, turning it off and reissuing recovery codes all work, so every `/api/account/2fa`
@@ -189,8 +191,12 @@ src/
                        switch-track, two-factor-method (the shell every method shares),
                        two-factor-card, two-factor-enroll, two-factor-manage,
                        two-factor-confirm, recovery-codes, group-card, group-section
-                       (one labelled band of the list), add-group (the only two ways
-                       in), no-groups (the onboarding empty state), create-group-form,
+                       (one labelled band of the list), group-filters with
+                       group-search, show-menu, sort-menu and no-matches (the row
+                       over the list, and what it says when nothing matches),
+                       add-group (the only two ways in, `lg` and up) with
+                       add-group-bar (the same two below it),
+                       no-groups (the onboarding empty state), create-group-form,
                        join-group-form, add-task-button (the header's one offer,
                        disabled until tasks exist), group-switcher with
                        open-group-uid (which group the path is about), member-row
@@ -235,8 +241,10 @@ src/
                        code, delete) with groups.types.ts, members/members.ts (the roster,
                        a role change, and the removal that is also a leave), role.ts (the
                        one place a role string is compared), labels.ts (the lines a card
-                       or a roster row shows), unavailable.ts (what a 403 on a group
-                       route means) and last-admin.ts (the shared 409)
+                       or a roster row shows), filter/ (the list's query: reading it
+                       out of the URL, applying it here until the backend takes it,
+                       and writing it back) with filter.types.ts, unavailable.ts (what
+                       a 403 on a group route means) and last-admin.ts (the shared 409)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -417,6 +425,36 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   Administration moves into the bottom bar's More menu, which the band itself says
   (`phone: "strip" | "menu"`). `NavEntry` renders an entry wherever it lands, so the rail, the strip
   and the menu cannot disagree about what a section is called or whether it is built.
+- **The group list's filter is the URL, and the browser is a stand-in for the backend.**
+  `/app?q=&show=&sort=` is the whole state: the page narrows it with `groupQuery`, applies it with
+  `filterGroups` and passes it to `GroupFilters`, which writes every press back into the path. A
+  filtered list is therefore a link somebody can paste, and the backend version replaces the one
+  `filterGroups` call with a `getMyGroups(query)` sending the same object. **Both boxes start
+  ticked and the last ticked one is disabled**, so one side is the only restriction there is and
+  `show` is never empty; the URL carries a side only when one is off. The two bands stay: a box
+  hides a whole band rather than reshuffling the list.
+- **The search box is local state pushed on a delay; every other control pushes at once.** A
+  keystroke cannot be a navigation, so the box keeps what is typed and commits 300ms after typing
+  stops, showing a spinner in place of the magnifier while the URL catches up. Two rules make it
+  behave: **the URL wins** when it changes underneath, so a back press rewrites the box, in render
+  rather than an effect, and **a pressed filter carries whatever is in the box**, or the press and
+  the pending search overwrite each other. **Neither applies while a push of ours is in flight**:
+  two searches 300ms apart are two navigations, and the earlier payload landing second rewrote the
+  box with the older text, which is the flicker that looked like the field resetting itself.
+- **A dropdown panel names the edge it hangs from.** 240px of panel anchored to the right edge of
+  the left-hand pill starts at -65px on a 360px screen, measured, so `PANEL` sets no horizontal
+  position and the show menu adds `left-0` while the sort menu adds `right-0`. The sort pill wears
+  the short form of its order for the same reason: half of a 360px row is 160px and "Recently
+  joined" between two icons needs 177.
+- **The two ways into a group are a bar on a phone and the title row on a desktop.** `AddGroup` is
+  `hidden lg:flex` in both its layouts and `AddGroupBar` is `lg:hidden`, so the create and join
+  links are in exactly one place at any width, and the onboarding card keeps its explanation while
+  the bar carries the buttons. On `/app` the inline pair sits **beside the `h1`**, not over the
+  list: the two ways in belong to the page, and the row under it belongs to the list, which is
+  what the line under the filters says. Each half of the bar is `flex-1 min-w-0` and **both halves
+  carry the border**, colour apart: a border on one alone is 2px of width the other does not pay,
+  which left them 159 and 161 at 360px. The list pays `pb-space-3xl` below `lg`, so the bar never
+  covers its last card.
 - **A phone's bottom bar carries one label at a time.** `GroupBar` runs edge to edge over the end
   of the section: the add-task pill at `flex-2`, then a `flex-1` pill holding the invite control for
   an admin and the Administration button. Whichever panel is open takes the label, so opening the

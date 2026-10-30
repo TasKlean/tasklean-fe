@@ -1682,6 +1682,76 @@ action redirects to `/app?left=1` and the list says what happened, the same shap
 already had. A silent landing on the list would be indistinguishable from a navigation that did
 nothing.
 
+### The group list's filter lives in the URL, not in the browser
+
+**`/app?q=&show=&sort=` is the whole state, and the browser is standing in for a backend that
+cannot filter yet.** There is no list endpoint that takes a search, a role or an order, so the page
+reads the query out of the URL with `groupQuery`, applies it with `filterGroups` to the list
+`/api/groups/mine` already answered with, and hands the same object to the row of controls.
+`filterGroups` is the single call that goes when the backend grows the parameters: the query shape
+is what a `GET` would take, so `getMyGroups(query)` replaces it and nothing else moves. Client
+state was the alternative and it is the same work twice: the query would have to be lifted into the
+URL later anyway, because a filtered list that cannot be pasted, reloaded or reached with the back
+button is a filter people lose by accident.
+
+**The search box is the one control that does not write the URL immediately.** A keystroke cannot
+be a navigation, so the box holds what is typed and commits 300ms after typing stops, with the
+magnifier replaced by a spinner while the URL catches up. Two rules keep that honest. The URL wins
+when it changes underneath: a back press, or the clear link on the no-matches card, rewrites the
+box, and the reset happens in render rather than in an effect, the same way the forms reset
+`edited`. Without it the box would push its stale text forward and undo the back press. And a
+pressed filter carries whatever is in the box, so the press and the not-yet-committed search land
+in one navigation rather than overwriting each other.
+
+**Both boxes start ticked, and the last ticked one cannot be unticked.** A list showing neither
+side is an empty page nobody asked for, so one side is the only restriction the control offers:
+the box that would empty the list is disabled, with the reason under it, and the action refuses it
+too rather than trusting the attribute. `show` is therefore never empty, and the URL carries a
+side only while one is off, so an untouched list stays at `/app`. The pill turns `bg-secondary`
+while it is holding a side back, which is the same thing the group bar's controls do and says more
+at a glance than a count would. The two bands stay as they are: a box hides a whole band, which is
+why the boxes carry the bands' own words.
+
+**Our own navigations can land out of order, and that was the search box's flicker.** Typing
+"flat" with a pause in it commits "fla" and then "flat", two `router.replace` calls a few hundred
+milliseconds apart, and the first payload can arrive after the second. The sync block then read a
+URL that disagreed with what we last asked for, took it for an external change and rewrote the box
+with the older text, which showed as the field resetting itself and then filling back in. The fix
+is to resync only while no push of ours is in flight: `isPending` covers exactly the window where
+a stale payload can land, and the flip back to idle is itself a render, so a genuine back press is
+still picked up one tick later.
+
+**A panel names the edge it hangs from, measured rather than assumed.** 240px of panel anchored to
+the right edge of the left-hand pill starts at -65px on a 360px screen, so the shared `PANEL` class
+sets no horizontal position and each menu adds `left-0` or `right-0`. The same measurement is why
+the sort pill wears the short form of its order: at 360px each pill gets 160px, and "Recently
+joined" between two icons needs 177, which was quietly truncating the label and pushing the pills
+to 159 and 161 instead of an even split.
+
+### The two ways into a group sit at the bottom of a phone
+
+**The create and join buttons are a fixed bar below `lg`, and the title row above it.** They are
+the whole point of `/app` for anybody who is not already in a group, and in the page they sat above
+the list, which on a phone means above the fold and then scrolled away. The bar puts them where a
+thumb is, matches the bottom bar a group's own screens already have, and the inline pair comes back
+at `lg` beside the `h1`, where a row of buttons costs nothing and a floating bar over a wide page
+looks stranded. Beside the heading rather than over the list, because the two ways in belong to the
+page while the row under it belongs to the list, and the line under the filters is where that split
+is drawn. `AddGroup` carries `hidden lg:flex` in both its layouts and `AddGroupBar` is `lg:hidden`,
+so exactly one of them is in the accessibility tree at any width.
+
+**Two halves, equal by construction.** Each is `flex-1 min-w-0`, so the split is 50:50 rather than
+content-driven, and the border is on both halves with only its colour differing: with the border on
+the join half alone the two measured 159px and 161px at 360px, because a border-box flex item pays
+for its own border out of its share. Measured at 320, 360, 390 and 768 after the fix: 140, 160, 175
+and 364 on both sides, nothing clipped, nothing scrolling sideways, and gone at 1024. The labels are
+short for the same reason, since "Join with a code" has 2px of slack at 320px and "Join with code"
+has 11.
+
+**The empty state keeps its explanation and loses its buttons.** `NoGroups` is onboarding rather
+than an empty list, so the card still says what a group is, but offering the same two actions a
+fixed bar is already showing reads as a mistake. One place per width.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
