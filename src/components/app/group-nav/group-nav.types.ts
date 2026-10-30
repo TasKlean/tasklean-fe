@@ -13,6 +13,9 @@ export type GroupNavItem = {
   soon?: boolean;
   // Marks an entry that ends something, so the nav can say so quietly.
   destructive?: boolean;
+  // The way out of an area, which is divided off from its sections: mixed in
+  // with them it reads as one of them.
+  back?: boolean;
 };
 
 export type GroupNavSection = {

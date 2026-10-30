@@ -14,6 +14,7 @@ import {
 import { CODE_LENGTH } from "@/lib/validation/code-length";
 import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
+import { isGroupPhotoUrl } from "@/lib/groups/photo/photo";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
@@ -34,6 +35,9 @@ export const GROUP_NAME_MAX_LENGTH = 255;
 // Deliberately shorter than the backend's 2000: a description is a line on a
 // card, and a thousand characters of it is a wall nobody reads.
 export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
+
+// The backend's own cap on a group's photo URL.
+export const GROUP_PHOTO_MAX_LENGTH = 500;
 
 // Eight characters, generated upper-case from a UUID prefix.
 const INVITE_CODE = /^[A-Z\d]{8}$/;
@@ -177,6 +181,23 @@ export const groupDescriptionRule = z.optional(
         `Use ${GROUP_DESCRIPTION_MAX_LENGTH} characters or fewer.`,
       ),
     ),
+);
+
+/**
+ * A group's picture: optional, and an https URL when there is one.
+ *
+ * There is no uploader anywhere in the product, so the only way to give a group
+ * a picture is to paste a link to one. `http` is refused as well as the rest,
+ * because the page asking for it is served over `https`.
+ */
+export const groupPhotoRule = z.optional(
+  z.string().check(
+    z.trim(),
+    z.maxLength(GROUP_PHOTO_MAX_LENGTH, `Use ${GROUP_PHOTO_MAX_LENGTH} characters or fewer.`),
+    z.refine((value) => value === "" || isGroupPhotoUrl(value), {
+      error: "Enter a link starting with https://, or leave this empty.",
+    }),
+  ),
 );
 
 /**

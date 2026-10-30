@@ -9,18 +9,21 @@ import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
 import {
   groupDescriptionRule,
   groupNameRule,
+  groupPhotoRule,
   optionalTextRule,
 } from "@/lib/validation/rules/rules";
 
 export const groupDetailsSchema = z.object({
   name: groupNameRule,
   description: groupDescriptionRule,
+  photoUrl: groupPhotoRule,
 });
 
 // Lenient, so even a rejected submission echoes back into the fields.
 export const groupDetailsEchoSchema = z.object({
   name: optionalTextRule,
   description: optionalTextRule,
+  photoUrl: optionalTextRule,
 });
 
 export type GroupDetailsFields = z.infer<typeof groupDetailsSchema>;
@@ -37,7 +40,11 @@ export function echoGroupDetails(input: unknown): GroupDetailsFields {
   const result = z.safeParse(groupDetailsEchoSchema, input);
   const echoed = result.success ? result.data : {};
 
-  return { name: echoed.name ?? "", description: echoed.description ?? "" };
+  return {
+    name: echoed.name ?? "",
+    description: echoed.description ?? "",
+    photoUrl: echoed.photoUrl ?? "",
+  };
 }
 
 /** Returns a message per invalid field, for live feedback in the form. */

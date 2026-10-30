@@ -10,7 +10,7 @@ import { GroupBar } from "@/components/app/group-bar/group-bar";
 import { GroupSidebar } from "@/components/app/group-sidebar/group-sidebar";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
-import { groupLabel, memberCountLabel } from "@/lib/groups/labels/labels";
+import { groupLabel } from "@/lib/groups/labels/labels";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 
 const COLUMN =
@@ -39,12 +39,15 @@ export default async function GroupLayout({ children, params }: LayoutProps<"/ap
   const admin = isGroupAdmin(group.myRole);
 
   return (
-    <div className="flex flex-col lg:min-h-full lg:flex-row lg:items-stretch">
+    // `items-start` rather than `items-stretch`: the rail sticks to the viewport
+    // at `lg`, and a stretched flex item would be as tall as the page instead.
+    <div className="flex flex-col lg:min-h-full lg:flex-row lg:items-start">
       <GroupSidebar
         uid={uid}
         name={groupLabel(group.name)}
+        photoUrl={group.photoUrl ?? null}
         description={group.description?.trim() || null}
-        members={memberCountLabel(group.memberCount)}
+        memberCount={group.memberCount ?? null}
         admin={admin}
       />
 
@@ -54,7 +57,7 @@ export default async function GroupLayout({ children, params }: LayoutProps<"/ap
 
       {/* Gated on the role the same way the overview's card is: only an admin
           is sent a code, so an absent one is a permission and not a gap. */}
-      <GroupBar uid={uid} inviteCode={admin ? (group.inviteCode ?? null) : null} />
+      <GroupBar uid={uid} admin={admin} inviteCode={admin ? (group.inviteCode ?? null) : null} />
     </div>
   );
 }

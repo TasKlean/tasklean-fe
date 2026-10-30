@@ -23,7 +23,7 @@ import {
   changeMemberRoleAction,
   leaveGroupAction,
   removeMemberAction,
-} from "@/app/(app)/app/groups/[uid]/members/actions/actions";
+} from "@/app/(app)/app/groups/[uid]/overview/members/actions/actions";
 
 const BASE = "http://api.test";
 const EMPTY = { error: null };

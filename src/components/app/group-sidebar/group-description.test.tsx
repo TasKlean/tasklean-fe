@@ -13,38 +13,31 @@ const LONG = "Everything the four of us share in the flat, from the kitchen rota
 
 describe("GroupDescription", () => {
   it("shows a short description with nothing to press", () => {
-    render(<GroupDescription description={SHORT} away="" />);
+    render(<GroupDescription description={SHORT} shown="flex" />);
 
     expect(screen.getByText(SHORT)).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("clamps a long one and offers the rest", () => {
-    render(<GroupDescription description={LONG} away="" />);
+  it("clamps a long one and says there is more", () => {
+    render(<GroupDescription description={LONG} shown="flex" />);
 
     expect(screen.getByText(LONG)).toHaveClass("line-clamp-3");
-    expect(screen.getByRole("button", { name: "Read more" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    expect(screen.getByText("Read more")).toBeInTheDocument();
+    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("gives the whole description on a press, and takes it back", async () => {
+  it("gives the whole description on a press of the text, and takes it back", async () => {
     const user = userEvent.setup();
-    render(<GroupDescription description={LONG} away="" />);
+    render(<GroupDescription description={LONG} shown="flex" />);
 
-    await user.click(screen.getByRole("button", { name: "Read more" }));
+    await user.click(screen.getByText(LONG));
 
     expect(screen.getByText(LONG)).not.toHaveClass("line-clamp-3");
+    expect(screen.getByText("Show less")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Show less" }));
+    await user.click(screen.getByText(LONG));
 
     expect(screen.getByText(LONG)).toHaveClass("line-clamp-3");
-  });
-
-  it("goes away with the rest of the card when the rail collapses", () => {
-    const { container } = render(<GroupDescription description={LONG} away="lg:hidden" />);
-
-    expect(container.firstElementChild).toHaveClass("lg:hidden");
   });
 });

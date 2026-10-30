@@ -55,11 +55,12 @@ export type GroupMember = {
   removedBy?: GroupMemberUser;
 };
 
-// `photoUrl` is deliberately absent: the backend accepts one, but no uploader
-// or storage exists anywhere in the product, so nothing sends it.
+// `photoUrl` is a link somebody pasted: there is no uploader or image storage
+// anywhere in the product, so a URL is the only picture a group can have.
 export type GroupDetailsRequest = {
   name: string;
   description?: string;
+  photoUrl?: string;
 };
 
 export type JoinGroupRequest = {

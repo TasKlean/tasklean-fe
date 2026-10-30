@@ -14,7 +14,7 @@ const removeMemberAction = vi.fn<(previous: unknown, data: FormData) => Promise<
   async () => ({ error: null }),
 );
 
-vi.mock("@/app/(app)/app/groups/[uid]/members/actions/actions", () => ({
+vi.mock("@/app/(app)/app/groups/[uid]/overview/members/actions/actions", () => ({
   changeMemberRoleAction: (previous: unknown, data: FormData) =>
     changeMemberRoleAction(previous, data),
   removeMemberAction: (previous: unknown, data: FormData) => removeMemberAction(previous, data),

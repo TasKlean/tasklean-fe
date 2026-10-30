@@ -19,7 +19,9 @@ export const metadata: Metadata = {
 };
 
 /** Renders a group's roster, and what the reader may do to it. */
-export default async function MembersPage({ params }: PageProps<"/app/groups/[uid]/members">) {
+export default async function MembersPage({
+  params,
+}: PageProps<"/app/groups/[uid]/overview/members">) {
   const { uid } = await params;
   // The shell read this already and `getGroup` is memoised per request, so the
   // role costs nothing here. A group that would not load never gets this far.

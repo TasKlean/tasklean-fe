@@ -46,6 +46,19 @@ export function joinedLabel(dateJoined: string | undefined): string | null {
 }
 
 /**
+ * Says when a group was made.
+ *
+ * @returns The day, month and year, or null when the group carried no date.
+ * The locale is fixed for the same reason the joined line's is.
+ */
+export function createdLabel(dateCreated: string | undefined): string | null {
+  const created = parseApiDateOrNull(dateCreated);
+  if (!created) return null;
+
+  return `Created ${created.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`;
+}
+
+/**
  * Names the person behind a membership.
  *
  * @returns Their name, or a stand-in: the roster shows no addresses, so a

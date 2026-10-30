@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { Users } from "lucide-react";
+import { GroupAvatar } from "@/components/app/group-avatar/group-avatar";
 import type { MyGroup } from "@/lib/groups/groups.types";
 import { groupLabel, joinedLabel, memberCountLabel } from "@/lib/groups/labels/labels";
 import { isGroupAdmin } from "@/lib/groups/role/role";
@@ -31,8 +32,13 @@ export function GroupCard({ group }: Readonly<GroupCardProps>) {
       className="bg-card border-border/60 p-space-lg gap-space-sm hover:border-border hover:shadow-level-1 focus-visible:ring-ring flex h-full min-h-13 w-full flex-col rounded-xl border transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none"
     >
       <div className="gap-space-xs flex items-start justify-between">
-        <span className="text-title-md text-foreground min-w-0 break-words">
-          {groupLabel(group.name)}
+        <span className="gap-space-sm flex min-w-0 items-center">
+          <span aria-hidden>
+            <GroupAvatar name={groupLabel(group.name)} photoUrl={group.photoUrl} />
+          </span>
+          <span className="text-title-md text-foreground min-w-0 break-words">
+            {groupLabel(group.name)}
+          </span>
         </span>
 
         {isGroupAdmin(group.myRole) ? (

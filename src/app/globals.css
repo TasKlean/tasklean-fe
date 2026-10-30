@@ -176,6 +176,10 @@
   --spacing-margin: 1rem;
   --spacing-margin-tablet: 2rem;
   --spacing-margin-desktop: 3rem;
+  /* The header's whole outer height from `md` up, its bottom border included,
+   * and what the group rail subtracts from the viewport to stand still beside a
+   * scrolling page. */
+  --spacing-header: 5rem;
   --spacing-space-xs: 0.25rem;
   --spacing-space-sm: 0.5rem;
   --spacing-space-md: 1rem;
@@ -359,4 +363,31 @@ body {
 button:not(:disabled),
 [role="button"]:not(:disabled) {
   cursor: pointer;
+}
+
+/* A rail that scrolls itself should not pay 15px of its own width to say so:
+ * the platform scrollbar is wider than the gap beside an entry, and its arrival
+ * moved every label. The pseudo-elements are the only way to reach 6px; setting
+ * `scrollbar-width` anywhere Blink can see it makes Blink ignore them and draw
+ * its own 10px `thin` bar instead, measured. Firefox has no pseudo-elements, so
+ * the standard properties are scoped to where they are the only option. */
+@utility scrollbar-slim {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: var(--radius-full);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
 }

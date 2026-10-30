@@ -67,7 +67,7 @@ describe("createGroupAction", () => {
   it("echoes what was typed back, so a submit without JS loses nothing", async () => {
     const result = await createGroupAction(EMPTY, form({ name: "", description: "Upstairs" }));
 
-    expect(result.values).toEqual({ name: "", description: "Upstairs" });
+    expect(result.values).toEqual({ name: "", description: "Upstairs", photoUrl: "" });
   });
 
   it("sends the trimmed details and lands in the new group", async () => {

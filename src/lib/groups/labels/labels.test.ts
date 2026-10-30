@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createdLabel,
   groupLabel,
   joinedLabel,
   memberCountLabel,
@@ -42,6 +43,16 @@ describe("joinedLabel", () => {
 
   it.each([undefined, "", "   "])("says nothing about %j", (value) => {
     expect(joinedLabel(value)).toBeNull();
+  });
+});
+
+describe("createdLabel", () => {
+  it("names the day, the month and the year", () => {
+    expect(createdLabel("2026-07-15T12:00:00")).toBe("Created 15 July 2026");
+  });
+
+  it.each([undefined, "", "   "])("says nothing about %j", (value) => {
+    expect(createdLabel(value)).toBeNull();
   });
 });
 

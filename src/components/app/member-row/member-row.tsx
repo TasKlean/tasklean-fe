@@ -12,7 +12,7 @@ import {
   changeMemberRoleAction,
   removeMemberAction,
   type MemberActionState,
-} from "@/app/(app)/app/groups/[uid]/members/actions/actions";
+} from "@/app/(app)/app/groups/[uid]/overview/members/actions/actions";
 import { ConfirmRemove } from "@/components/app/member-row/confirm-remove";
 import { MemberActions } from "@/components/app/member-row/member-actions";
 import { CHIP } from "@/components/app/member-row/member-row.styles";

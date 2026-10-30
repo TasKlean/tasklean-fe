@@ -1333,6 +1333,19 @@ entries, but no field in the spec is `required`, so the four rows are built from
 one takes the entry that matches or the backend's own default. A missing row is then impossible
 rather than handled, and a type we do not offer is ignored instead of rendered blank.
 
+**Per-group notifications need a backend change, and are not worth one yet.** The settings row is
+keyed `(user_id, type)` with no group on it, so today the matrix is account-wide by construction.
+Doing it properly means a nullable `group_id` on the row, a `UNIQUE NULLS NOT DISTINCT
+(user_id, group_id, type)` to keep the account-wide row and the per-group ones in one table
+(Postgres 16 is what runs, so that spelling is available), a three-level resolution of group row
+then account row then the default of every channel on, and a membership-scoped
+`GET`/`PUT /api/groups/{uid}/notification-settings`. The UI then grows a third state per switch,
+since an absent row has to mean "use the account setting" rather than off. None of that is worth
+building while **nothing reads the settings and nothing writes a notification**: it would be a
+per-group preference about a delivery that does not exist. When delivery ships, the cheap eighty
+percent is one mute-this-group flag on the membership, which needs no new table and no inheritance
+to explain. Until then the group's card is a disabled control pointing at the account's page.
+
 ### A form action resets the DOM, and a controlled value does not come back
 
 React resets a form once its action answers. For an uncontrolled field that is the point. For a
@@ -1645,6 +1658,13 @@ the accurate test and it costs an effect, a second render and a resize listener 
 the cap at 500 and the clamp at three lines, a threshold of 150 characters answers the same
 question before the first paint, and being wrong costs a toggle that reveals one more line.
 
+**The text is the press, and "Read more" is the label on it.** A clamp ending mid-sentence invites a
+tap on the sentence, and a separate link beside it is the easy thing to miss. So a long description
+is one `<button>` holding the text and the label, which also gives the whole block the keyboard stop
+and the `aria-expanded` it needs; a short one stays a plain paragraph with nothing to press. The
+cost is that the button's accessible name is the description plus the label, which is what somebody
+hears either way. Phrasing content only inside a button, so the text is a `<span>`.
+
 ### The roster is where a membership is changed, and where one ends
 
 **The roster manages everyone but you.** An admin gets a role button and a removal on every other
@@ -1751,6 +1771,205 @@ has 11.
 **The empty state keeps its explanation and loses its buttons.** `NoGroups` is onboarding rather
 than an empty list, so the card still says what a group is, but offering the same two actions a
 fixed bar is already showing reads as a mistake. One place per width.
+
+### Tasks are what opening a group shows, and the overview earned a route
+
+**`/app/groups/[uid]` renders Tasks.** A group exists to share chores, so the screen a group opens
+on is the chores, not a description of the group. The overview moved to `/app/groups/[uid]/overview`
+and the rail's Workspace band now starts at the group's own path, which is also why the entry that
+is marked current on a bare group URL is Tasks.
+
+**The overview is the group itself, which is why the roster lives in it.** It is an area of three
+sections rather than a screen: Information, Members and the audit trail that is owed. Information
+is the one place that holds every field at once, the picture included, so nothing about a group is
+only in the chrome; the rail's card is a summary and repeating it there is the point, not an
+accident. The invite code went the other way, to Settings, since only an admin is ever sent one and
+the overview is everybody's.
+
+**Both pages return nothing when the shell has already reported the failure.** `loadGroup` is shared,
+so a group that will not load is rendered once by the layout, with the children left out rather than
+each page drawing its own copy of the same error.
+
+### The rail stands still, and its top band is whichever area is open
+
+**At `lg` the rail sticks at the header's height and takes the rest of the viewport.** It used to be
+a stretched flex item, so it was as tall as the page and scrolled away with it, which on a long
+roster meant navigating by scrolling back up. It is now `lg:sticky` with
+`lg:h-[calc(100svh-var(--spacing-header))]` and its own `overflow-y-auto`, and the shell's
+`lg:items-stretch` became `lg:items-start` so nothing stretches it again. `--spacing-header` is the
+one place the header's height is written, so the bar and the rail cannot drift apart.
+
+**The permanent scrollbar on every group screen was one pixel, and the pixel was the header's
+border.** The height sat on the row inside the `<header>` while the border sat on the header itself,
+so the chrome measured 81px where `--spacing-header` says 80: the rail's `calc(100svh - 5rem)` came
+out 820px inside an 819px row, the document became 901px tall in a 900px window, and a scrollbar
+appeared on a page whose content was nowhere near the bottom. The sticky `top` was a pixel short for
+the same reason. The height moved onto the `<header>`, border included, since Preflight makes every
+box a border box, and the row inside takes `h-full`. Measured at 1440x900: 901px before, 900 after,
+with the header at 80 and the rail at 820.
+
+A full app shell was the alternative: `h-svh` on the frame, `overflow-hidden`, and the content
+column as the only scroller. It was rejected because it moves the page's scroll off the document,
+which costs scroll restoration between navigations, breaks every `position: sticky` inside a page
+and fights the header that is already sticky. Sticky gets the same picture for four classes.
+Measured at 1280x900: the rail is 820px tall and 288 wide, and its top stays at 80 while the page
+is scrolled 700px, where before it moved to -635. On a 480px-tall window it is 400px tall and
+scrolls itself, which is the safety valve the overflow is there for: a rail that cannot be reached
+is worse than one that scrolls.
+
+**The band where Workspace sits is the open area's own sections.** Inside the overview it is
+Information, Members and Audit trail; inside settings it is the five sections an admin has and the
+two everybody has, under the heading "Group settings", since "Settings" in a group's rail reads as
+the account's. Administration stays put underneath. Each contextual band is headed by **"Back to
+tasks"**, because with Workspace replaced the rail would otherwise hold no way back to the screen a
+group opens on, and the one in the header pill is not somewhere anybody looks. Below `lg` the band
+is the strip above the content, which it already was, so a phone gets the same menu without a
+second layout.
+
+**The way out is divided off, differently in each layout.** Mixed in with an area's sections it
+reads as one of them, so in the rail it carries a rule under it and on the strip a line down its
+right, where it is the arrow alone: a label there costs the sections their room, and the entry's
+own `aria-label` is what names it either way. Measured: 48x44 with a 1px right border on a phone,
+255x44 with a 1px bottom border in the rail.
+
+**Inside an area the group's card gives up its space at `lg`.** The area's menu is what the rail is
+for on those screens, and a card plus a menu plus Administration pushed the sections down past
+anything a short window could show. The heading survives as `lg:sr-only`, the way it does in a
+collapsed rail, so the page keeps the only `h1` it has. Below `lg` the card stays, because there it
+is the page's own header rather than a card beside the page.
+
+**An empty card is what "too much space at the top" turned out to be.** Hiding the card meant
+`lg:p-0 lg:border-0 lg:bg-transparent` beside the `lg:p-space-md lg:border lg:bg-card` that paints
+it, and two utilities for one property at one breakpoint resolve by Tailwind's output order, not by
+the class list: the padding won, so an invisible 255x32 box sat above the menu. The card's paint is
+now one of two sets chosen by state and written in one place, and the box measures 0. The rail then
+drops its own gap in an area too, since a gap above nothing is still a gap: 74px above the first
+entry became 42px, of which 18px is the band's own heading.
+
+**The card is a card at every width.** It was a plain unboxed header below `lg`, on the argument
+that a box around the page's own title is a box inside a box. On a phone that read as three loose
+rows above the strip rather than one thing about one group, so the border, fill and padding now
+apply everywhere, and only an area at `lg` takes them away.
+
+**The card's chips sit in its corner, and they are coloured.** The picture takes the left of the
+row and the member count and the role take the right, which is the corner of the card: the two are
+facts about the group and the reader rather than part of the title, and a row of grey outlines read
+as disabled controls. The count wears `secondary` with a `Users` icon in it, the role wears
+`primary` for an admin and `secondary` for everyone else, and the sentence they add up to is
+`sr-only`: reading "4 members. You are an admin." once is better than announcing a picture, a number
+and a word that only mean something together. The description left that card below `lg` as well,
+where it pushed the strip and the section itself off a phone screen, so `GroupDescription` is told
+which display classes to wear rather than carrying a `flex` that would fight them.
+
+**A scrolling rail should not pay 15px to say so.** The platform scrollbar is wider than the gap
+beside an entry, and its arrival moved every label. Measured in Chrome 156: the default is 15px,
+`::-webkit-scrollbar { width: 6px }` gets 6, and `scrollbar-width: thin` gets 10 **and silently
+overrides the pseudo-elements** when both are set. So `scrollbar-slim` sets the pseudo-elements and
+scopes the standard properties to `@supports not selector(::-webkit-scrollbar)`, which is Firefox
+and nothing else. The rail's gutter went from 16px to 7px, 1px of which is its own border.
+
+**The space at the rail's end was two gaps, not one.** The rail's own `gap-space-md` sat between
+the sections and the collapse press, and `lg:py-space-xl` put 36px under that press. The nav and
+the press are now one block with `gap-space-xs` between them, and the rail's bottom padding is
+`lg:pb-space-md` while the top keeps `lg:pt-space-xl`: 16px and 36px became 4px and 16px, measured.
+
+**Only the open sub-section is marked, never the area it sits in.** The Administration entries
+point at `/overview` and `/settings`, both of which redirect to their first section, so neither is
+ever the current path. That is deliberate: two `aria-current="page"` entries in one nav say less
+than one does, and the band's own heading already names the area.
+
+### A group's settings and its overview are sections, not stacks
+
+**Every card became a route.** `/settings` redirects to `preferences`, and `preferences`,
+`notifications`, `details`, `invite-code` and `delete` are each a page of their own; the overview
+splits the same way into `information`, `members` and the audit trail it cannot have yet. The first
+build was one page of five cards, which is what made the contextual rail impossible: a menu whose
+entries are anchors has to mark the open one by watching the scroll position, and every card's data
+is fetched whether or not it is read. As routes, a member never loads the invite code,
+`aria-current` comes from the path, and each section's read is its own.
+
+**The three admin sections redirect a member rather than refusing them.** Their entries are not in
+a member's rail at all, so arriving at one means a stale link or a typed URL, and a refusal page
+for something nobody navigated to is noise. `loadAdminGroup` is the one place that decides it. The
+role is still only UX: every action behind those pages is checked again by Spring, and each one
+reports its own refusal.
+
+**The roster moved wholesale into the overview, and `/members` is gone.** It was an Administration
+entry beside Settings, which is the wrong place for the one screen everybody uses: the roster
+answers "who is in this group", which is what an overview is for. Its Server Actions moved with it,
+since actions live with their route. Nothing in the app points at the old path, so it was deleted
+rather than redirected.
+
+**The delete section says what it takes before it is pressed.** The lead says the group goes; the
+card lists what "the group" turns out to include, which is every task with its history, every tag
+and category, everybody else's membership and the invite code. A warning that only appears after
+the press is a warning nobody had the chance to act on.
+
+**Deleting asks for the group's name to be typed.** Every other destructive control in the app
+confirms with a second press, which is right for a device or a link that can be set up again. A
+group takes its tasks and everybody else's membership with it, so the second press is replaced by
+something nobody does by accident. The match is trimmed and case-insensitive, because the
+confirmation is about intent and not about typing accuracy, and the field takes focus through a ref
+rather than `autoFocus`. The backend soft-deletes and still answers a direct read (gap 1), so the
+action leaves for `/app` rather than letting the screen re-render around a group that is half gone.
+
+**The invite code is a field, not a sentence.** It is a value somebody takes away, so it is painted
+like every other field in the app, as wide as the code and no wider, with the copy press as an icon
+inside it rather than a worded button beside it. The two presses that act on the code stand to its
+right as round icons at the field's height: the replacement, and the share that will carry it to a
+messenger. Neither is worded, because the row is three things about one short value and a sentence
+on a button beside it made the value the smallest thing in it. `InviteCodeField` and `ShareInvite`
+are shared with the
+phone's bottom bar, so the two cannot drift; **the bar offers no replacement**, because issuing a
+new code locks out everyone holding the old one and that warning does not fit in a panel. Sharing
+is disabled with the reason in its name, since a row has no width for a sentence.
+
+**Rotating the invite code confirms in place, and the confirmation is neutral rather than red.**
+Nothing is lost when a code is replaced: the cost falls on whoever is already holding the old one,
+which is what the line above the press says. The new code arrives through the re-render rather than
+through the action's state, so the action revalidates the group's layout and `/app` the way a
+membership change does.
+
+**Preferences and Notifications ship as disabled controls with the reason beside them**, which is
+the convention the two-factor page set. Preferences shows the three task layouts that are coming,
+with List pressed because that is what a group reads as until the choice exists. Notifications is
+one disabled button next to a real link to the account's own notification settings, so the section
+still gets somebody to a working control.
+
+**The forms are bounded at `max-w-2xl`.** A group's column is the window less the rail, which is
+977px at 1280, and a name field and a primary pill that wide read as a page rather than as one
+section's control.
+
+### A group's picture is a link, and it is drawn unoptimized
+
+**`GroupRequest.photoUrl` has been in the contract all along and nothing sent it.** There is no
+uploader anywhere in the product (gap 3), so the only picture a group can have is a URL somebody
+pastes, and that is what Group details now asks for, with the avatar beside the field drawn from
+what is typed: a link that will not render is worth seeing before the save rather than after it.
+
+**`next/image` renders it with `unoptimized`.** The optimizer's allowlist is
+`**.googleusercontent.com`, and `next/image` throws on a host it was not configured with, which
+would take the whole page down. Widening the allowlist to render arbitrary links would make our
+optimizer an open image proxy for anyone who can type a URL into a group. `unoptimized` returns the
+`src` untouched and never calls the loader, so the allowlist is not consulted: verified in
+`next/dist/shared/lib/get-img-props.js`, where the unoptimized branch returns before the loader
+that carries the throw. The same file is why a unit test could not have proved it, since the host
+check is skipped when `NODE_ENV === "test"`.
+
+**One module decides whether a link may be drawn.** `lib/groups/photo` is `https`-only, which rules
+out `javascript:` and `data:` and the mixed content a plain `http` image would be. The validation
+rule and the avatar both import it, because a URL the form accepted and the avatar then refused
+would look like a lost save. It is a square with the group's first letter behind it, where a
+person's avatar is a circle with their initials: a group is not somebody.
+
+### A description sized to its content, and what `field-sizing` costs
+
+`field-sizing: content` grows the textarea as it is typed with no effect, no ref and no second
+render, and it is Baseline as of June 2026 (Chrome 123, Firefox 152, Safari 26.2); an older browser
+keeps the fixed box it has today. The catch is in the spec and was measured rather than assumed:
+once `field-sizing: content` is set, **`rows` stops applying**, so an empty description collapsed
+from 94px to 50px, a single line where a multi-line field should be. `min-h-24` is the floor that
+fixes it, which lands an empty field at 96px and lets a filled one grow to 138px and beyond.
 
 ### Roles and access
 
@@ -1886,6 +2105,17 @@ workaround **before** the feature depending on it gets built.
 7. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
    plain member may call it on their own membership is a `@PreAuthorize` question the spec can't
    answer — verify against a running backend before building the control.
+8. **The audit log can't be read for a group.** `GET /api/audit-logs` takes a **numeric** `groupId`,
+   and no response in the contract carries a group's numeric id: `GroupResponse` and
+   `MyGroupResponse` are addressed by `uid` alone. `/audit-logs/member/{groupMemberId}` has the same
+   problem one level down, since `GroupMemberResponse` carries only its `uid`. On top of that
+   `AuditLogResponse` names nobody: `actorUserId` and `groupMemberId` are bare numbers with no
+   nested user, so even a list we could fetch would read as "user 41 did something". Three things
+   are owed: a uid-scoped route or a numeric id on the group, the same for a membership, and an
+   actor on the entry. The rail carries "Audit trail, coming soon" until then.
+9. **No group photo upload.** `GroupRequest.photoUrl` is a 500-character string and there is no
+   upload endpoint (gap 3), so a group's picture is a link somebody pastes. It is the same gap as
+   the user's `photoUrl`, recorded separately because the group screens hit it first.
 
 ---
 

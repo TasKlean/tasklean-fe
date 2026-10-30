@@ -5,6 +5,10 @@
  *
  * A `maxLength` is shown as a count beside the hint, since a field that stops
  * accepting characters without saying why reads as a broken keyboard.
+ *
+ * It grows with what is typed, and `field-sizing` makes `rows` stop applying,
+ * so `min-h` is what keeps an empty field from collapsing to a single line. A
+ * browser without the property falls back to `rows` and the old scrollbar.
  */
 
 import type { TextareaHTMLAttributes } from "react";
@@ -47,7 +51,7 @@ export function TextArea({ label, name, error, hint, ...textarea }: Readonly<Tex
         aria-describedby={describedBy}
         className={[
           "bg-muted text-foreground placeholder:text-muted-foreground text-body-md w-full",
-          "resize-y rounded-md px-4 py-3.5 transition-all duration-200 outline-none",
+          "field-sizing-content min-h-24 resize-y rounded-md px-4 py-3.5 transition-all duration-200 outline-none",
           "focus:bg-card focus:shadow-level-1",
           "focus-visible:ring-ring/40 focus-visible:ring-2",
           error ? "ring-destructive/60 ring-2" : "",

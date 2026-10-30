@@ -11,16 +11,19 @@
 
 "use client";
 
-import { Ellipsis, Plus, Share2 } from "lucide-react";
+import { Ellipsis, Plus, UserPlus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { NavEntry } from "@/components/app/group-nav/nav-entry";
 import { navSections } from "@/components/app/group-nav/nav-sections";
-import { CopyButton } from "@/components/common/copy-button/copy-button";
+import { InviteCodeField } from "@/components/app/invite-code/invite-code-field";
+import { ShareInvite } from "@/components/app/invite-code/share-invite";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 
 type GroupBarProps = {
   uid: string;
+  // Passed through to the sections, which an admin has more of.
+  admin: boolean;
   // The code an admin hands out. Absent for everyone else, who has nothing to
   // share and so is offered no invite control at all.
   inviteCode: string | null;
@@ -53,14 +56,15 @@ const MENU_ITEM =
   "text-label-lg gap-space-sm px-space-md flex min-h-11 w-full items-center transition-colors";
 
 /** Renders the controls a group offers where there is no room for a rail. */
-export function GroupBar({ uid, inviteCode }: Readonly<GroupBarProps>) {
+export function GroupBar({ uid, admin, inviteCode }: Readonly<GroupBarProps>) {
   const pathname = usePathname();
   const { open, toggle, close, root, trigger: triggerRef } = useDisclosure();
   const [panel, setPanel] = useState<"invite" | "menu">("invite");
   const invitePanel = useId();
   const menuPanel = useId();
 
-  const sections = navSections(uid).find((band) => band.phone === "menu")?.items ?? [];
+  const sections =
+    navSections(uid, pathname, admin).find((band) => band.phone === "menu")?.items ?? [];
   const shown = open ? panel : null;
   // One name at a time: a phone has room for the open control's label and
   // nothing else, and the task is what matters while nothing is open.
@@ -107,24 +111,24 @@ export function GroupBar({ uid, inviteCode }: Readonly<GroupBarProps>) {
               onClick={(event) => show("invite", event.currentTarget)}
               className={`${CONTROL} ${shown === "invite" ? ACTIVE : RESTING}`}
             >
-              <Share2 className="size-5 shrink-0" aria-hidden />
+              <UserPlus className="size-5 shrink-0" aria-hidden />
               <span className={named === "invite" ? "" : "hidden"}>Invite</span>
             </button>
 
             {shown === "invite" ? (
               <div
                 id={invitePanel}
-                className={`${PANEL} p-space-md gap-space-sm flex w-64 flex-col`}
+                className={`${PANEL} p-space-md gap-space-sm flex w-72 flex-col`}
               >
                 <p className="text-label-md text-muted-foreground">
                   Anyone holding this code can join.
                 </p>
 
-                <div className="gap-space-sm flex flex-wrap items-center">
-                  <code className="bg-muted text-foreground text-title-md px-space-md rounded-md py-2 tracking-widest">
-                    {inviteCode}
-                  </code>
-                  <CopyButton value={inviteCode} label="Copy" />
+                {/* No replacement here: issuing a new code locks out everyone
+                    holding the old one, which belongs where its warning fits. */}
+                <div className="gap-space-sm flex items-center">
+                  <InviteCodeField code={inviteCode} />
+                  <ShareInvite />
                 </div>
               </div>
             ) : null}

@@ -11,7 +11,7 @@ import { Loader2, LogOut } from "lucide-react";
 import {
   leaveGroupAction,
   type MemberActionState,
-} from "@/app/(app)/app/groups/[uid]/members/actions/actions";
+} from "@/app/(app)/app/groups/[uid]/overview/members/actions/actions";
 import {
   CANCEL_BUTTON,
   CONFIRM_BUTTON,

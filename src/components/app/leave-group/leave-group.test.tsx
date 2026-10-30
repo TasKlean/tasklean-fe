@@ -10,7 +10,7 @@ const leaveGroupAction = vi.fn<(previous: unknown, data: FormData) => Promise<St
   error: null,
 }));
 
-vi.mock("@/app/(app)/app/groups/[uid]/members/actions/actions", () => ({
+vi.mock("@/app/(app)/app/groups/[uid]/overview/members/actions/actions", () => ({
   leaveGroupAction: (previous: unknown, data: FormData) => leaveGroupAction(previous, data),
 }));
 

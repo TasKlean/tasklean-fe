@@ -10,32 +10,35 @@ import { GroupBar } from "@/components/app/group-bar/group-bar";
 
 describe("GroupBar", () => {
   it("offers adding a task, which is not built yet", () => {
-    render(<GroupBar uid="g1" inviteCode={null} />);
+    render(<GroupBar uid="g1" admin inviteCode={null} />);
 
     expect(screen.getByRole("button", { name: "Add task, coming soon" })).toBeDisabled();
   });
 
   it("keeps the group's sections behind a press", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode={null} />);
+    render(<GroupBar uid="g1" admin inviteCode={null} />);
 
     expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Group sections" }));
 
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
       "href",
-      "/app/groups/g1",
+      "/app/groups/g1/overview",
     );
-    expect(screen.getByRole("link", { name: "Members" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Group settings" })).toHaveAttribute(
       "href",
-      "/app/groups/g1/members",
+      "/app/groups/g1/settings",
     );
-    expect(screen.getByRole("button", { name: "Settings, coming soon" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Leave group" })).toHaveAttribute(
+      "href",
+      "/app/groups/g1/overview/members#leave-group",
+    );
   });
 
   it("closes the sections once one is chosen", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode={null} />);
+    render(<GroupBar uid="g1" admin inviteCode={null} />);
 
     await user.click(screen.getByRole("button", { name: "Group sections" }));
     await user.click(screen.getByRole("link", { name: "Overview" }));
@@ -45,23 +48,23 @@ describe("GroupBar", () => {
 
   it("hands an admin the code to share", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode="7KQ2M4" />);
+    render(<GroupBar uid="g1" admin inviteCode="7KQ2M4" />);
 
     await user.click(screen.getByRole("button", { name: "Invite someone" }));
 
     expect(screen.getByText("7KQ2M4")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy invite code" })).toBeInTheDocument();
   });
 
   it("offers no invite control to someone with no code", () => {
-    render(<GroupBar uid="g1" inviteCode={null} />);
+    render(<GroupBar uid="g1" admin inviteCode={null} />);
 
     expect(screen.queryByRole("button", { name: "Invite someone" })).toBeNull();
   });
 
   it("shows one panel at a time", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode="7KQ2M4" />);
+    render(<GroupBar uid="g1" admin inviteCode="7KQ2M4" />);
 
     await user.click(screen.getByRole("button", { name: "Invite someone" }));
     await user.click(screen.getByRole("button", { name: "Group sections" }));
@@ -72,7 +75,7 @@ describe("GroupBar", () => {
 
   it("keeps the open panel while a press lands on the other control", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode="7KQ2M4" />);
+    render(<GroupBar uid="g1" admin inviteCode="7KQ2M4" />);
 
     await user.click(screen.getByRole("button", { name: "Invite someone" }));
     fireEvent.pointerDown(screen.getByRole("button", { name: "Group sections" }));
@@ -82,7 +85,7 @@ describe("GroupBar", () => {
 
   it("closes the open panel on a press outside the bar", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode="7KQ2M4" />);
+    render(<GroupBar uid="g1" admin inviteCode="7KQ2M4" />);
 
     await user.click(screen.getByRole("button", { name: "Invite someone" }));
     fireEvent.pointerDown(document.body);
@@ -92,7 +95,7 @@ describe("GroupBar", () => {
 
   it("names the task pill while nothing else is open, and gives the name up when something is", async () => {
     const user = userEvent.setup();
-    render(<GroupBar uid="g1" inviteCode="7KQ2M4" />);
+    render(<GroupBar uid="g1" admin inviteCode="7KQ2M4" />);
 
     expect(screen.getByText("Add task")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Invite someone" }));

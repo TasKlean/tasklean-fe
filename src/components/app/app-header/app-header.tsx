@@ -25,7 +25,11 @@ type AppHeaderProps = {
 /** Renders the signed-in header. */
 export function AppHeader({ name, photoUrl, groups }: Readonly<AppHeaderProps>) {
   return (
-    <header className="bg-background/85 border-border/60 sticky top-0 z-50 w-full border-b backdrop-blur-xl">
+    // The height is here rather than on the row inside, border included, so
+    // `--spacing-header` is the header's whole outer height: with the border
+    // outside it, the rail below stood 1px taller than its row and every group
+    // screen scrolled by that pixel. Measured.
+    <header className="bg-background/85 border-border/60 md:h-header sticky top-0 z-50 h-16 w-full border-b backdrop-blur-xl">
       <HeaderBar>
         <div className="gap-space-md flex min-w-0 items-center">
           <Link href="/app" className="flex shrink-0 items-center">

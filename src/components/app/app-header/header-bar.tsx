@@ -12,8 +12,9 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { openGroupUid } from "@/components/app/group-switcher/open-group-uid";
 
+// The height belongs to the `<header>` around this, which owns the border too.
 const BAR =
-  "px-margin md:px-margin-tablet lg:px-margin-desktop gap-gutter flex h-16 items-center justify-between md:h-20";
+  "px-margin md:px-margin-tablet lg:px-margin-desktop gap-gutter flex h-full items-center justify-between";
 
 type HeaderBarProps = {
   children: ReactNode;

@@ -2,6 +2,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
@@ -12,6 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { GroupFilters } from "@/components/app/group-filters/group-filters";
+import { groupQuery } from "@/lib/groups/filter/filter";
 import type { GroupQuery } from "@/lib/groups/filter/filter.types";
 
 const BASE: GroupQuery = { q: "", show: ["admin", "member"], sort: "name-asc" };
@@ -22,8 +24,37 @@ function box(): HTMLElement {
   return screen.getByRole("searchbox", { name: "Search groups" });
 }
 
+/** Reads a pushed URL back into a query, which is what the page does on arrival. */
+function pushed(url: string): GroupQuery {
+  const { searchParams } = new URL(url, "http://test");
+
+  return groupQuery({
+    q: searchParams.get("q") ?? undefined,
+    // `getAll`, because a side is a repeated key and `fromEntries` would keep
+    // one of the two.
+    show: searchParams.getAll("show"),
+    sort: searchParams.get("sort") ?? undefined,
+  });
+}
+
+/** Stands in for the router: a pushed URL becomes the next query, as Next would. */
+function Routed({ initial }: Readonly<{ initial: GroupQuery }>) {
+  const [query, setQuery] = useState(initial);
+
+  // The router is what changes the query, so the push itself does it. An effect
+  // watching the calls would be setState in an effect, which lint refuses and
+  // which would re-render once more than the thing it is modelling.
+  useEffect(() => {
+    replace.mockImplementation((url: string) => setQuery(pushed(url)));
+  }, []);
+
+  return <GroupFilters query={query} />;
+}
+
 beforeEach(() => {
-  replace.mockClear();
+  // `mockReset`, not `mockClear`: the routed harness leaves an implementation
+  // behind, and a later test calling it would set state on nothing.
+  replace.mockReset();
 });
 
 describe("GroupFilters", () => {
@@ -60,8 +91,12 @@ describe("GroupFilters", () => {
   });
 
   it("unticks one side into the URL, carrying what was typed", async () => {
-    const user = userEvent.setup();
-    render(<GroupFilters query={BASE} />);
+    const user = userEvent.setup({ delay: null });
+    // Rendered behind a router that answers, because a real 300ms can elapse
+    // mid-test: with a static prop the box then resyncs to a stale empty query
+    // and the press carries nothing, which is the test flaking rather than the
+    // component failing.
+    render(<Routed initial={BASE} />);
 
     await user.type(box(), "fla");
     await user.click(screen.getByRole("button", { name: "Show" }));
