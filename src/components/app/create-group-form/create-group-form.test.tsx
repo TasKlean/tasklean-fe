@@ -79,7 +79,7 @@ describe("CreateGroupForm", () => {
   it("stops the description at the backend's column, so a 400 cannot happen", () => {
     render(<CreateGroupForm />);
 
-    expect(screen.getByLabelText("Description")).toHaveAttribute("maxLength", "2000");
+    expect(screen.getByLabelText("Description")).toHaveAttribute("maxLength", "500");
   });
 
   it("reports a refused create as an alert", async () => {

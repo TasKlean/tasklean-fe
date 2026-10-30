@@ -19,6 +19,7 @@ import {
   validateGroupDetails,
   type GroupDetailsFields,
 } from "@/lib/validation/forms/group-details.schema/group-details.schema";
+import { GROUP_DESCRIPTION_MAX_LENGTH, GROUP_NAME_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
 const INITIAL: CreateGroupState = { error: null };
 
@@ -69,7 +70,7 @@ export function CreateGroupForm() {
           required
           autoComplete="off"
           placeholder="Flat 12"
-          maxLength={255}
+          maxLength={GROUP_NAME_MAX_LENGTH}
           value={fields.name}
           onChange={(event) => {
             setEdited(true);
@@ -83,7 +84,7 @@ export function CreateGroupForm() {
           label="Description"
           name="description"
           rows={3}
-          maxLength={2000}
+          maxLength={GROUP_DESCRIPTION_MAX_LENGTH}
           placeholder="What this group is for, if it needs saying"
           hint="Optional."
           value={fields.description ?? ""}

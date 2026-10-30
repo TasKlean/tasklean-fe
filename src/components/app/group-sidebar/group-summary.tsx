@@ -5,6 +5,7 @@
  */
 
 import { Users } from "lucide-react";
+import { GroupDescription } from "@/components/app/group-sidebar/group-description";
 
 type GroupSummaryProps = {
   name: string;
@@ -44,9 +45,7 @@ export function GroupSummary({
         {name}
       </h1>
 
-      {description ? (
-        <p className={`text-body-md text-muted-foreground max-w-prose ${away}`}>{description}</p>
-      ) : null}
+      {description ? <GroupDescription description={description} away={away} /> : null}
 
       <p
         className={`text-label-md text-muted-foreground gap-space-xs flex flex-wrap items-center ${away}`}

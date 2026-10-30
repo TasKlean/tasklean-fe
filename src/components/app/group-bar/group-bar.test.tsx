@@ -26,7 +26,11 @@ describe("GroupBar", () => {
       "href",
       "/app/groups/g1",
     );
-    expect(screen.getByRole("button", { name: "Members, coming soon" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Members" })).toHaveAttribute(
+      "href",
+      "/app/groups/g1/members",
+    );
+    expect(screen.getByRole("button", { name: "Settings, coming soon" })).toBeDisabled();
   });
 
   it("closes the sections once one is chosen", async () => {

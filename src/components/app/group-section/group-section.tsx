@@ -22,7 +22,9 @@ export function GroupSection({ title, groups }: Readonly<GroupSectionProps>) {
 
       <ul className="gap-space-sm grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {groups.map((group) => (
-          <li key={group.uid ?? groupLabel(group.name)} className="flex">
+          // `min-w-0`: a grid item's automatic minimum is its content, so one
+          // unbreakable word would otherwise paint the card past its track.
+          <li key={group.uid ?? groupLabel(group.name)} className="flex min-w-0">
             <GroupCard group={group} />
           </li>
         ))}

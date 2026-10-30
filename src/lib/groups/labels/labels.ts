@@ -4,7 +4,10 @@
  * and one of them is a link in the browser.
  */
 
+import type { GroupMemberUser } from "@/lib/groups/groups.types";
+import { isGroupAdmin } from "@/lib/groups/role/role";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
+import { fullName } from "@/lib/users/name/name";
 
 /**
  * Names a group.
@@ -40,4 +43,24 @@ export function joinedLabel(dateJoined: string | undefined): string | null {
   if (!joined) return null;
 
   return `Joined ${joined.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}`;
+}
+
+/**
+ * Names the person behind a membership.
+ *
+ * @returns Their name, or a stand-in: the roster shows no addresses, so a
+ * membership the backend sent no name with has nothing else to be called by.
+ */
+export function memberName(user: GroupMemberUser | undefined): string {
+  return fullName(user?.name, user?.lastName) ?? "Unnamed member";
+}
+
+/**
+ * Says what a member may do in their group.
+ *
+ * @returns The word a chip wears. Anything that is not the admin role reads as
+ * a plain member, the same way every other role check here does.
+ */
+export function roleLabel(role: string | undefined): string {
+  return isGroupAdmin(role) ? "Admin" : "Member";
 }

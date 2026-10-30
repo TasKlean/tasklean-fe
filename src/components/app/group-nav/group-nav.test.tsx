@@ -9,7 +9,13 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
 
 import { GroupNav } from "@/components/app/group-nav/group-nav";
 
-const DEAD = ["Tasks", "Tags & Categories", "Members", "Settings", "Leave group"];
+const DEAD = ["Tasks", "Tags & Categories", "Settings"];
+
+const LIVE = [
+  ["Overview", "/app/groups/g1"],
+  ["Members", "/app/groups/g1/members"],
+  ["Leave group", "/app/groups/g1/members#leave-group"],
+];
 
 beforeEach(() => {
   pathname.mockReturnValue("/app/groups/g1");
@@ -54,12 +60,18 @@ describe("GroupNav", () => {
     }
   });
 
-  it("offers no route for leaving, which is an action and not a screen", () => {
+  it("links the sections that are built", () => {
     render(<GroupNav uid="g1" collapsed={false} />);
 
-    expect(screen.getByRole("button", { name: "Leave group, coming soon" })).not.toHaveAttribute(
-      "href",
-    );
+    for (const [label, href] of LIVE) {
+      expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
+  });
+
+  it("sends leaving to the roster, the one screen that knows your membership", () => {
+    render(<GroupNav uid="g1" collapsed={false} />);
+
+    expect(screen.getByRole("link", { name: "Leave group" })).not.toHaveAttribute("aria-current");
   });
 
   it("holds one entry per section and nothing else", () => {
@@ -71,7 +83,9 @@ describe("GroupNav", () => {
   it("keeps every entry named once the rail is collapsed", () => {
     render(<GroupNav uid="g1" collapsed />);
 
-    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    for (const [label] of LIVE) {
+      expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
+    }
     for (const label of DEAD) {
       expect(screen.getByRole("button", { name: `${label}, coming soon` })).toBeInTheDocument();
     }

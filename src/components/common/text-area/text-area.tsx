@@ -2,6 +2,9 @@
  * A labelled multi-line field, painted like `TextField` so the two read as one
  * control. It borrows that component's message and `aria-describedby` helpers
  * rather than growing a second copy of the same wiring.
+ *
+ * A `maxLength` is shown as a count beside the hint, since a field that stops
+ * accepting characters without saying why reads as a broken keyboard.
  */
 
 import type { TextareaHTMLAttributes } from "react";
@@ -51,7 +54,17 @@ export function TextArea({ label, name, error, hint, ...textarea }: Readonly<Tex
         ].join(" ")}
       />
 
-      <FieldMessage errorId={errorId} hintId={hintId} error={error} hint={hint} />
+      <div className="gap-space-sm flex items-start justify-between">
+        <FieldMessage errorId={errorId} hintId={hintId} error={error} hint={hint} />
+
+        {textarea.maxLength ? (
+          // Out of the accessible name on purpose: the field's own maxLength is
+          // what a screen reader announces, and a live count would chatter.
+          <span aria-hidden className="text-label-sm text-muted-foreground shrink-0">
+            {String(textarea.value ?? "").length} / {textarea.maxLength}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }

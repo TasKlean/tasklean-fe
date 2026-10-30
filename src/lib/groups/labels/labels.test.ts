@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { groupLabel, joinedLabel, memberCountLabel } from "@/lib/groups/labels/labels";
+import {
+  groupLabel,
+  joinedLabel,
+  memberCountLabel,
+  memberName,
+  roleLabel,
+} from "@/lib/groups/labels/labels";
 
 describe("groupLabel", () => {
   it("trims the name the backend sent", () => {
@@ -36,5 +42,29 @@ describe("joinedLabel", () => {
 
   it.each([undefined, "", "   "])("says nothing about %j", (value) => {
     expect(joinedLabel(value)).toBeNull();
+  });
+});
+
+describe("memberName", () => {
+  it("joins the parts the backend sent", () => {
+    expect(memberName({ name: "Maja", lastName: "Bregar" })).toBe("Maja Bregar");
+  });
+
+  it("takes a first name on its own", () => {
+    expect(memberName({ name: "Maja" })).toBe("Maja");
+  });
+
+  it.each([undefined, {}, { name: "   " }])("stands in for %j", (user) => {
+    expect(memberName(user)).toBe("Unnamed member");
+  });
+});
+
+describe("roleLabel", () => {
+  it("names an admin", () => {
+    expect(roleLabel("GROUP_ADMIN")).toBe("Admin");
+  });
+
+  it.each(["GROUP_MEMBER", "OWNER", undefined])("calls %j a member", (role) => {
+    expect(roleLabel(role)).toBe("Member");
   });
 });

@@ -1612,6 +1612,76 @@ either.
 
 ---
 
+### A description is capped shorter than the backend allows
+
+**500 characters, against the backend's 2000.** `FieldLimits.DESCRIPTION` bounds the column, and
+the frontend is free to be stricter as long as nothing it sends is refused. A group's description
+is a line on a card and three lines in a rail, so the backend's bound is a storage limit rather
+than a product one. Nothing existing breaks: no screen edits a description yet, and a longer one
+that arrived from somewhere else still renders, clamped like any other.
+
+**The limit is exported rather than retyped.** `rules.ts` holds both group bounds and the create
+form imports them for its `maxLength`, so the schema that refuses a value and the field that stops
+accepting it can never disagree. The name's 255 moved the same way, where it had been a literal in
+the form.
+
+**A field that stops taking characters says so.** `TextArea` renders a live count beside the hint
+whenever it carries a `maxLength`, because silently ignoring keystrokes reads as a broken keyboard
+rather than as a limit. It is `aria-hidden`: the attribute is already announced, and a number that
+changes on every keystroke inside `aria-describedby` would be read out continuously.
+
+**A card fills its track, and reserves the description's room inside it.** Two separate things made
+cards uneven. The width was the `<li className="flex">` around each card: a flex container stretches
+its items on the cross axis only, so `h-full` equalised heights while the card's *width* came from
+its own text. Measured at 1280, in one container: 363px for a card with a long description against
+267px and 236px for a short one and one with none, inside tracks that were all 363px. `w-full` on
+the card is the fix, and `min-w-0` on the item keeps an unbreakable word from pushing it past the
+track. The height was the two-line clamp drawing one line, or none: those lines are now always
+reserved. Measuring the grid item rather than the card is what hid the first half of this, and a
+screenshot is what found it.
+
+**"Read more" is decided by character count, not by measurement.** `scrollHeight > clientHeight` is
+the accurate test and it costs an effect, a second render and a resize listener to stay true. With
+the cap at 500 and the clamp at three lines, a threshold of 150 characters answers the same
+question before the first paint, and being wrong costs a toggle that reveals one more line.
+
+### The roster is where a membership is changed, and where one ends
+
+**The roster manages everyone but you.** An admin gets a role button and a removal on every other
+row, and their own row carries only the chips. Removing yourself is leaving by another name, so it
+belongs to the band at the bottom of the page rather than to a button that would make the controls
+vanish from under the press that used them. Stepping down from admin while someone else holds the
+role is the one thing this costs, and it is recoverable by any other admin, where a self-removal
+dressed as a role change is not.
+
+**Leaving lives under the roster, and the rail points at it.** `DELETE /api/group-members/{uid}` is
+both "remove a member" and "leave", and the uid it needs is the caller's own membership, which only
+the roster call returns. Nothing else on the group knows it, so no other screen could offer the
+action without a second read. The rail's entry is therefore a link to `#leave-group` rather than a
+route of its own: the hash means it is never the open section, so Members stays the one entry marked
+current while both lead to the same page.
+
+**A membership press posts the group as well as the membership.** A Server Action never sees the
+route's params, and the backend's membership routes take only the membership uid, so the group rides
+along for the re-render alone. It still goes through `uidRule` like every other field, because a
+value that reaches `revalidatePath` is a value a form could lie about.
+
+**A change re-renders the whole group, not just the roster.** The rail's member count and the cards
+on `/app` come from the group read rather than from the roster, so promoting or removing someone
+revalidates the group's layout and the list beside it. Revalidating only this page would leave the
+rail counting a member who is gone.
+
+**The last-admin 409 is phrased once, by the module that already owned it.** `lastAdminMessage` was
+written with the API layer and the roster is its first caller: the role button, the removal and the
+leave all run through one `failure()` that tries it before `actionFailureMessage`. An admin also
+sees the guard stated on the leave band before they press anything, because finding out that a group
+keeps one admin *after* asking to leave reads as a failure rather than as a rule.
+
+**Leaving ends on the group list with a notice.** The group is gone from under the screen, so the
+action redirects to `/app?left=1` and the list says what happened, the same shape `?unavailable=1`
+already had. A silent landing on the list would be indistinguishable from a navigation that did
+nothing.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:

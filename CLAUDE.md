@@ -17,15 +17,16 @@ Never restate backend internals here — link to them.
 and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
 lists them, creating one and joining by code both work, a pill in the header reaches every group
 from anywhere, and `/app/groups/[uid]` is a shell with its own rail holding the group's overview and
-invite code. Tasks, tags and categories, members, settings and leaving sit in that rail as dead
-entries, so there is still no roster and no way to edit or leave a group. The group endpoints have
-never run against a backend. **Two-factor is complete for the one provider the backend has**: a
-sign-in the backend gates is answered end to end, the settings page lists the methods, and
+invite code. `/app/groups/[uid]/members` is the roster: an admin promotes, demotes and removes from
+it, and anybody leaves from the band at its end. Tasks, tags and categories and a group's settings
+sit in that rail as dead entries, so there is still no way to edit or delete a group. **Two-factor
+is complete for the one provider the backend has**: a sign-in the backend gates is answered end to
+end, the settings page lists the methods, and
 enrolling, turning it off and reissuing recovery codes all work, so every `/api/account/2fa`
 endpoint has a caller. Register, verification, password login, password reset and token rotation
 have all run against the real backend in Docker, and the whole two-factor section against a local
 one; the account, user-settings and notification-settings endpoints have run against a stub only;
-the group endpoints have not run at all; every automated test is MSW.
+the group and membership endpoints have not run at all; every automated test is MSW.
 
 ## Quick reference
 
@@ -134,8 +135,10 @@ src/
                        split into the ones they admin and the ones they only joined
         groups/        new/ and join/ (page.tsx and actions/ each), and [uid]/, the
                        group's own shell: layout.tsx (the rail beside the section),
-                       page.tsx (the overview and the invite code for an admin) and
-                       group.helpers.ts, the one read both of them share
+                       page.tsx (the overview and the invite code for an admin),
+                       group.helpers.ts (the one read every screen shares) and
+                       members/, the roster with page.tsx and actions/ (a role
+                       change, a removal, and the leave that is the same call)
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
                        (grouped: Preferences, Security, Account) and sections.types.ts
@@ -190,8 +193,12 @@ src/
                        in), no-groups (the onboarding empty state), create-group-form,
                        join-group-form, add-task-button (the header's one offer,
                        disabled until tasks exist), group-switcher with
-                       open-group-uid (which group the path is about), group-sidebar
-                       with group-summary (the group's card), group-bar (what a
+                       open-group-uid (which group the path is about), member-row
+                       with member-actions and confirm-remove (one membership and
+                       what may be done to it), leave-group (the way out, under the
+                       roster), group-sidebar
+                       with group-summary (the group's card) and group-description
+                       (the clamp and its Read more), group-bar (what a
                        phone offers in place of the rail), group-nav with
                        nav-sections (a group's sections), nav-entry (one of them,
                        wherever it is shown) and item-tone (how it reads)
@@ -228,8 +235,8 @@ src/
                        code, delete) with groups.types.ts, members/members.ts (the roster,
                        a role change, and the removal that is also a leave), role.ts (the
                        one place a role string is compared), labels.ts (the lines a card
-                       shows), unavailable.ts (what a 403 on a group route means) and
-                       last-admin.ts (the shared 409)
+                       or a roster row shows), unavailable.ts (what a 403 on a group
+                       route means) and last-admin.ts (the shared 409)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -367,6 +374,27 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   box drawn around the page's own title is a box inside a box. `group.helpers.ts` holds the one
   `loadGroup` the shell and every page call, so the 403 bounce and the inline failure are written
   once.
+- **A group's description is capped at 500, where the backend allows 2000.** `rules.ts` owns the
+  number and exports it, so the schema and the textarea's own `maxLength` cannot drift, and a
+  `TextArea` carrying a `maxLength` shows a live count beside its hint: a field that stops taking
+  characters without saying why reads as a broken keyboard. The count is `aria-hidden`, since the
+  attribute is what a screen reader announces and a live number would chatter.
+- **A card fills its grid track with `w-full`, and reserves its description's two lines.** The row
+  around it is a flex container, which stretches on the cross axis only, so `h-full` alone left the
+  card as wide as its own text: 363px, 267px and 236px inside three 363px tracks. With `w-full` and
+  the reserved lines every card on `/app` is the same size, whatever its description.
+- **A rail clamps a description to three lines with a toggle.** `GroupDescription` shows "Read more"
+  by character count rather than by measuring the rendered text, because a measurement costs an
+  effect and a second render to say what 500 capped characters already say.
+- **A roster manages everyone but you, and leaving is a band rather than a row.** An admin's own
+  row carries only its chips: removing yourself is leaving by another name, and `LeaveGroup` at the
+  end of the page is where that lives, because the roster call is the only one that returns your own
+  membership uid. The rail's "Leave group" points at `#leave-group` on that page, so Members stays
+  the one entry marked current.
+- **A membership press posts the group as well as the membership.** An action never sees the route's
+  params and the backend needs only the membership uid, so the group rides along for the re-render,
+  through `uidRule` like every other field. A change revalidates the group's **layout** and `/app`,
+  not just the roster, since the rail's member count and the list's cards come from the group read.
 - **The header is as wide as the page under it.** `HeaderBar` reads the path: on a group's own
   screens it spans the window, so the brand lines up with the rail starting at the left edge, and
   everywhere else it keeps `max-w-app` and matches the column it sits above. A rail inside the

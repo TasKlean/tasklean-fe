@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 /** Renders the signed-in landing page: every group the caller is in. */
 export default async function AppHomePage({ searchParams }: PageProps<"/app">) {
-  const { unavailable } = await searchParams;
+  const { unavailable, left } = await searchParams;
 
   let groups: MyGroup[] = [];
   let failure: string | null = null;
@@ -68,6 +68,12 @@ export default async function AppHomePage({ searchParams }: PageProps<"/app">) {
       {unavailable === "1" ? (
         <FormNotice tone="info">
           That group is not available to you. It may have been deleted, or you may have left it.
+        </FormNotice>
+      ) : null}
+
+      {left === "1" ? (
+        <FormNotice tone="success">
+          You have left that group. Anyone with its invite code can let you back in.
         </FormNotice>
       ) : null}
 

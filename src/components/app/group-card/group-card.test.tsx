@@ -45,4 +45,16 @@ describe("GroupCard", () => {
 
     expect(screen.getByText("The upstairs place")).toBeInTheDocument();
   });
+
+  it("keeps the description's room on a group that has none, so cards match", () => {
+    const { container } = render(<GroupCard group={{ uid: "g1", name: "Flat 12" }} />);
+
+    expect(container.querySelector(".line-clamp-2")).toHaveClass("min-h-11");
+  });
+
+  it("fills the row it sits in, rather than taking its text's width", () => {
+    render(<GroupCard group={{ uid: "g1", name: "Flat 12" }} />);
+
+    expect(screen.getByRole("link", { name: /Flat 12/ })).toHaveClass("w-full");
+  });
 });

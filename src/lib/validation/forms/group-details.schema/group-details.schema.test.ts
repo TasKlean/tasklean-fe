@@ -36,9 +36,9 @@ describe("parseGroupDetails", () => {
   });
 
   it("refuses a description past the backend's column", () => {
-    expect(parseGroupDetails({ name: "Flat 12", description: "a".repeat(2001) })).toEqual({
+    expect(parseGroupDetails({ name: "Flat 12", description: "a".repeat(501) })).toEqual({
       ok: false,
-      errors: { description: "Use 2000 characters or fewer." },
+      errors: { description: "Use 500 characters or fewer." },
     });
   });
 });

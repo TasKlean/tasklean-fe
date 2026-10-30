@@ -27,10 +27,13 @@ const EMAIL_MAX_LENGTH = 254;
 // RenameDeviceRequest's own @Size, so a refusal comes from here, not a 400.
 const DEVICE_NAME_MAX_LENGTH = 255;
 
-// GroupRequest's own @Size bounds, for the same reason.
-const GROUP_NAME_MAX_LENGTH = 255;
+// GroupRequest's own @Size, so a refusal comes from here, not a 400. Exported
+// because the form that posts the field has to stop typing at the same number.
+export const GROUP_NAME_MAX_LENGTH = 255;
 
-const GROUP_DESCRIPTION_MAX_LENGTH = 2000;
+// Deliberately shorter than the backend's 2000: a description is a line on a
+// card, and a thousand characters of it is a wall nobody reads.
+export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
 
 // Eight characters, generated upper-case from a UUID prefix.
 const INVITE_CODE = /^[A-Z\d]{8}$/;
