@@ -217,7 +217,8 @@ src/
                        roster), group-sidebar
                        with group-summary (the group's card) and group-description
                        (the clamp, whose own text is the press), group-bar (what a
-                       phone offers in place of the rail), group-nav with
+                       phone offers in place of the rail) with invite-control
+                       (its invite half, press and panel), group-nav with
                        nav-sections (a group's sections), nav-entry (one of them,
                        wherever it is shown), item-tone (how it reads) and
                        open-group-area (which area a path is in),
@@ -613,6 +614,11 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
   the thing being clicked is a real control while the tab order still holds one stop. The cost is
   that it needs JavaScript, where a native `select` did not.
+- **A tickbox is a real checkbox under the paint.** The box is ours to draw, so the input is
+  `sr-only` inside a `<label>` and the row carries the focus ring with `has-[:focus-visible]:`,
+  the way `NotificationToggle` and the show menu both do it. A button wearing `role="checkbox"`
+  reimplements what the browser already gives, and assistive tech on some platforms treats the
+  two differently.
 - **A popup that navigates is a disclosure, not a listbox.** `AccountMenu` and `GroupSwitcher` both
   hold links and a press closes them, so Tab already moves correctly and a roving tabindex would
   only take that away. `LocaleSelect` is a listbox because it posts a value instead.
@@ -907,6 +913,10 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
   where an older backend build is plausible.
 - **Never branch on the exact 2xx code** — POSTs return `201` while the spec says `200`.
+- **A 2xx that breaks the contract throws `TypeError`.** A success carrying no token pair, no
+  secret or no recovery codes is a value that is not the type we require, not a failure the
+  backend reported, so it never becomes an `ApiError`. `Error` is kept for configuration that is
+  wrong before any request is made, as in `env.ts` and `session.ts`.
 - **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` and now **GroupMember** are
   addressed by string `uid`; everything else by numeric `id`. Payloads are flat — foreign keys are
   ids, never nested objects, except that a membership carries its `user` nested.

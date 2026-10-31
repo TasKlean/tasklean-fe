@@ -17,7 +17,7 @@ import { SubmitButton } from "@/components/common/submit-button";
 type ConfirmStepProps = {
   // Absent when a pending setup is being resumed, where the app already holds
   // the secret and there is nothing new to show.
-  enrollment?: SetupState["enrollment"];
+  enrollment?: NonNullable<SetupState["enrollment"]>;
   resuming: boolean;
   error: string | null;
   action: (formData: FormData) => void;

@@ -64,7 +64,7 @@ function at(value: string | undefined): number {
 // same day does not shuffle between renders.
 const COMPARATORS: Record<GroupSort, (first: MyGroup, second: MyGroup) => number> = {
   "name-asc": byName,
-  "name-desc": (first, second) => byName(second, first),
+  "name-desc": (first, second) => -byName(first, second),
   "joined-desc": (first, second) =>
     at(second.dateJoined) - at(first.dateJoined) || byName(first, second),
   "created-desc": (first, second) =>

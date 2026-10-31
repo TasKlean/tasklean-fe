@@ -3,7 +3,7 @@
 const GROUPS_PREFIX = "/app/groups/";
 
 // Static segments Next matches ahead of `[uid]`, so neither is a group.
-const SIBLINGS = ["new", "join"];
+const SIBLINGS = new Set(["new", "join"]);
 
 /**
  * Reads the open group's uid out of a path.
@@ -14,7 +14,7 @@ export function openGroupUid(pathname: string): string | null {
   if (!pathname.startsWith(GROUPS_PREFIX)) return null;
 
   const segment = pathname.slice(GROUPS_PREFIX.length).split("/")[0];
-  if (!segment || SIBLINGS.includes(segment)) return null;
+  if (!segment || SIBLINGS.has(segment)) return null;
 
   try {
     return decodeURIComponent(segment);

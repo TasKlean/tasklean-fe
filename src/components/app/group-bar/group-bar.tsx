@@ -11,13 +11,13 @@
 
 "use client";
 
-import { Ellipsis, Plus, UserPlus } from "lucide-react";
+import { Ellipsis, Plus } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
+import { ACTIVE, CONTROL, PANEL, RESTING } from "@/components/app/group-bar/group-bar.styles";
+import { InviteControl } from "@/components/app/group-bar/invite-control";
 import { NavEntry } from "@/components/app/group-nav/nav-entry";
 import { navSections } from "@/components/app/group-nav/nav-sections";
-import { InviteCodeField } from "@/components/app/invite-code/invite-code-field";
-import { ShareInvite } from "@/components/app/invite-code/share-invite";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 
 type GroupBarProps = {
@@ -42,16 +42,6 @@ const TASK =
 const SHELF =
   "bg-card border-border/60 shadow-level-3 gap-space-xs relative flex min-h-13 flex-1 items-center rounded-full border p-1";
 
-const CONTROL =
-  "text-label-lg gap-space-sm px-space-sm flex min-h-11 w-full items-center justify-center rounded-full whitespace-nowrap transition-colors";
-
-const RESTING = "bg-muted text-muted-foreground hover:text-foreground";
-
-const ACTIVE = "bg-secondary text-secondary-foreground";
-
-const PANEL =
-  "bg-card border-border/60 shadow-level-3 absolute right-0 bottom-full mb-2 rounded-xl border";
-
 const MENU_ITEM =
   "text-label-lg gap-space-sm px-space-md flex min-h-11 w-full items-center transition-colors";
 
@@ -60,7 +50,6 @@ export function GroupBar({ uid, admin, inviteCode }: Readonly<GroupBarProps>) {
   const pathname = usePathname();
   const { open, toggle, close, root, trigger: triggerRef } = useDisclosure();
   const [panel, setPanel] = useState<"invite" | "menu">("invite");
-  const invitePanel = useId();
   const menuPanel = useId();
 
   const sections =
@@ -101,38 +90,12 @@ export function GroupBar({ uid, admin, inviteCode }: Readonly<GroupBarProps>) {
 
       <div ref={root} className={SHELF}>
         {inviteCode ? (
-          <div className="flex-1">
-            <button
-              type="button"
-              aria-label="Invite someone"
-              aria-haspopup="true"
-              aria-expanded={shown === "invite"}
-              aria-controls={shown === "invite" ? invitePanel : undefined}
-              onClick={(event) => show("invite", event.currentTarget)}
-              className={`${CONTROL} ${shown === "invite" ? ACTIVE : RESTING}`}
-            >
-              <UserPlus className="size-5 shrink-0" aria-hidden />
-              <span className={named === "invite" ? "" : "hidden"}>Invite</span>
-            </button>
-
-            {shown === "invite" ? (
-              <div
-                id={invitePanel}
-                className={`${PANEL} p-space-md gap-space-sm flex w-72 flex-col`}
-              >
-                <p className="text-label-md text-muted-foreground">
-                  Anyone holding this code can join.
-                </p>
-
-                {/* No replacement here: issuing a new code locks out everyone
-                    holding the old one, which belongs where its warning fits. */}
-                <div className="gap-space-sm flex items-center">
-                  <InviteCodeField code={inviteCode} />
-                  <ShareInvite />
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <InviteControl
+            code={inviteCode}
+            open={shown === "invite"}
+            named={named === "invite"}
+            onPress={(pressed) => show("invite", pressed)}
+          />
         ) : null}
 
         <div className="flex-1">

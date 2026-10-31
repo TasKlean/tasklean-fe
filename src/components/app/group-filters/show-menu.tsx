@@ -3,8 +3,8 @@
  * one is disabled: a list showing neither side is an empty page nobody asked
  * for, so one side is the only restriction there is.
  *
- * The boxes are buttons wearing the checkbox role, because a native one keeps
- * the platform's own look, which no token here can reach.
+ * A real checkbox under the paint, the way the notification switches do it, so
+ * the keyboard and the state come from the browser and the box is ours to draw.
  */
 
 "use client";
@@ -26,6 +26,9 @@ const BOX = "flex size-4 shrink-0 items-center justify-center rounded border tra
 const TICKED = "bg-primary border-primary text-primary-foreground";
 
 const EMPTY = "border-border";
+
+// The row carries the focus ring, since the input it belongs to is `sr-only`.
+const ROW_BOX = `${ROW} has-[:focus-visible]:ring-ring/40 cursor-pointer has-[:focus-visible]:ring-2 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60`;
 
 /** Renders the show pill and the boxes behind it. */
 export function ShowMenu({ show, onToggle }: Readonly<ShowMenuProps>) {
@@ -61,19 +64,20 @@ export function ShowMenu({ show, onToggle }: Readonly<ShowMenuProps>) {
                 <li key={option.value}>
                   {/* The panel stays open: ticking one side is rarely the whole
                       question, and a navigation does not close it. */}
-                  <button
-                    type="button"
-                    role="checkbox"
-                    aria-checked={ticked}
-                    disabled={ticked && show.length === 1}
-                    onClick={() => onToggle(option.value)}
-                    className={`${ROW} disabled:opacity-60`}
-                  >
-                    <span className={`${BOX} ${ticked ? TICKED : EMPTY}`}>
+                  <label className={ROW_BOX}>
+                    <input
+                      type="checkbox"
+                      checked={ticked}
+                      disabled={ticked && show.length === 1}
+                      onChange={() => onToggle(option.value)}
+                      className="peer sr-only"
+                    />
+
+                    <span className={`${BOX} ${ticked ? TICKED : EMPTY}`} aria-hidden>
                       {ticked ? <Check className="size-3" aria-hidden /> : null}
                     </span>
                     {option.label}
-                  </button>
+                  </label>
                 </li>
               );
             })}
