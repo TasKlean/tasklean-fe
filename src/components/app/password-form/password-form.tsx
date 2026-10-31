@@ -40,6 +40,28 @@ const INITIAL: PasswordActionState = { error: null };
 
 const EMPTY = { currentPassword: "", newPassword: "", confirmPassword: "", code: "" };
 
+// What the action did, keyed by its own answer rather than by `passwordSet`,
+// which the same action has already flipped by the time this is read.
+const DONE_MESSAGES = {
+  changed: "Your password is changed. Every other device has been signed out.",
+  set: "Your password is set. You can sign in with your email address now, and every other device has been signed out.",
+} as const;
+
+/**
+ * Picks the complaint a field shows.
+ *
+ * @returns The client's while it is visible, otherwise the backend's, which
+ * stands until the field it refers to is edited.
+ */
+function shownError(
+  clientError: string | undefined,
+  serverError: string | undefined,
+  visible: boolean,
+  edited: boolean,
+): string | undefined {
+  return (visible ? clientError : undefined) ?? (edited ? undefined : serverError);
+}
+
 /** Renders the form that sets a password, and reports how it went. */
 export function PasswordForm({
   passwordSet,
@@ -83,11 +105,12 @@ export function PasswordForm({
   }
 
   function shown(field: Field): string | undefined {
-    const visible = submitted || (touched[field] === true && fields[field] !== "");
-    // The backend's verdict stands until the field it refers to is edited: only
-    // it can tell a wrong current password from a right one.
-    const refused = edited[field] === true ? undefined : state.fieldErrors?.[field];
-    return (visible ? errors[field] : undefined) ?? refused;
+    return shownError(
+      errors[field],
+      state.fieldErrors?.[field],
+      submitted || (touched[field] === true && fields[field] !== ""),
+      edited[field] === true,
+    );
   }
 
   function set(field: Field) {
@@ -118,24 +141,14 @@ export function PasswordForm({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     setSubmitted(true);
-    if (errors.currentPassword || errors.newPassword || errors.confirmPassword || errors.code) {
-      event.preventDefault();
-    }
+    if (Object.values(errors).some(Boolean)) event.preventDefault();
   }
 
   return (
     <div className="gap-space-md flex flex-col">
       {state.error ? <FormNotice tone="error">{state.error}</FormNotice> : null}
 
-      {/* What the action did, never `passwordSet`: setting the first password
-          turns that flag on, so the notice would claim a change nobody made. */}
-      {state.done ? (
-        <FormNotice tone="success">
-          {state.done === "changed"
-            ? "Your password is changed. Every other device has been signed out."
-            : "Your password is set. You can sign in with your email address now, and every other device has been signed out."}
-        </FormNotice>
-      ) : null}
+      {state.done ? <FormNotice tone="success">{DONE_MESSAGES[state.done]}</FormNotice> : null}
 
       <form
         action={formAction}

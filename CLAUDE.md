@@ -14,13 +14,25 @@ Never restate backend internals here — link to them.
 **State**: API layer, session, the public home page, `/login`, `/register`, `/verify-email`,
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
-and logout exist. Everything else behind the session does not. **Two-factor is complete for the one
-provider the backend has**: a sign-in the backend gates is answered end to end, the settings page
-lists the methods, and enrolling, turning it off and reissuing recovery codes all work, so every
-`/api/account/2fa` endpoint has a caller. Register, verification, password login, password reset and
-token rotation have all run against the real backend in Docker, and the whole two-factor section
-against a local one; the account, user-settings and notification-settings endpoints have run against
-a stub only; every automated test is MSW.
+and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
+lists them behind a search, a role filter and a sort that all live in the URL and all run in the
+browser, since no endpoint takes them yet; creating one and joining by code both work, a pill in the
+header reaches every group from anywhere, and `/app/groups/[uid]` is a shell whose rail stands still
+while the section beside it scrolls. The group's own path is **Tasks**, which carries nothing but a
+notice. **Overview** and **Settings** are areas of sections, and the open one's sections fill the
+rail's top band: `overview/information` holds every field a group has, `overview/members` is the
+roster an admin promotes, demotes and removes from, with leaving at the band on its end, and the
+audit trail is a dead entry the backend cannot answer. `settings/{preferences,notifications}` are
+everybody's and disabled with the reason beside them, while `settings/{details,invite-code,delete}`
+are an admin's and redirect a member: the name, description and pasted picture link, the code and
+its replacement, and the deletion that asks for the group's name to be typed. **Tags & Categories is
+the only dead entry left in the rail.** **Two-factor is complete for the one provider the backend
+has**: a sign-in the backend gates is answered end to end, the settings page lists the methods, and
+enrolling, turning it off and reissuing recovery codes all work, so every `/api/account/2fa`
+endpoint has a caller. Register, verification, password login, password reset and token rotation
+have all run against the real backend in Docker, and the whole two-factor section against a local
+one; the account, user-settings and notification-settings endpoints have run against a stub only;
+the group and membership endpoints have not run at all; every automated test is MSW.
 
 ## Quick reference
 
@@ -125,7 +137,21 @@ src/
     api/health/        route.ts, the 200 Render polls; outside Proxy's matcher
     (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
       app/             everything behind the session lives under /app
-        page.tsx       the signed-in landing page
+        page.tsx       the signed-in landing page: every group the caller is in,
+                       split into the ones they admin and the ones they only joined
+        groups/        new/ and join/ (page.tsx and actions/ each), and [uid]/, the
+                       group's own shell: layout.tsx (the rail beside the
+                       section), page.tsx (the tasks, which a group opens on)
+                       and group.helpers.ts (the one read every screen shares)
+          overview/    page.tsx redirects to information/, which holds every
+                       field the group has; members/ is the roster, with actions/
+                       for a role change, a removal and the leave that is the
+                       same call
+          settings/    page.tsx redirects to preferences/; actions/ serves the
+                       three admin sections and settings.helpers.ts is the read
+                       they share, which sends a member back to preferences.
+                       One directory per section: preferences/, notifications/,
+                       details/, invite-code/, delete/
         account/       the profile page behind the avatar menu
         settings/      layout.tsx (rail beside content), page.tsx (index), sections.ts
                        (grouped: Preferences, Security, Account) and sections.types.ts
@@ -154,14 +180,20 @@ src/
     not-found.tsx      the 404, for any path no route matches
   assets/              images components import; next/image reads their size from the file
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
+  hooks/               shared React state, which is neither a component nor the
+                       non-UI logic lib/ is for: use-disclosure, the open state a
+                       popup needs and the two ways out of it
   components/
     common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
-                       or-divider, greeting, copy-button, qr-image, google-mark,
-                       busy-overlay (the scrim over a card while an action runs)
-    app/               signed-in chrome: app-header, settings-nav, device-row
+                       or-divider, greeting, copy-button (worded, or the icon
+                       alone), qr-image, google-mark,
+                       busy-overlay (the scrim over a card while an action runs),
+                       text-area (multi-line, painted like text-field)
+    app/               signed-in chrome: app-header with header-bar (how wide the
+                       row is), settings-nav, device-row
                        with device-name (the inline rename), all-device-actions
                        (sign out everywhere and remove every device),
                        password-form, google-connection,
@@ -170,7 +202,36 @@ src/
                        the platform's), notifications-form, notification-toggle,
                        switch-track, two-factor-method (the shell every method shares),
                        two-factor-card, two-factor-enroll, two-factor-manage,
-                       two-factor-confirm, recovery-codes
+                       two-factor-confirm, recovery-codes, group-card, group-section
+                       (one labelled band of the list), group-filters with
+                       group-search, show-menu, sort-menu and no-matches (the row
+                       over the list, and what it says when nothing matches),
+                       add-group (the only two ways in, `lg` and up) with
+                       add-group-bar (the same two below it),
+                       no-groups (the onboarding empty state), create-group-form,
+                       join-group-form, add-task-button (the header's one offer,
+                       disabled until tasks exist), group-switcher with
+                       open-group-uid (which group the path is about), member-row
+                       with member-actions and confirm-remove (one membership and
+                       what may be done to it), leave-group (the way out, under the
+                       roster), group-sidebar
+                       with group-summary (the group's card) and group-description
+                       (the clamp, whose own text is the press), group-bar (what a
+                       phone offers in place of the rail) with invite-control
+                       (its invite half, press and panel), group-nav with
+                       nav-sections (a group's sections), nav-entry (one of them,
+                       wherever it is shown), item-tone (how it reads) and
+                       open-group-area (which area a path is in),
+                       group-avatar (a group's picture, or its first letter),
+                       invite-code/: invite-code-field (the code and the press
+                       that copies it) and share-invite (where sharing will go),
+                       both shared with the bar,
+                       group-settings/: settings-section (the heading and card
+                       every section wears), group-preferences and
+                       group-notifications (the two nobody can use yet),
+                       edit-group-form, invite-code (the field, the replacement
+                       and the share) with rotate-invite-code, and
+                       delete-group (the name typed to confirm)
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -200,6 +261,16 @@ src/
                        the two-factor prompt's path
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
+    groups/            groups.ts (create, join, mine, detail, update, rotate the invite
+                       code, delete) with groups.types.ts, members/members.ts (the roster,
+                       a role change, and the removal that is also a leave), role.ts (the
+                       one place a role string is compared), photo/ (whether a
+                       pasted picture link may be drawn, which the rule and the
+                       avatar both read), labels.ts (the lines a card,
+                       a roster row or the overview shows), filter/ (the list's query: reading it
+                       out of the URL, applying it here until the backend takes it,
+                       and writing it back) with filter.types.ts, unavailable.ts (what
+                       a 403 on a group route means) and last-admin.ts (the shared 409)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -211,14 +282,16 @@ src/
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
-                       notification type, two-factor code, device id, device name)
+                       notification type, two-factor code, device id, device name, uid,
+                       group name and description, invite code, group role)
       parse.ts         runs a schema, reshapes issues to one message per field
       forms/           one <form>.schema.ts per form: login, register, verify-email,
                        google-signin, forgot-password, reset-password, device-action,
                        rename-device,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
-                       two-factor-enable, two-factor-confirm
+                       two-factor-enable, two-factor-confirm, group-details (one schema
+                       for create and edit), join-group, group-action, member-action
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -248,10 +321,14 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   every feature module that calls `serverApi` or touches a cookie: `config/env/env.ts`, `api/client/client.ts`,
   `api/server/server.ts`, `api/action-failure/action-failure.ts`, `auth/session/session.ts`, `auth/device/device.ts`, `auth/signin/*`,
   `auth/tokens/refresh/refresh.ts`, `auth/two-factor-challenge/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
+  `groups/groups.ts`, `groups/members/members.ts`,
   `qr/qr-code/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
   `notifications/settings/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie/theme-cookie.ts`. `validation/` must **not**, since
   client components import it, and neither may `qr/qr-code/qr-code.types.ts`, `preferences/preferences.types.ts`,
-  `preferences/theme-attribute/theme-attribute.ts` or `notifications/settings/settings.types.ts`, which the forms read.
+  `preferences/theme-attribute/theme-attribute.ts`, `notifications/settings/settings.types.ts`, which the forms read,
+  or the four group modules a row in the browser reads: `groups/groups.types.ts` (which `rules.ts`
+  imports for the role enum), `groups/role/role.ts`, `groups/unavailable/unavailable.ts` and
+  `groups/last-admin/last-admin.ts`.
 - **Environment comes from `config/env/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
@@ -315,6 +392,165 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A `labelAction` renders after the input, not before it.** It sits on the label row but comes
   later in source order and is placed back with `absolute`, so tab leads into the field rather than
   past it. "Forgot password?" on the login screen is the one that proved it.
+- **The client's complaint wins while it is visible; the backend's stands until the field is
+  edited.** `shown = (visible ? clientError : undefined) ?? (edited ? undefined : serverError)`.
+  Reading it the other way round, as `visible ? clientError : serverError`, silently swallows every
+  refusal of a well-formed value, because `submitted` is true from the press onwards: an unknown
+  invite code is the case that proved it, since the client has nothing to say about one. The forms
+  that carry it reset `edited` when a new action state arrives, in render rather than an effect.
+- **A group screen reads its uid from the route, never from state.** `/app/groups/[uid]` is the
+  authority, `GET /api/groups/{uid}` answers with `myRole`, and there is no active-group cookie or
+  context to go stale. `/app` is the list, so nothing has to remember which group you were in.
+- **A group's rail owns its identity, and a screen inside it owns only its section.** The card at
+  the top of `GroupSidebar` carries the group's `h1`, its description and the member and role line,
+  so a section page never repeats them, and the pill in the header is what says which group you are
+  in from anywhere else. It is a card at every width, since the picture, the chips and the name are
+  one thing about one group and a phone showed them as three loose rows; inside an area at `lg` it
+  gives that up, and nowhere else. `group.helpers.ts` holds the one
+  `loadGroup` the shell and every page call, so the 403 bounce and the inline failure are written
+  once.
+- **A group's description is capped at 500, where the backend allows 2000.** `rules.ts` owns the
+  number and exports it, so the schema and the textarea's own `maxLength` cannot drift, and a
+  `TextArea` carrying a `maxLength` shows a live count beside its hint: a field that stops taking
+  characters without saying why reads as a broken keyboard. The count is `aria-hidden`, since the
+  attribute is what a screen reader announces and a live number would chatter.
+- **A card fills its grid track with `w-full`, and reserves its description's two lines.** The row
+  around it is a flex container, which stretches on the cross axis only, so `h-full` alone left the
+  card as wide as its own text: 363px, 267px and 236px inside three 363px tracks. With `w-full` and
+  the reserved lines every card on `/app` is the same size, whatever its description.
+- **A rail clamps a description to three lines with a toggle.** `GroupDescription` shows "Read more"
+  by character count rather than by measuring the rendered text, because a measurement costs an
+  effect and a second render to say what 500 capped characters already say.
+- **A roster manages everyone but you, and leaving is a band rather than a row.** An admin's own
+  row carries only its chips: removing yourself is leaving by another name, and `LeaveGroup` at the
+  end of the page is where that lives, because the roster call is the only one that returns your own
+  membership uid. The rail's "Leave group" points at `#leave-group` on that page, so Members stays
+  the one entry marked current.
+- **A membership press posts the group as well as the membership.** An action never sees the route's
+  params and the backend needs only the membership uid, so the group rides along for the re-render,
+  through `uidRule` like every other field. A change revalidates the group's **layout** and `/app`,
+  not just the roster, since the rail's member count and the list's cards come from the group read.
+- **The header is as wide as the page under it.** `HeaderBar` reads the path: on a group's own
+  screens it spans the window, so the brand lines up with the rail starting at the left edge, and
+  everywhere else it keeps `max-w-app` and matches the column it sits above. A rail inside the
+  page's column would leave its line floating in the middle of the screen.
+- **The signed-in shell is a grid, so a page can fill the height.** `(app)/layout.tsx` is
+  `grid-cols-1 grid-rows-[auto_minmax(0,1fr)]` around a plain `<main>`, and the group shell takes
+  `lg:min-h-full` from it. Both halves are load-bearing: a flex column shrinks every centred page,
+  and without an explicit column the implicit one takes the width of the widest thing on the page,
+  which the group's tab strip made 1068px at a 360px viewport. Measured, in gotchas 29 and 30.
+- **The group pill is two controls in one border.** The name navigates into the group and the
+  `ChevronsUpDown` arrow opens the list, so the common move costs no popup, and each half is a real
+  element with its own name rather than one button guessing from where the press landed.
+- **A collapsed rail is an `lg:` class, never a second tree.** `GroupSidebar` holds the state and
+  every piece of it is `lg:`-prefixed, so the strip below `lg` keeps its labels. A collapsed label
+  is `lg:hidden`, which takes it out of the accessible name, so every entry spells its name out in
+  an `aria-label` and the group's `h1` goes `lg:sr-only` rather than away.
+- **A group's sections are two bands, and each one behaves differently below `lg`.** Workspace is
+  the daily work and Administration is the group itself, so the rail is a flex column with
+  `justify-between`. Below that, Workspace is the strip scrolling above the section and
+  Administration moves into the bottom bar's More menu, which the band itself says
+  (`phone: "strip" | "menu"`). `NavEntry` renders an entry wherever it lands, so the rail, the strip
+  and the menu cannot disagree about what a section is called or whether it is built.
+- **The group list's filter is the URL, and the browser is a stand-in for the backend.**
+  `/app?q=&show=&sort=` is the whole state: the page narrows it with `groupQuery`, applies it with
+  `filterGroups` and passes it to `GroupFilters`, which writes every press back into the path. A
+  filtered list is therefore a link somebody can paste, and the backend version replaces the one
+  `filterGroups` call with a `getMyGroups(query)` sending the same object. **Both boxes start
+  ticked and the last ticked one is disabled**, so one side is the only restriction there is and
+  `show` is never empty; the URL carries a side only when one is off. The two bands stay: a box
+  hides a whole band rather than reshuffling the list.
+- **The search box is local state pushed on a delay; every other control pushes at once.** A
+  keystroke cannot be a navigation, so the box keeps what is typed and commits 300ms after typing
+  stops, showing a spinner in place of the magnifier while the URL catches up. Two rules make it
+  behave: **the URL wins** when it changes underneath, so a back press rewrites the box, in render
+  rather than an effect, and **a pressed filter carries whatever is in the box**, or the press and
+  the pending search overwrite each other. **Neither applies while a push of ours is in flight**:
+  two searches 300ms apart are two navigations, and the earlier payload landing second rewrote the
+  box with the older text, which is the flicker that looked like the field resetting itself.
+- **A dropdown panel names the edge it hangs from.** 240px of panel anchored to the right edge of
+  the left-hand pill starts at -65px on a 360px screen, measured, so `PANEL` sets no horizontal
+  position and the show menu adds `left-0` while the sort menu adds `right-0`. The sort pill wears
+  the short form of its order for the same reason: half of a 360px row is 160px and "Recently
+  joined" between two icons needs 177.
+- **The two ways into a group are a bar on a phone and the title row on a desktop.** `AddGroup` is
+  `hidden lg:flex` in both its layouts and `AddGroupBar` is `lg:hidden`, so the create and join
+  links are in exactly one place at any width, and the onboarding card keeps its explanation while
+  the bar carries the buttons. On `/app` the inline pair sits **beside the `h1`**, not over the
+  list: the two ways in belong to the page, and the row under it belongs to the list, which is
+  what the line under the filters says. Each half of the bar is `flex-1 min-w-0` and **both halves
+  carry the border**, colour apart: a border on one alone is 2px of width the other does not pay,
+  which left them 159 and 161 at 360px. The list pays `pb-space-3xl` below `lg`, so the bar never
+  covers its last card.
+- **A phone's bottom bar carries one label at a time.** `GroupBar` runs edge to edge over the end
+  of the section: the add-task pill at `flex-2`, then a `flex-1` pill holding the invite control for
+  an admin and the Administration button. Whichever panel is open takes the label, so opening the
+  invite shrinks the task pill to its icon and opening the menu shrinks both. The task pill wears
+  `bg-primary` and an open control wears `bg-secondary`, which is how a phone says which one it is
+  listening to. The section column pays `pb-space-3xl` so the bar never covers its last card, and
+  both panels hang off the `flex-1` pill rather than off the control that opened them, which is what
+  keeps a panel on a 360px screen. **The two controls share one `useDisclosure`, rooted at the
+  pill**, so pressing one while the other is open switches panels: with a disclosure each, the
+  press closed the open one on `pointerdown` and the relayout that followed put the first control
+  back under the finger before the click landed.
+- **A group opens on its tasks, and the overview is a route of its own.** `/app/groups/[uid]` is
+  Tasks, so the rail's first Workspace entry is the group's own path, and `/overview` holds what the
+  group is doing rather than a second copy of the name, description and member count the rail
+  already carries.
+- **The rail stands still, and the page beside it scrolls.** At `lg` it is `lg:sticky` at
+  `lg:top-header`, as tall as `calc(100svh - var(--spacing-header))`, with its own
+  `lg:overflow-y-auto` for a short window; the shell is `lg:items-start`, since a stretched flex
+  item is as tall as the page and scrolls away with it. `--spacing-header` is the one place the
+  header's height is written, and the `<header>` wears it with its bottom border inside: with the
+  height on the row within, the border fell outside the token and every group screen scrolled by
+  that one pixel. **The scrollbar it then shows is `scrollbar-slim`**, a `@utility` in
+  `globals.css`: the pseudo-elements carry the 6px, and `scrollbar-width` is scoped to
+  `@supports not selector(::-webkit-scrollbar)` because setting it anywhere Blink can see makes
+  Blink ignore the 6px and draw 10.
+- **The rail's top band is the open area's own sections, headed by the way back.** `navSections`
+  takes the path and the role: inside `/overview` or `/settings` the Workspace band is replaced by
+  that area's sections and a "Back to tasks" entry, and Administration stays underneath. Only the
+  open sub-section is marked, never the area, which is why both Administration entries point at a
+  path that redirects. **The way back is divided off**: a rule under it in the rail, and on the
+  strip a line down its right where the entry is the arrow alone.
+- **Inside an area the group's card gives up its space, at `lg` only.** The area's menu is what the
+  rail is for there, so `GroupSummary` keeps the `h1` as `lg:sr-only` and hides the rest; below `lg`
+  the card stays, because there it is the page's own header. **The paint it then drops is written in
+  one place per state**, since `lg:p-0` beside `lg:p-space-md` resolves in the stylesheet and the
+  padding won, leaving an invisible box above the menu. The rail drops its own gap in an area too.
+- **The card's chips are its corner, and the description's own text is the toggle.** The picture
+  takes the left of the top row and the count and role chips the right, coloured rather than
+  outlined, with the sentence they add up to as `sr-only`. A long description is one button holding
+  both the text and its "Read more", so the press is wherever the reader aims; a short one is a
+  plain paragraph. The description is drawn in an open rail and nowhere else.
+- **A group's settings and its overview are areas of sections, and the role decides how many.**
+  Each section is a route, so a member never loads the invite code and `aria-current` comes from
+  the path. Preferences and Notifications are everybody's; Group details, Invite code and Delete
+  this group are an admin's, and `loadAdminGroup` redirects a member to Preferences rather than
+  refusing them. Each action still reports its own refusal, because the gate is UX and Spring is
+  the authority. A form inside a section is bounded at `max-w-2xl`: the group's column is the
+  window less the rail, which left a name field 831px wide at 1280.
+- **A group's picture is a pasted https link, drawn `unoptimized`.** `lib/groups/photo` is the one
+  place that decides whether a link may be shown, read by both the validation rule and
+  `GroupAvatar`, and the avatar is a square with the group's first letter where a person's is a
+  circle with their initials. `unoptimized` is what keeps `next/image` from throwing on a host the
+  optimizer was not configured with, and widening `remotePatterns` instead would make the optimizer
+  an open image proxy.
+- **A `TextArea` grows with what is typed, and `field-sizing` cancels `rows`.** The
+  `field-sizing-content` utility does it with no effect and no ref, but the attribute stops
+  applying, so `min-h-24` is the floor that keeps an empty field from collapsing to one line.
+  Measured: 50px without it, 96 with.
+- **A step that cannot be undone asks for the name, not a second press.** Deleting a group takes its
+  tasks and everybody else's membership, so `DeleteGroup` wants the group's name typed, matched
+  trimmed and case-insensitively, since the confirmation is about intent and not typing accuracy.
+  Everything else destructive keeps the confirm-in-place press. **Replacing the invite code confirms
+  neutrally**, because nothing is lost: the cost falls on whoever holds the old code, which is what
+  the line above the press says.
+- **The invite code is a field with its presses beside it.** `InviteCodeField` paints the code the
+  way every other field is painted, as wide as the code and no wider, and puts the copy press inside
+  it as an icon; the replacement and the disabled share stand to its right as round icon presses at
+  the field's height, which `CODE_ACTION` is the one place for. The bar's panel shares both
+  components and leaves the replacement out, since the warning it needs does not fit there.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **First names reject internal spaces; last names allow them** — "Van Der Berg" is an ordinary
@@ -332,9 +568,9 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A notice is a `FormNotice`, and never wears `bg-muted`.** That fill is what every `TextField`
   and `CodeInput` box is painted in, so the two grey notices on `/login` read as disabled inputs.
   The tones are the vocabulary: `success`, `info` for something that merely happened, and `error`,
-  the only one that interrupts as an `alert`. Three hand-rolled notices are left in
-  `reset-password`, `forgot-password-form` and `verify-email-form`, none of them grey, and they get
-  swept as they are touched.
+  the only one that interrupts as an `alert`. Every notice in the app goes through it; the last
+  three hand-rolled ones, in `reset-password`, `forgot-password-form` and `verify-email-form`, are
+  gone.
 - **A `select` or a checkbox whose value lives in React state cancels the form reset.** React resets
   a form's DOM once its action answers, and never rewrites a controlled value it did not change, so
   the control keeps the reset value while state disagrees. `onReset={(event) => event.preventDefault()}`
@@ -355,6 +591,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   password turns `passwordSet` on, and the action's `revalidatePath` re-renders the form with the
   new flag before the notice is read, so the state carries `done: "changed" | "set"` rather than a
   boolean. A message composed from a flag the same action flipped describes the wrong event.
+- **A read two renders in one request both need is wrapped in `cache()`.** `getMyGroups` and
+  `getGroup` are, because a layout and the page inside it ask for the same thing and `request()`
+  sends `cache: "no-store"`, so fetch will not dedupe them. React memoises per request, so the
+  second caller gets the first one's promise and a failure still reaches both.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath` and the re-render is what updates the screen. Appearance, language and
@@ -374,6 +614,17 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
   click that toggles a second time. Each row is a `<button role="option">` with `tabIndex={-1}`, so
   the thing being clicked is a real control while the tab order still holds one stop. The cost is
   that it needs JavaScript, where a native `select` did not.
+- **A tickbox is a real checkbox under the paint.** The box is ours to draw, so the input is
+  `sr-only` inside a `<label>` and the row carries the focus ring with `has-[:focus-visible]:`,
+  the way `NotificationToggle` and the show menu both do it. A button wearing `role="checkbox"`
+  reimplements what the browser already gives, and assistive tech on some platforms treats the
+  two differently.
+- **A popup that navigates is a disclosure, not a listbox.** `AccountMenu` and `GroupSwitcher` both
+  hold links and a press closes them, so Tab already moves correctly and a roving tabindex would
+  only take that away. `LocaleSelect` is a listbox because it posts a value instead.
+- **A popup's open state is `useDisclosure`, never a second copy of it.** `src/hooks/` holds the
+  state, the press-outside close and the Escape that hands focus back to the trigger. Two popups ran
+  the same twenty lines before the switcher would have made it three.
 - **Google's button sits in a fixed box, not a floor.** Google renders it as inline elements on
   one origin and as an `<iframe>` on another, and the iframe measures 80px for a frame before
   settling at 44. The slot is `h-13` with `overflow-hidden` so neither rendering can resize the
@@ -390,6 +641,10 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A live region with no name is an `<output>`.** It carries `role="status"` already, so the role
   attribute is noise, and `getByRole("status")` still finds it. `role="alert"` has no element of its
   own and stays an attribute.
+- **A name built from two elements needs an `aria-label`, because the computation trims each node.**
+  A label beside a chip comes out as `MembersSoon`, and a hidden separator span does not survive
+  either, so every entry in a group's nav spells its name out. JSX also
+  strips the whitespace between two elements, so this is not a jsdom artifact.
 - **A destructive button confirms in place.** Removing a device or signing out everywhere swaps the
   button for a question and a cancel, rather than opening a dialog or trusting `window.confirm`,
   which cannot be styled and reads badly on a phone. It is an outlined red pill
@@ -401,7 +656,12 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A control that cannot be used yet stays a disabled button, with the reason beside it.** Prose
   where a button belongs reads as a stray notice, so the two-factor page's "Coming soon" and the
   blocked unlink both render the real control disabled and say why underneath, the unlink linking to
-  `/app/settings/password`.
+  `/app/settings/password`. **Where there is no room beside it, the reason is in its name**: the
+  add-task button and a group's unbuilt sections are named "coming soon", since a header, a narrow
+  rail and a bottom bar have nowhere to put a sentence. The header's copy is dropped below `sm`,
+  where the brand, the group and the account are already all it holds, and a group's bottom bar
+  carries the phone's copy instead. **That one keeps its brand colour while disabled**, because it
+  is the single thing the bar exists for and the shape it will have is worth showing early.
 - **Line endings are LF**, pinned by `.gitattributes`. A CRLF checkout fails `format:check` on every
   file and looks like a formatting problem.
 - **Run `/pre-commit` before committing** — gates, conventions, docs, message. It never commits.
@@ -466,11 +726,15 @@ routes are `noindex` via the `(auth)` layout.
 
 - **The session is an encrypted cookie**, `tasklean_session`, sealed with `jose` as a **JWE** (not
   signed — a signed payload is readable base64url and ours carries the refresh token). Holds the
-  token pair, `userUid`, `activeGroupId`. `auth/session/session.ts` exports the name and options so
+  token pair and `userUid`. `auth/session/session.ts` exports the name and options so
   `proxy.ts` can't drift. **There is no server-side store**; the sealed tokens live in the browser.
 - **The chrome knows whether you are signed in, and that costs `/` its static render.** Both
   layouts read the session once and pass `signedIn` and `name` down, so the header and footer stay
   presentational. Signed in, the public chrome swaps "Log in" and "Get started" for "Go to app".
+- **The signed-in chrome costs one group read per render, and a failed one costs only the switcher.**
+  `(app)/layout.tsx` reads `/api/groups/mine` for `GroupSwitcher` and catches everything, so an
+  outage leaves the header without a switcher rather than taking the page. `getMyGroups` is
+  `cache()`d, so `/app` and the layout share the one call.
 - **The display name rides in the session cookie.** Every auth response carries it, including
   refresh, so the chrome can greet by name without an API call on every page. It is display only
   and may be stale; anything that matters reads the backend.
@@ -649,10 +913,16 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   (`EMAIL_NOT_VERIFIED` is the first), so a check reads the code and falls back to the message only
   where an older backend build is plausible.
 - **Never branch on the exact 2xx code** — POSTs return `201` while the spec says `200`.
-- **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` are addressed by string `uid`;
-  everything else by numeric `id`. Payloads are flat — foreign keys are ids, never nested objects.
+- **A 2xx that breaks the contract throws `TypeError`.** A success carrying no token pair, no
+  secret or no recovery codes is a value that is not the type we require, not a failure the
+  backend reported, so it never becomes an `ApiError`. `Error` is kept for configuration that is
+  wrong before any request is made, as in `env.ts` and `session.ts`.
+- **`uid` vs `id` is not interchangeable.** `User`, `Group`, `Task` and now **GroupMember** are
+  addressed by string `uid`; everything else by numeric `id`. Payloads are flat — foreign keys are
+  ids, never nested objects, except that a membership carries its `user` nested.
 - **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
-  them `memberId`, never `userId`. Resolve yours from `GET /api/group-members?groupId=`.
+  them `memberId`, never `userId`. Still numeric on the task and completion endpoints; the
+  membership routes themselves now take the membership's own `uid`.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
   goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes no `Z`**
   (the backend parses `ISO_LOCAL_DATE_TIME`).
@@ -661,8 +931,18 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   checks a credential from the request body, where `401` is that credential's verdict.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
   `api/retry-phrase/retry-phrase.ts` composes the two into one message and every auth action uses it.
+- **A 403 on a group route means "not available to you", and never "no such group".** The
+  membership check answers false for a group that is not yours and for a uid that does not exist
+  alike, and the framework refuses before any service code runs, so the two cannot be told apart.
+  That is deliberate: the alternative lets someone probe for real uids. `groups/unavailable/` owns
+  the check and the path it bounces to, so no screen decides for itself.
+- **The group routes carry no `code`, so they are told apart by status plus route.** A 409 is the
+  last-admin guard on a role change, a removal or a leave, which `groups/last-admin/` phrases, and
+  the caller-is-already-a-member refusal on join, which is a different thing with the same status.
 - **List endpoints need a scope parameter** — `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
-  `400`, not an empty list.
+  `400`, not an empty list. **The group and membership routes are the exception**: their scope is in
+  the path (`/api/groups/mine`, `/api/groups/{uid}/members`) and `?groupId=` is gone from them,
+  though tasks, categories, tags and audit logs still take it.
 - **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping
   the predicates in one place per resource.
 - **Types are hand-written per feature** from `openapi.json` — we do not generate a client.

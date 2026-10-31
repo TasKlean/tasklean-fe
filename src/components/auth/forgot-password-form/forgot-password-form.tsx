@@ -13,6 +13,7 @@ import {
   forgotPasswordAction,
   type ForgotPasswordState,
 } from "@/app/(auth)/forgot-password/actions/actions";
+import { FormNotice } from "@/components/common/form-notice";
 import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field/text-field";
 import { validateForgotPassword } from "@/lib/validation/forms/forgot-password.schema/forgot-password.schema";
@@ -44,20 +45,9 @@ export function ForgotPasswordForm({ initialEmail }: Readonly<ForgotPasswordForm
 
   return (
     <div className="gap-space-md flex flex-col">
-      {state.error ? (
-        <p
-          role="alert"
-          className="bg-destructive-subtle text-destructive-subtle-foreground text-body-md p-space-md rounded-md"
-        >
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <FormNotice tone="error">{state.error}</FormNotice> : null}
 
-      {state.notice && !state.error ? (
-        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
-          {state.notice}
-        </output>
-      ) : null}
+      {state.notice && !state.error ? <FormNotice tone="success">{state.notice}</FormNotice> : null}
 
       <form
         action={formAction}

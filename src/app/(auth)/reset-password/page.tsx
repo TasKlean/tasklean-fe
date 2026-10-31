@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BackLink } from "@/components/auth/back-link";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form/reset-password-form";
+import { FormNotice } from "@/components/common/form-notice";
 
 export const metadata: Metadata = {
   title: "Set a new password",
@@ -33,10 +34,10 @@ export default async function ResetPasswordPage({ searchParams }: PageProps<"/re
         <ResetPasswordForm token={raw} />
       ) : (
         <div className="gap-space-md flex flex-col">
-          <output className="bg-warning-subtle text-warning-subtle-foreground text-body-md p-space-md block rounded-md">
+          <FormNotice tone="info">
             An email client that wraps long links is the usual reason. Asking for a new one takes a
             moment and the old link stops working.
-          </output>
+          </FormNotice>
 
           <Link
             href="/forgot-password"

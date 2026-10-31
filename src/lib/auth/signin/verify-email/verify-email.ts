@@ -17,7 +17,7 @@ import type { DeviceHeaders } from "@/lib/auth/device/device";
  * @returns The token pair and the user's opaque uid.
  * @throws ApiError on failure. Unknown address, already verified, wrong code
  * and expired code are one indistinguishable message, by design.
- * @throws Error when a 2xx arrives without a usable token pair.
+ * @throws TypeError when a 2xx arrives without a usable token pair.
  */
 export async function verifyEmail(
   email: string,
@@ -31,7 +31,7 @@ export async function verifyEmail(
   });
 
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Verification succeeded but returned no token pair.");
+    throw new TypeError("Verification succeeded but returned no token pair.");
   }
 
   return {

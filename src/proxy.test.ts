@@ -55,7 +55,7 @@ async function sessionCookie(expiresInSeconds: number, refreshToken = "rt-1"): P
     accessToken: await accessToken(expiresInSeconds),
     refreshToken,
     userUid: "u1",
-    activeGroupId: 3,
+    photoUrl: "https://photos.test/u1.png",
   };
   return sealSession(session);
 }
@@ -151,7 +151,7 @@ describe("proxy", () => {
 
     const rotated = await unsealSession(written);
     expect(rotated?.refreshToken).toBe("rt-rotated");
-    expect(rotated?.activeGroupId).toBe(3);
+    expect(rotated?.photoUrl).toBe("https://photos.test/u1.png");
   });
 
   it("drops the session when refresh is refused", async () => {

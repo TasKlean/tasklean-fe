@@ -13,6 +13,8 @@ import {
 } from "@/lib/validation/password/policy/policy";
 import { CODE_LENGTH } from "@/lib/validation/code-length";
 import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
+import { GROUP_ROLES } from "@/lib/groups/groups.types";
+import { isGroupPhotoUrl } from "@/lib/groups/photo/photo";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
@@ -25,6 +27,24 @@ const EMAIL_MAX_LENGTH = 254;
 
 // RenameDeviceRequest's own @Size, so a refusal comes from here, not a 400.
 const DEVICE_NAME_MAX_LENGTH = 255;
+
+// GroupRequest's own @Size, so a refusal comes from here, not a 400. Exported
+// because the form that posts the field has to stop typing at the same number.
+export const GROUP_NAME_MAX_LENGTH = 255;
+
+// Deliberately shorter than the backend's 2000: a description is a line on a
+// card, and a thousand characters of it is a wall nobody reads.
+export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
+
+// The backend's own cap on a group's photo URL.
+export const GROUP_PHOTO_MAX_LENGTH = 500;
+
+// Eight characters, generated upper-case from a UUID prefix.
+const INVITE_CODE = /^[A-Z\d]{8}$/;
+
+// A uid is a UUID, and this bounds a hidden field before it becomes a path
+// segment. Generous rather than exact, in case that format ever changes.
+const UID_MAX_LENGTH = 64;
 
 /** A required, trimmed address. */
 export const emailRule = z
@@ -134,6 +154,66 @@ export const deviceNameRule = z
     z.minLength(1, "Enter a name for this device."),
     z.maxLength(DEVICE_NAME_MAX_LENGTH, "Use 255 characters or fewer."),
   );
+
+/** A uid posted by a hidden field, which arrives as a string like any input. */
+export const uidRule = (missing: string) =>
+  z
+    .string({ error: missing })
+    .check(z.trim(), z.minLength(1, missing), z.maxLength(UID_MAX_LENGTH, missing));
+
+/** A group's name, bounded by the backend's `@Size` on the column. */
+export const groupNameRule = z
+  .string({ error: "Enter a name for the group." })
+  .check(
+    z.trim(),
+    z.minLength(1, "Enter a name for the group."),
+    z.maxLength(GROUP_NAME_MAX_LENGTH, `Use ${GROUP_NAME_MAX_LENGTH} characters or fewer.`),
+  );
+
+/** A group's description: optional, trimmed, and empty when nothing was typed. */
+export const groupDescriptionRule = z.optional(
+  z
+    .string()
+    .check(
+      z.trim(),
+      z.maxLength(
+        GROUP_DESCRIPTION_MAX_LENGTH,
+        `Use ${GROUP_DESCRIPTION_MAX_LENGTH} characters or fewer.`,
+      ),
+    ),
+);
+
+/**
+ * A group's picture: optional, and an https URL when there is one.
+ *
+ * There is no uploader anywhere in the product, so the only way to give a group
+ * a picture is to paste a link to one. `http` is refused as well as the rest,
+ * because the page asking for it is served over `https`.
+ */
+export const groupPhotoRule = z.optional(
+  z.string().check(
+    z.trim(),
+    z.maxLength(GROUP_PHOTO_MAX_LENGTH, `Use ${GROUP_PHOTO_MAX_LENGTH} characters or fewer.`),
+    z.refine((value) => value === "" || isGroupPhotoUrl(value), {
+      error: "Enter a link starting with https://, or leave this empty.",
+    }),
+  ),
+);
+
+/**
+ * An invite code, normalised to the shape the backend stores. It trims and
+ * upper-cases before its own lookup; the hyphen goes too, since a code holds
+ * none and someone pasting one typed it themselves.
+ */
+export const inviteCodeRule = z.string({ error: "Enter an invite code." }).check(
+  z.trim(),
+  z.minLength(1, "Enter an invite code."),
+  z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
+  z.regex(INVITE_CODE, "An invite code is 8 letters and numbers."),
+);
+
+/** One of the two roles a membership can hold. */
+export const groupRoleRule = z.enum(GROUP_ROLES, { error: "Pick a role." });
 
 /** One of the colour schemes the picker offers. */
 export const themeRule = z.enum(THEMES, { error: "Pick a theme." });

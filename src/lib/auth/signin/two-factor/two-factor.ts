@@ -25,7 +25,7 @@ const DEACTIVATED = "ACCOUNT_DEACTIVATED";
  * @returns The token pair and the user's opaque uid.
  * @throws ApiError on 401 for a wrong code, a dead challenge or a deactivated
  * account, and on 429 once this IP has spent its ten attempts a minute.
- * @throws Error when a 2xx arrives without a usable token pair.
+ * @throws TypeError when a 2xx arrives without a usable token pair.
  */
 export async function verifyTwoFactor(
   challengeToken: string,
@@ -40,7 +40,7 @@ export async function verifyTwoFactor(
   });
 
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Two-factor verification succeeded but returned no token pair.");
+    throw new TypeError("Two-factor verification succeeded but returned no token pair.");
   }
 
   return {

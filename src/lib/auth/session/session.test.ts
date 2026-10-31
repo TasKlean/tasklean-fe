@@ -21,7 +21,6 @@ const session: Session = {
   accessToken: "access-token-value",
   refreshToken: "refresh-token-value",
   userUid: "user-uid-1",
-  activeGroupId: 3,
 };
 
 async function realKey(): Promise<Uint8Array> {
@@ -65,15 +64,15 @@ describe("sealSession / unsealSession", () => {
     expect(decodedParts).not.toContain("refresh-token-value");
   });
 
-  it("keeps a null activeGroupId", async () => {
-    const withoutGroup = { ...session, activeGroupId: null };
-    await expect(unsealSession(await sealSession(withoutGroup))).resolves.toEqual(withoutGroup);
+  it("drops the activeGroupId an older cookie was sealed with", async () => {
+    const legacy = { ...session, activeGroupId: 3 } as unknown as Session;
+    await expect(unsealSession(await sealSession(legacy))).resolves.toEqual(session);
   });
 
   it("does not leak the JWT's own iat/exp claims into the Session", async () => {
     const result = await unsealSession(await sealSession(session));
     expect(Object.keys(result ?? {}).sort()).toEqual(
-      ["accessToken", "activeGroupId", "refreshToken", "userUid"].sort(),
+      ["accessToken", "refreshToken", "userUid"].sort(),
     );
   });
 

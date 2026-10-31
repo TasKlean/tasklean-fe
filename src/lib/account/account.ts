@@ -25,11 +25,11 @@ const GOOGLE_PATH = "/api/account/connected-accounts/google";
  * Not optional to persist: the backend has already revoked every refresh token
  * the account held, ours included, so losing this one ends the session.
  *
- * @throws Error when a 2xx arrives without a usable pair.
+ * @throws TypeError when a 2xx arrives without a usable pair.
  */
 function rotatedTokens(response: AuthResponse | undefined): SignedInTokens {
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("The password changed but no new token pair came back.");
+    throw new TypeError("The password changed but no new token pair came back.");
   }
 
   return {

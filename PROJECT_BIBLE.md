@@ -1333,6 +1333,19 @@ entries, but no field in the spec is `required`, so the four rows are built from
 one takes the entry that matches or the backend's own default. A missing row is then impossible
 rather than handled, and a type we do not offer is ignored instead of rendered blank.
 
+**Per-group notifications need a backend change, and are not worth one yet.** The settings row is
+keyed `(user_id, type)` with no group on it, so today the matrix is account-wide by construction.
+Doing it properly means a nullable `group_id` on the row, a `UNIQUE NULLS NOT DISTINCT
+(user_id, group_id, type)` to keep the account-wide row and the per-group ones in one table
+(Postgres 16 is what runs, so that spelling is available), a three-level resolution of group row
+then account row then the default of every channel on, and a membership-scoped
+`GET`/`PUT /api/groups/{uid}/notification-settings`. The UI then grows a third state per switch,
+since an absent row has to mean "use the account setting" rather than off. None of that is worth
+building while **nothing reads the settings and nothing writes a notification**: it would be a
+per-group preference about a delivery that does not exist. When delivery ships, the cheap eighty
+percent is one mute-this-group flag on the membership, which needs no new table and no inheritance
+to explain. Until then the group's card is a disabled control pointing at the account's page.
+
 ### A form action resets the DOM, and a controlled value does not come back
 
 React resets a form once its action answers. For an uncontrolled field that is the point. For a
@@ -1353,6 +1366,27 @@ back to the first one; a checkbox has no `checked` attribute written and falls b
 That is the whole difference, and it is why the code prompt keeps a refused code on screen with
 nothing added, while the language picker could not while it was a `select`. A hidden input is a text
 input for this purpose, so the language field dropped the guard when the native control went.
+
+### Two errors compete for one line under a field, and the order matters
+
+A field can be refused twice over: by the schema in the browser, and by the backend. They need
+different precedence at different moments, and getting it backwards is silent.
+
+The rule is `(visible ? clientError : undefined) ?? (edited ? undefined : serverError)`. The client
+error shows only once the field is worth complaining about, which is after a submit or after a blur
+with content in it. The backend's verdict shows whenever the client has nothing to say, and stops
+the moment that field is edited, because only the backend can tell a wrong current password from a
+right one and the answer stops applying as soon as the value changes.
+
+Written the obvious way instead, as `visible ? clientError : serverError`, it breaks the case it
+exists for. `submitted` never goes back to false, so from the first press onwards the field shows
+only what the schema thinks, and the schema is happy: **the values the backend refuses are the
+well-formed ones**. An unknown invite code is the clearest example, since it has the right shape by
+definition, and a wrong current password is the same shape of problem. The join form was written the
+wrong way round first and its own test caught it.
+
+Each form holding this resets `edited` when a new action state arrives, and does it in render rather
+than in an effect, which is what React prescribes for state derived from a prop change.
 
 ### The one dropdown in the app is ours
 
@@ -1416,6 +1450,527 @@ an opt-in prop with one caller: `/verify-email` leaves it off, because its code 
 and is a value to look over rather than a field to fill. The test asserts real focus, not the
 attribute, so it would have caught the behaviour being dropped instead of moved.
 
+### A group is addressed by its uid, and the URL is what holds one
+
+Every screen in the group phase lives at `/app/groups/[uid]/...` and reads `params.uid`. There is no
+client context provider and no store, because `GET /api/groups/{uid}` answers with `myRole` and
+`memberCount`, so a Server Component gates its own admin controls from the one response it already
+had to make. A provider would duplicate state the URL already holds, break deep links, and still
+leave the 403 to be handled per render.
+
+**`activeGroupId` left the session rather than becoming a uid.** The backend handoff asked for the
+field to hold the group's uid, since no endpoint accepts the numeric id any more. Removing it is the
+better version of that fix. The session is a JWE that Proxy reseals whenever it rotates the token
+pair, and a Server Action reseals from the cookie the *request* carried: a group switch racing a
+rotation would write the already-revoked refresh token back and end the session. A UI preference has
+no business in the cookie that holds credentials. Nothing is lost, because `/app` is the group list,
+so "which group was I in" is a question the URL answers and nobody has to remember. Old cookies keep
+working: `toSession` rebuilds field by field, so the stale field is simply dropped and no one is
+signed out.
+
+**The two reads are memoised with `cache()`.** `getMyGroups` serves the signed-in layout's switcher
+and `/app`'s own list; `getGroup` serves the group shell and the screen inside it. `request()` sends
+`cache: "no-store"`, so fetch does not dedupe, and React's per-request memo is what makes one call
+serve both callers. A rejection memoises too, which is what lets the chrome degrade quietly while
+the page still reports the failure properly.
+
+**Types are hand-written, against the handoff's advice.** It suggested generating them from
+`docs/openapi.json`. We do not generate a client anywhere, and the reason holds here: nothing in
+that spec is marked `required`, so a generator would emit optional everything and we would narrow by
+hand regardless, while losing the comments that say *why* a field is absent. `inviteCode` is the
+example: its absence is a permission, not a missing value.
+
+**One schema serves creating a group and editing one**, because `POST /api/groups` and
+`PUT /api/groups/{uid}` take the same body. The same reason disable and recovery-codes share one.
+
+### The shell carries the group, the header carries which one
+
+A group has sections, and only one of them existed when the shell was built. `GroupSidebar`
+therefore owns everything that is about the group rather than about one of its screens: the card at
+the top of the rail carries the name as the page's `h1`, the description and the member and role
+line, and a section page renders only its own content. That is the settings shell inverted: there
+the layout's heading is the word "Settings" and each section names itself, here the heading is the
+group's name and each section is a subheading inside it. The win is that the name is written once,
+and the overview stopped repeating a heading the shell was already showing.
+
+**The header is as wide as the page under it.** A group's rail starts at the window's left edge, so
+on those screens the header drops `max-w-app` and the brand, the pill and the account spread to the
+edges. Everywhere else the header keeps the column, because a header wider than the page beneath it
+reads as two layouts rather than one, which is what a full-width header everywhere looked like on
+the account and settings pages. `HeaderBar` is the client component that reads the path and picks,
+through the same `openGroupUid` the pill uses, so "which group is this path about" has one answer.
+
+**The shell is a grid, so the rail can run the full height.** `(app)/layout.tsx` is
+`grid-cols-1 grid-rows-[auto_minmax(0,1fr)]` around a plain `<main>`, and the group shell asks for
+`lg:min-h-full`, which is what carries the rail's `border-r` from the header to the bottom of the
+window. A flex column was the first attempt and it was wrong twice over, both measured in gotcha 29.
+The section inside the row keeps its own `max-w-app` column, so prose never stretches across a
+2560px display.
+
+**The pill is two controls in one border.** Its left half is a link into the group you are in, its
+right half is the button that opens the list, and a rule between them says they are two things.
+Pressing the name is the move people make most and it now costs no popup at all. One button that
+opened a panel the group itself sat in was the alternative, and it buried that move. The arrow is
+`ChevronsUpDown` rather than a chevron down, because the panel swaps one group for another rather
+than dropping a menu of actions.
+
+**A phone gets the same tree, read as a page rather than a rail.** The card loses its border and
+padding below `lg` and reads as the page's own header, the band headings go, and the two bands part
+company: Workspace scrolls in a strip above the section and Administration moves into the bottom
+bar's menu. The strip and the rail are still one tree, and the collapse control is simply not
+rendered below `lg`, where there is no width to give back.
+
+**The bottom bar holds what you do, the strip holds where you go.** A reader opens a group to do
+something in it, so `GroupBar` is fixed over the end of the section with the task pill, the invite
+control and the Administration button, while the sections stay above the content where reading
+starts. One label at a time is the rule that makes it fit: the task pill is named while nothing is
+open, opening the invite shrinks it to a `+` and names the invite instead, and opening the menu
+names that. A phone fits one name, and the thing just pressed is the one worth naming.
+
+**The bar is edge to edge, and colour says which control is listening.** It is `inset-x-margin`
+with the task pill at `flex-2` beside a `flex-1` pill holding the other two, so the thing the bar
+exists for takes two thirds of it. The words "Add task" are wider than a third of a 360px bar, so
+the pill never gives ground and the split measures 2.3:1 there, settling to 2.1:1 by 640px rather
+than landing exactly on 2:1. Each of the two controls is its own pill inside the shelf, resting on `bg-muted` and
+turning `bg-secondary` while its panel is open. The task pill wears `bg-primary` even though it is
+disabled, which is the one place a dead control keeps a live colour: it is the single thing the bar
+exists for, its name still says "coming soon", and the alternative was a grey primary action that
+teaches the wrong shape.
+
+**The bar's menu renders the same entries as the rail, from the same data.** `NavEntry` is the one
+place an entry becomes a link or a disabled promise, and the band declares where it goes on a phone
+(`phone: "strip" | "menu"`) rather than the nav guessing from its position. The rail's copy of that
+band is `hidden lg:flex` and the bar is `lg:hidden`, so exactly one of the two is ever in the
+accessibility tree, which is what the earlier one-tree rule was protecting.
+
+**The bar offers the invite code, which is not phase five arriving early.** The shell has already
+read the group, so the code is in hand, and the control is gated on the role exactly as the
+overview's card is: an admin sees it, everyone else is offered nothing to press rather than a
+disabled button, since a member inviting is not a thing that is coming. Phase five still owns the
+invite panel proper and rotating the code. Both panels hang off the pill rather than the control
+that opened them, because the bar is centred and a panel anchored further in ran off the left edge
+of a 360px screen.
+
+**The bar is one popup surface, not two.** A disclosure closes on a press outside its root, so
+giving each control its own made the shelf's other control "outside": pressing Administration while
+the invite was open closed the invite on `pointerdown`, which re-expanded the task pill and slid
+both controls along, and the click that followed landed on the invite button and reopened it. That
+read as a flash and a refusal to switch. One `useDisclosure` rooted at the shelf fixes it at the
+cause: a press anywhere inside the pill closes nothing, so the click reaches the control it was
+aimed at, and which panel is open is a second piece of state beside the boolean. Pressing the open
+control still closes it, and a press outside the shelf or Escape still closes whichever is open.
+
+**One nav, two bands, one DOM tree.** Workspace is the daily work and Administration is the group
+itself, so the rail is a flex column with `justify-between` and the band nobody needs every day sits
+at the bottom. Below `lg` the same markup is a horizontally scrollable strip above the content and
+the band headings go `sr-only`. Rendering two trees and hiding one was the alternative, and it costs
+a duplicate accessible name for every entry plus two places to edit when a section lands.
+
+**Collapsing is a rail behaviour, so it is expressed in `lg:` classes.** `GroupSidebar` holds one
+boolean and every class it drives is `lg:`-prefixed: the width, the hidden labels, the centred
+icons, the group's heading going `lg:sr-only` rather than away. The strip below `lg` is untouched,
+which is right, since a strip has no width to give back. A hidden label also leaves the accessible
+name, so every entry carries its name in an `aria-label` and a collapsed rail reads like an open
+one.
+
+**The collapse choice is not persisted.** It is `useState`, so it survives moving between a group's
+sections, which is the only navigation that keeps the layout mounted, and it is gone after a reload.
+Persisting it means a cookie read in the layout, the way the theme is painted, or a `localStorage`
+read that flashes the wrong width on first paint. A rail that re-expands costs one press, where
+painting the wrong colour scheme costs more, which is why the theme pays for a cookie and this does
+not.
+
+**The unbuilt sections are listed as dead buttons, not hidden.** Tasks, tags and categories,
+members, settings and leaving each render as a disabled control wearing a "Soon" chip, which is the
+answer the two-factor page already gives for email and text message, and the header's add-task
+button is the same thing again. A reader can see the shape of what a group will hold, and no entry
+is ever a link into a 404. The alternative, adding each entry as its phase lands, keeps the nav
+honest but says nothing about what is coming, and a nav that grows under you reads as instability.
+
+**Leaving a group is an entry with no href.** It is an action rather than a screen, so there will
+never be a route to point at, and `GroupNavItem.href` is optional for exactly that case. It also
+needs the caller's own membership uid, which only the roster call returns, so it stays dead until
+the phase that builds the roster and the settings section.
+
+**The pill is chrome rather than data.** `(app)/layout.tsx` reads `/api/groups/mine` for it and
+swallows every failure, so a backend outage costs the header its pill and never costs the page the
+reader asked for. With no groups at all it renders nothing, because `/app` is already the list and
+already offers both ways in, so a pill reading "Groups" over a one-item panel would be noise on a
+brand-new account. It is a disclosure of links, so Tab already moves through it correctly and
+`LocaleSelect`'s listbox machinery would only take that away: that pattern exists because the
+language picker posts a value, which a pill that navigates never does.
+
+**The header's add-task button says "Add task", not "Task".** It is the same offer as the bar's
+pill, so the two carry the same words rather than a short form in one place and a sentence in the
+other, and the header has the room: at 640px the button is 99px wide beside the greeting and the
+avatar.
+
+**The header drops the add-task button below `sm`.** The brand, the group pill and the account
+already fill a 360px header, and a fourth control crowds all three. A phone has the bar's task pill
+instead, which is the bigger target anyway, so the control is not lost, only moved to where a thumb
+reaches it.
+
+**Pressing add-task will mean the group the path is about, and the pill is the fallback.** On a
+group's own screen the uid is already in the URL, so the press can open the form against that group
+with nothing else asked. Anywhere else there is no group to add to, so the press opens the
+switcher, and choosing one navigates into it and opens the form there. That keeps the control
+honest in both places without an active-group cookie to go stale, which is the same reason the
+group screens read their uid from the route. Nothing of it is built: the button is disabled and
+named "coming soon" until tasks exist.
+
+**`useDisclosure` moved to `src/hooks/`.** The account menu and the switcher ran the same twenty
+lines of open state, outside-press close and Escape-with-focus-return. A hook is neither a component
+nor the non-UI logic `lib/` is for, so it got a directory of its own rather than being bent into
+either.
+
+---
+
+### A description is capped shorter than the backend allows
+
+**500 characters, against the backend's 2000.** `FieldLimits.DESCRIPTION` bounds the column, and
+the frontend is free to be stricter as long as nothing it sends is refused. A group's description
+is a line on a card and three lines in a rail, so the backend's bound is a storage limit rather
+than a product one. Nothing existing breaks: no screen edits a description yet, and a longer one
+that arrived from somewhere else still renders, clamped like any other.
+
+**The limit is exported rather than retyped.** `rules.ts` holds both group bounds and the create
+form imports them for its `maxLength`, so the schema that refuses a value and the field that stops
+accepting it can never disagree. The name's 255 moved the same way, where it had been a literal in
+the form.
+
+**A field that stops taking characters says so.** `TextArea` renders a live count beside the hint
+whenever it carries a `maxLength`, because silently ignoring keystrokes reads as a broken keyboard
+rather than as a limit. It is `aria-hidden`: the attribute is already announced, and a number that
+changes on every keystroke inside `aria-describedby` would be read out continuously.
+
+**A card fills its track, and reserves the description's room inside it.** Two separate things made
+cards uneven. The width was the `<li className="flex">` around each card: a flex container stretches
+its items on the cross axis only, so `h-full` equalised heights while the card's *width* came from
+its own text. Measured at 1280, in one container: 363px for a card with a long description against
+267px and 236px for a short one and one with none, inside tracks that were all 363px. `w-full` on
+the card is the fix, and `min-w-0` on the item keeps an unbreakable word from pushing it past the
+track. The height was the two-line clamp drawing one line, or none: those lines are now always
+reserved. Measuring the grid item rather than the card is what hid the first half of this, and a
+screenshot is what found it.
+
+**"Read more" is decided by character count, not by measurement.** `scrollHeight > clientHeight` is
+the accurate test and it costs an effect, a second render and a resize listener to stay true. With
+the cap at 500 and the clamp at three lines, a threshold of 150 characters answers the same
+question before the first paint, and being wrong costs a toggle that reveals one more line.
+
+**The text is the press, and "Read more" is the label on it.** A clamp ending mid-sentence invites a
+tap on the sentence, and a separate link beside it is the easy thing to miss. So a long description
+is one `<button>` holding the text and the label, which also gives the whole block the keyboard stop
+and the `aria-expanded` it needs; a short one stays a plain paragraph with nothing to press. The
+cost is that the button's accessible name is the description plus the label, which is what somebody
+hears either way. Phrasing content only inside a button, so the text is a `<span>`.
+
+### The roster is where a membership is changed, and where one ends
+
+**The roster manages everyone but you.** An admin gets a role button and a removal on every other
+row, and their own row carries only the chips. Removing yourself is leaving by another name, so it
+belongs to the band at the bottom of the page rather than to a button that would make the controls
+vanish from under the press that used them. Stepping down from admin while someone else holds the
+role is the one thing this costs, and it is recoverable by any other admin, where a self-removal
+dressed as a role change is not.
+
+**Leaving lives under the roster, and the rail points at it.** `DELETE /api/group-members/{uid}` is
+both "remove a member" and "leave", and the uid it needs is the caller's own membership, which only
+the roster call returns. Nothing else on the group knows it, so no other screen could offer the
+action without a second read. The rail's entry is therefore a link to `#leave-group` rather than a
+route of its own: the hash means it is never the open section, so Members stays the one entry marked
+current while both lead to the same page.
+
+**A membership press posts the group as well as the membership.** A Server Action never sees the
+route's params, and the backend's membership routes take only the membership uid, so the group rides
+along for the re-render alone. It still goes through `uidRule` like every other field, because a
+value that reaches `revalidatePath` is a value a form could lie about.
+
+**A change re-renders the whole group, not just the roster.** The rail's member count and the cards
+on `/app` come from the group read rather than from the roster, so promoting or removing someone
+revalidates the group's layout and the list beside it. Revalidating only this page would leave the
+rail counting a member who is gone.
+
+**The last-admin 409 is phrased once, by the module that already owned it.** `lastAdminMessage` was
+written with the API layer and the roster is its first caller: the role button, the removal and the
+leave all run through one `failure()` that tries it before `actionFailureMessage`. An admin also
+sees the guard stated on the leave band before they press anything, because finding out that a group
+keeps one admin *after* asking to leave reads as a failure rather than as a rule.
+
+**Leaving ends on the group list with a notice.** The group is gone from under the screen, so the
+action redirects to `/app?left=1` and the list says what happened, the same shape `?unavailable=1`
+already had. A silent landing on the list would be indistinguishable from a navigation that did
+nothing.
+
+### The group list's filter lives in the URL, not in the browser
+
+**`/app?q=&show=&sort=` is the whole state, and the browser is standing in for a backend that
+cannot filter yet.** There is no list endpoint that takes a search, a role or an order, so the page
+reads the query out of the URL with `groupQuery`, applies it with `filterGroups` to the list
+`/api/groups/mine` already answered with, and hands the same object to the row of controls.
+`filterGroups` is the single call that goes when the backend grows the parameters: the query shape
+is what a `GET` would take, so `getMyGroups(query)` replaces it and nothing else moves. Client
+state was the alternative and it is the same work twice: the query would have to be lifted into the
+URL later anyway, because a filtered list that cannot be pasted, reloaded or reached with the back
+button is a filter people lose by accident.
+
+**The search box is the one control that does not write the URL immediately.** A keystroke cannot
+be a navigation, so the box holds what is typed and commits 300ms after typing stops, with the
+magnifier replaced by a spinner while the URL catches up. Two rules keep that honest. The URL wins
+when it changes underneath: a back press, or the clear link on the no-matches card, rewrites the
+box, and the reset happens in render rather than in an effect, the same way the forms reset
+`edited`. Without it the box would push its stale text forward and undo the back press. And a
+pressed filter carries whatever is in the box, so the press and the not-yet-committed search land
+in one navigation rather than overwriting each other.
+
+**Both boxes start ticked, and the last ticked one cannot be unticked.** A list showing neither
+side is an empty page nobody asked for, so one side is the only restriction the control offers:
+the box that would empty the list is disabled, with the reason under it, and the action refuses it
+too rather than trusting the attribute. `show` is therefore never empty, and the URL carries a
+side only while one is off, so an untouched list stays at `/app`. The pill turns `bg-secondary`
+while it is holding a side back, which is the same thing the group bar's controls do and says more
+at a glance than a count would. The two bands stay as they are: a box hides a whole band, which is
+why the boxes carry the bands' own words.
+
+**Our own navigations can land out of order, and that was the search box's flicker.** Typing
+"flat" with a pause in it commits "fla" and then "flat", two `router.replace` calls a few hundred
+milliseconds apart, and the first payload can arrive after the second. The sync block then read a
+URL that disagreed with what we last asked for, took it for an external change and rewrote the box
+with the older text, which showed as the field resetting itself and then filling back in. The fix
+is to resync only while no push of ours is in flight: `isPending` covers exactly the window where
+a stale payload can land, and the flip back to idle is itself a render, so a genuine back press is
+still picked up one tick later.
+
+**A panel names the edge it hangs from, measured rather than assumed.** 240px of panel anchored to
+the right edge of the left-hand pill starts at -65px on a 360px screen, so the shared `PANEL` class
+sets no horizontal position and each menu adds `left-0` or `right-0`. The same measurement is why
+the sort pill wears the short form of its order: at 360px each pill gets 160px, and "Recently
+joined" between two icons needs 177, which was quietly truncating the label and pushing the pills
+to 159 and 161 instead of an even split.
+
+### The two ways into a group sit at the bottom of a phone
+
+**The create and join buttons are a fixed bar below `lg`, and the title row above it.** They are
+the whole point of `/app` for anybody who is not already in a group, and in the page they sat above
+the list, which on a phone means above the fold and then scrolled away. The bar puts them where a
+thumb is, matches the bottom bar a group's own screens already have, and the inline pair comes back
+at `lg` beside the `h1`, where a row of buttons costs nothing and a floating bar over a wide page
+looks stranded. Beside the heading rather than over the list, because the two ways in belong to the
+page while the row under it belongs to the list, and the line under the filters is where that split
+is drawn. `AddGroup` carries `hidden lg:flex` in both its layouts and `AddGroupBar` is `lg:hidden`,
+so exactly one of them is in the accessibility tree at any width.
+
+**Two halves, equal by construction.** Each is `flex-1 min-w-0`, so the split is 50:50 rather than
+content-driven, and the border is on both halves with only its colour differing: with the border on
+the join half alone the two measured 159px and 161px at 360px, because a border-box flex item pays
+for its own border out of its share. Measured at 320, 360, 390 and 768 after the fix: 140, 160, 175
+and 364 on both sides, nothing clipped, nothing scrolling sideways, and gone at 1024. The labels are
+short for the same reason, since "Join with a code" has 2px of slack at 320px and "Join with code"
+has 11.
+
+**The empty state keeps its explanation and loses its buttons.** `NoGroups` is onboarding rather
+than an empty list, so the card still says what a group is, but offering the same two actions a
+fixed bar is already showing reads as a mistake. One place per width.
+
+### Tasks are what opening a group shows, and the overview earned a route
+
+**`/app/groups/[uid]` renders Tasks.** A group exists to share chores, so the screen a group opens
+on is the chores, not a description of the group. The overview moved to `/app/groups/[uid]/overview`
+and the rail's Workspace band now starts at the group's own path, which is also why the entry that
+is marked current on a bare group URL is Tasks.
+
+**The overview is the group itself, which is why the roster lives in it.** It is an area of three
+sections rather than a screen: Information, Members and the audit trail that is owed. Information
+is the one place that holds every field at once, the picture included, so nothing about a group is
+only in the chrome; the rail's card is a summary and repeating it there is the point, not an
+accident. The invite code went the other way, to Settings, since only an admin is ever sent one and
+the overview is everybody's.
+
+**Both pages return nothing when the shell has already reported the failure.** `loadGroup` is shared,
+so a group that will not load is rendered once by the layout, with the children left out rather than
+each page drawing its own copy of the same error.
+
+### The rail stands still, and its top band is whichever area is open
+
+**At `lg` the rail sticks at the header's height and takes the rest of the viewport.** It used to be
+a stretched flex item, so it was as tall as the page and scrolled away with it, which on a long
+roster meant navigating by scrolling back up. It is now `lg:sticky` with
+`lg:h-[calc(100svh-var(--spacing-header))]` and its own `overflow-y-auto`, and the shell's
+`lg:items-stretch` became `lg:items-start` so nothing stretches it again. `--spacing-header` is the
+one place the header's height is written, so the bar and the rail cannot drift apart.
+
+**The permanent scrollbar on every group screen was one pixel, and the pixel was the header's
+border.** The height sat on the row inside the `<header>` while the border sat on the header itself,
+so the chrome measured 81px where `--spacing-header` says 80: the rail's `calc(100svh - 5rem)` came
+out 820px inside an 819px row, the document became 901px tall in a 900px window, and a scrollbar
+appeared on a page whose content was nowhere near the bottom. The sticky `top` was a pixel short for
+the same reason. The height moved onto the `<header>`, border included, since Preflight makes every
+box a border box, and the row inside takes `h-full`. Measured at 1440x900: 901px before, 900 after,
+with the header at 80 and the rail at 820.
+
+A full app shell was the alternative: `h-svh` on the frame, `overflow-hidden`, and the content
+column as the only scroller. It was rejected because it moves the page's scroll off the document,
+which costs scroll restoration between navigations, breaks every `position: sticky` inside a page
+and fights the header that is already sticky. Sticky gets the same picture for four classes.
+Measured at 1280x900: the rail is 820px tall and 288 wide, and its top stays at 80 while the page
+is scrolled 700px, where before it moved to -635. On a 480px-tall window it is 400px tall and
+scrolls itself, which is the safety valve the overflow is there for: a rail that cannot be reached
+is worse than one that scrolls.
+
+**The band where Workspace sits is the open area's own sections.** Inside the overview it is
+Information, Members and Audit trail; inside settings it is the five sections an admin has and the
+two everybody has, under the heading "Group settings", since "Settings" in a group's rail reads as
+the account's. Administration stays put underneath. Each contextual band is headed by **"Back to
+tasks"**, because with Workspace replaced the rail would otherwise hold no way back to the screen a
+group opens on, and the one in the header pill is not somewhere anybody looks. Below `lg` the band
+is the strip above the content, which it already was, so a phone gets the same menu without a
+second layout.
+
+**The way out is divided off, differently in each layout.** Mixed in with an area's sections it
+reads as one of them, so in the rail it carries a rule under it and on the strip a line down its
+right, where it is the arrow alone: a label there costs the sections their room, and the entry's
+own `aria-label` is what names it either way. Measured: 48x44 with a 1px right border on a phone,
+255x44 with a 1px bottom border in the rail.
+
+**Inside an area the group's card gives up its space at `lg`.** The area's menu is what the rail is
+for on those screens, and a card plus a menu plus Administration pushed the sections down past
+anything a short window could show. The heading survives as `lg:sr-only`, the way it does in a
+collapsed rail, so the page keeps the only `h1` it has. Below `lg` the card stays, because there it
+is the page's own header rather than a card beside the page.
+
+**An empty card is what "too much space at the top" turned out to be.** Hiding the card meant
+`lg:p-0 lg:border-0 lg:bg-transparent` beside the `lg:p-space-md lg:border lg:bg-card` that paints
+it, and two utilities for one property at one breakpoint resolve by Tailwind's output order, not by
+the class list: the padding won, so an invisible 255x32 box sat above the menu. The card's paint is
+now one of two sets chosen by state and written in one place, and the box measures 0. The rail then
+drops its own gap in an area too, since a gap above nothing is still a gap: 74px above the first
+entry became 42px, of which 18px is the band's own heading.
+
+**The card is a card at every width.** It was a plain unboxed header below `lg`, on the argument
+that a box around the page's own title is a box inside a box. On a phone that read as three loose
+rows above the strip rather than one thing about one group, so the border, fill and padding now
+apply everywhere, and only an area at `lg` takes them away.
+
+**The card's chips sit in its corner, and they are coloured.** The picture takes the left of the
+row and the member count and the role take the right, which is the corner of the card: the two are
+facts about the group and the reader rather than part of the title, and a row of grey outlines read
+as disabled controls. The count wears `secondary` with a `Users` icon in it, the role wears
+`primary` for an admin and `secondary` for everyone else, and the sentence they add up to is
+`sr-only`: reading "4 members. You are an admin." once is better than announcing a picture, a number
+and a word that only mean something together. The description left that card below `lg` as well,
+where it pushed the strip and the section itself off a phone screen, so `GroupDescription` is told
+which display classes to wear rather than carrying a `flex` that would fight them.
+
+**A scrolling rail should not pay 15px to say so.** The platform scrollbar is wider than the gap
+beside an entry, and its arrival moved every label. Measured in Chrome 156: the default is 15px,
+`::-webkit-scrollbar { width: 6px }` gets 6, and `scrollbar-width: thin` gets 10 **and silently
+overrides the pseudo-elements** when both are set. So `scrollbar-slim` sets the pseudo-elements and
+scopes the standard properties to `@supports not selector(::-webkit-scrollbar)`, which is Firefox
+and nothing else. The rail's gutter went from 16px to 7px, 1px of which is its own border.
+
+**The space at the rail's end was two gaps, not one.** The rail's own `gap-space-md` sat between
+the sections and the collapse press, and `lg:py-space-xl` put 36px under that press. The nav and
+the press are now one block with `gap-space-xs` between them, and the rail's bottom padding is
+`lg:pb-space-md` while the top keeps `lg:pt-space-xl`: 16px and 36px became 4px and 16px, measured.
+
+**Only the open sub-section is marked, never the area it sits in.** The Administration entries
+point at `/overview` and `/settings`, both of which redirect to their first section, so neither is
+ever the current path. That is deliberate: two `aria-current="page"` entries in one nav say less
+than one does, and the band's own heading already names the area.
+
+### A group's settings and its overview are sections, not stacks
+
+**Every card became a route.** `/settings` redirects to `preferences`, and `preferences`,
+`notifications`, `details`, `invite-code` and `delete` are each a page of their own; the overview
+splits the same way into `information`, `members` and the audit trail it cannot have yet. The first
+build was one page of five cards, which is what made the contextual rail impossible: a menu whose
+entries are anchors has to mark the open one by watching the scroll position, and every card's data
+is fetched whether or not it is read. As routes, a member never loads the invite code,
+`aria-current` comes from the path, and each section's read is its own.
+
+**The three admin sections redirect a member rather than refusing them.** Their entries are not in
+a member's rail at all, so arriving at one means a stale link or a typed URL, and a refusal page
+for something nobody navigated to is noise. `loadAdminGroup` is the one place that decides it. The
+role is still only UX: every action behind those pages is checked again by Spring, and each one
+reports its own refusal.
+
+**The roster moved wholesale into the overview, and `/members` is gone.** It was an Administration
+entry beside Settings, which is the wrong place for the one screen everybody uses: the roster
+answers "who is in this group", which is what an overview is for. Its Server Actions moved with it,
+since actions live with their route. Nothing in the app points at the old path, so it was deleted
+rather than redirected.
+
+**The delete section says what it takes before it is pressed.** The lead says the group goes; the
+card lists what "the group" turns out to include, which is every task with its history, every tag
+and category, everybody else's membership and the invite code. A warning that only appears after
+the press is a warning nobody had the chance to act on.
+
+**Deleting asks for the group's name to be typed.** Every other destructive control in the app
+confirms with a second press, which is right for a device or a link that can be set up again. A
+group takes its tasks and everybody else's membership with it, so the second press is replaced by
+something nobody does by accident. The match is trimmed and case-insensitive, because the
+confirmation is about intent and not about typing accuracy, and the field takes focus through a ref
+rather than `autoFocus`. The backend soft-deletes and still answers a direct read (gap 1), so the
+action leaves for `/app` rather than letting the screen re-render around a group that is half gone.
+
+**The invite code is a field, not a sentence.** It is a value somebody takes away, so it is painted
+like every other field in the app, as wide as the code and no wider, with the copy press as an icon
+inside it rather than a worded button beside it. The two presses that act on the code stand to its
+right as round icons at the field's height: the replacement, and the share that will carry it to a
+messenger. Neither is worded, because the row is three things about one short value and a sentence
+on a button beside it made the value the smallest thing in it. `InviteCodeField` and `ShareInvite`
+are shared with the
+phone's bottom bar, so the two cannot drift; **the bar offers no replacement**, because issuing a
+new code locks out everyone holding the old one and that warning does not fit in a panel. Sharing
+is disabled with the reason in its name, since a row has no width for a sentence.
+
+**Rotating the invite code confirms in place, and the confirmation is neutral rather than red.**
+Nothing is lost when a code is replaced: the cost falls on whoever is already holding the old one,
+which is what the line above the press says. The new code arrives through the re-render rather than
+through the action's state, so the action revalidates the group's layout and `/app` the way a
+membership change does.
+
+**Preferences and Notifications ship as disabled controls with the reason beside them**, which is
+the convention the two-factor page set. Preferences shows the three task layouts that are coming,
+with List pressed because that is what a group reads as until the choice exists. Notifications is
+one disabled button next to a real link to the account's own notification settings, so the section
+still gets somebody to a working control.
+
+**The forms are bounded at `max-w-2xl`.** A group's column is the window less the rail, which is
+977px at 1280, and a name field and a primary pill that wide read as a page rather than as one
+section's control.
+
+### A group's picture is a link, and it is drawn unoptimized
+
+**`GroupRequest.photoUrl` has been in the contract all along and nothing sent it.** There is no
+uploader anywhere in the product (gap 3), so the only picture a group can have is a URL somebody
+pastes, and that is what Group details now asks for, with the avatar beside the field drawn from
+what is typed: a link that will not render is worth seeing before the save rather than after it.
+
+**`next/image` renders it with `unoptimized`.** The optimizer's allowlist is
+`**.googleusercontent.com`, and `next/image` throws on a host it was not configured with, which
+would take the whole page down. Widening the allowlist to render arbitrary links would make our
+optimizer an open image proxy for anyone who can type a URL into a group. `unoptimized` returns the
+`src` untouched and never calls the loader, so the allowlist is not consulted: verified in
+`next/dist/shared/lib/get-img-props.js`, where the unoptimized branch returns before the loader
+that carries the throw. The same file is why a unit test could not have proved it, since the host
+check is skipped when `NODE_ENV === "test"`.
+
+**One module decides whether a link may be drawn.** `lib/groups/photo` is `https`-only, which rules
+out `javascript:` and `data:` and the mixed content a plain `http` image would be. The validation
+rule and the avatar both import it, because a URL the form accepted and the avatar then refused
+would look like a lost save. It is a square with the group's first letter behind it, where a
+person's avatar is a circle with their initials: a group is not somebody.
+
+### A description sized to its content, and what `field-sizing` costs
+
+`field-sizing: content` grows the textarea as it is typed with no effect, no ref and no second
+render, and it is Baseline as of June 2026 (Chrome 123, Firefox 152, Safari 26.2); an older browser
+keeps the fixed box it has today. The catch is in the spec and was measured rather than assumed:
+once `field-sizing: content` is set, **`rows` stops applying**, so an empty description collapsed
+from 94px to 50px, a single line where a multi-line field should be. `min-h-24` is the floor that
+fixes it, which lands an empty field at 96px and lets a filled one grow to 138px and beyond.
+
 ### Roles and access
 
 Two role namespaces that behave completely differently:
@@ -1426,10 +1981,12 @@ Two role namespaces that behave completely differently:
 | Where it lives | **in the access token** (`role` claim) | **not in the token** — per membership |
 | Source | the JWT we already hold | `MyGroupResponse.myRole`, `GroupMemberResponse.role` |
 | Scope | global | **per group** — admin of one, member of another |
-| Spring enforces via | `ROLE_<role>` authority | service code, not annotations |
+| Spring enforces via | `ROLE_<role>` authority | `@PreAuthorize` plus a `@groupSecurity` bean |
 
-That last row is why the spec cannot express authorization and why a 403 is always a runtime
-discovery.
+The spec still cannot express authorization, so a 403 is always a runtime discovery. What changed
+with the group phase is where it comes from: the check is declarative, so the framework refuses
+before any service code runs, which is also why it cannot distinguish a group that is not yours
+from a uid that does not exist.
 
 **Platform role barely matters to this product.** Every real user is `USER`; listing all users is
 ADMIN-only and changing a role is SUPER_ADMIN-only, neither of which belongs in the product UI.
@@ -1447,10 +2004,12 @@ The access token also carries `userId` and `uid` claims, so the numeric id is av
 storing it in the session or calling `/me` for it. Claims are decoded, never verified: only Spring
 can verify its own signature, and we do not need to, because none of this is a security boundary.
 
-**Not built yet.** When it arrives it should be capability predicates (`canManageMembers(role)`),
-not `role === "GROUP_ADMIN"` scattered around, so the mapping sits in one place when the backend
-rules shift. Group role needs a fetch, so it belongs with phase 3, where an active group first
-exists.
+**Half built.** `groups/role/role.ts` is the one place a role string is compared, so there is no
+`role === "GROUP_ADMIN"` scattered around, and its constant is typed as `GroupRole` so a typo fails
+the build rather than quietly matching nobody. It stays one predicate rather than a set of
+capability predicates (`canManageMembers`, `canRotateCode`) because every capability the backend has
+is the same check today; the moment two of them diverge, this is the module that gains them. It
+carries no `server-only`, since a member row deciding which buttons it owns renders in the browser.
 
 ---
 
@@ -1464,8 +2023,8 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Account           | `/api/account`                 | The caller's own security. `POST /change-password` and `/set-password` return a **fresh pair** and revoke every other session. `GET /connected-accounts` reports `{ passwordSet, googleLinked }`. `POST`/`DELETE /connected-accounts/google` link and unlink. `POST /deactivate` takes `{ password }`, required only where one is set. |
 | Two-factor        | `/api/account/2fa`             | The caller's own second factor. **Every one of them has a caller**; `GET` reports `{ enabled, pendingSetup, confirmedAt, recoveryCodesRemaining }`. `POST /setup` takes `{ password }` and returns `{ secret, otpauthUri }`; `POST /enable` takes `{ code }` and returns ten recovery codes **plus a fresh pair**, having revoked every other session. `POST /disable` and `POST /recovery-codes` both take `{ password, code }`, where the code may be an authenticator or a recovery code and is spent either way; `disable` answers with a fresh pair and `recovery-codes` with the new set alone. The password is ignored for a Google-only account. A state mismatch is a `409` with no code, so the client refetches status. |
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile — **the source of the caller's numeric `id`**, needed for `?userId=` filters. `GET /api/users` (list all) is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
-| Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole` and `dateJoined` per group. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click.                 |
-| Group members     | `/api/group-members`           | `GET` needs `?groupId=`. Role change is `PATCH /{id}/role?role=GROUP_ADMIN` — a **query parameter**, not a body.                                                                                                                                  |
+| Groups            | `/api/groups`                  | `GET /mine` is the one to build on — it returns `myRole`, `memberCount` and `dateJoined` per group, and `GET /{uid}` carries the first two as well. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite** — warn before the click. `inviteCode` is sent only to that group's admin. |
+| Group members     | `/api/group-members`           | The roster is `GET /api/groups/{uid}/members`, not here: `?groupId=` is gone. Addressed by the membership's own `uid`. Role change is `PATCH /{memberUid}/role` with `{ role }` in the **body**. `DELETE /{memberUid}` is both "remove" and "leave". `POST` is SUPER_ADMIN-only platform tooling, so a group admin cannot add anyone. |
 | Tasks             | `/api/tasks`                   | `GET` needs `?groupId=`. Addressed by `uid`. Creating one requires `groupId`, `createdById` (a GroupMember id), `name`, `priority`, `status`.                                                                                                     |
 | Task completions  | `/api/task-completions`        | `GET` needs `?taskId=`, or `/member/{groupMemberId}`. Append-only — there's no delete, so "undo a completion" isn't available.                                                                                                                    |
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group → `409`.                                                                                                                                                                        |
@@ -1522,11 +2081,13 @@ From the backend bible. Getting these wrong produces UI that lies:
 Found by reading the spec against the MVP list. Each needs a backend change or a documented
 workaround **before** the feature depending on it gets built.
 
-1. **A group member's name can't be resolved.** `GroupMemberResponse` carries `userId` (numeric), but
-   users are fetched by `uid` and `GET /api/users` is platform-ADMIN only. So a normal user can't turn
-   a group member into a display name or avatar — which blocks assignee pickers, "completed by", and
-   the member list. Needs the backend to embed user display fields in `GroupMemberResponse`, or a
-   group-scoped members-with-users endpoint. No clean client-side workaround.
+1. ~~**A group member's name can't be resolved.**~~ **Closed.** `GroupMemberResponse` now nests a
+   `user` of `{ uid, name, lastName, photoUrl }`, so a roster renders from the one call and the
+   numeric `userId` is gone. Deliberately no email on it: an invite code admits whoever holds it, so
+   the roster shows display fields only. Kept numbered, because the gaps below are referred to by
+   number. Two smaller things are still owed and are noted where they matter: `addedBy` and
+   `removedBy` exist on the response and are always null, and a soft-deleted group neither
+   deactivates its memberships nor stops answering a direct read.
 2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
    and the `TaskTag` junction has no controller. Tags are creatable and listable but not assignable,
    so filter-by-tag isn't buildable.
@@ -1544,6 +2105,17 @@ workaround **before** the feature depending on it gets built.
 7. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
    plain member may call it on their own membership is a `@PreAuthorize` question the spec can't
    answer — verify against a running backend before building the control.
+8. **The audit log can't be read for a group.** `GET /api/audit-logs` takes a **numeric** `groupId`,
+   and no response in the contract carries a group's numeric id: `GroupResponse` and
+   `MyGroupResponse` are addressed by `uid` alone. `/audit-logs/member/{groupMemberId}` has the same
+   problem one level down, since `GroupMemberResponse` carries only its `uid`. On top of that
+   `AuditLogResponse` names nobody: `actorUserId` and `groupMemberId` are bare numbers with no
+   nested user, so even a list we could fetch would read as "user 41 did something". Three things
+   are owed: a uid-scoped route or a numeric id on the group, the same for a membership, and an
+   actor on the entry. The rail carries "Audit trail, coming soon" until then.
+9. **No group photo upload.** `GroupRequest.photoUrl` is a 500-character string and there is no
+   upload endpoint (gap 3), so a group's picture is a link somebody pastes. It is the same gap as
+   the user's `photoUrl`, recorded separately because the group screens hit it first.
 
 ---
 
@@ -1661,6 +2233,35 @@ workaround **before** the feature depending on it gets built.
     renderings and lets neither reach the page. **It cannot be reproduced locally**, because local
     never gets the iframe.
 
+28. **An accessible name built from two elements loses the space between them.** A nav entry
+    reading "Members" beside a "Soon" chip computes as `MembersSoon`, and a hidden separator span
+    does not help: the name computation trims every node it concatenates. JSX also strips the
+    whitespace between two sibling elements, so there is no text node for a browser to keep either,
+    and this is not a jsdom artifact. The fix is an explicit `aria-label` spelling the whole name
+    out, which every entry in a group's nav now carries, and which is also what keeps a collapsed
+    rail labelled once its labels are `lg:hidden`. Found by printing the rendered names rather than
+    by reading the markup.
+
+29. **A centred page shrinks to its own text under a flex column, and `min-height: 100%` does not
+    resolve against a flex item.** Making `(app)/layout.tsx`'s `main` a flex column, so a group's
+    rail could stretch, broke every page whose root is `mx-auto max-w-app`: auto cross-axis margins
+    cancel `align-items: stretch`, so the root takes its fit-content width, measured at 85px where
+    1200px was expected. Giving the row `min-h-full` instead did nothing either: 18px where the
+    viewport offered 725. A grid shell with `grid-rows-[auto_minmax(0,1fr)]` and a block `main`
+    fixes both, because a grid area's height is definite for a percentage while block children keep
+    their stretch, and content taller than the viewport still grows the row. Found by measuring the
+    candidates in headless Chrome rather than by reading the spec.
+
+30. **A grid shell needs an explicit column, and `sr-only` inside a scroller leaks out of it.**
+    The group's tab strip is `overflow-x-auto`, which still hands its content's max-content width
+    to the track above it, so the shell's implicit `auto` column sized `main` to **1068px inside a
+    360px phone** and the whole page scrolled sideways. `grid-cols-1` is
+    `repeat(1, minmax(0, 1fr))`, which cannot exceed its container, and that took it to 434px. The
+    rest was the `sr-only` band headings: nothing between them and `<html>` is positioned, so their
+    static position deep inside the scrolled strip became page overflow. They are `hidden lg:block`
+    now, and `aria-labelledby` still names each list from a `display: none` heading. Measured at
+    1068, then 434, then 360.
+
 ---
 
 ## Roadmap
@@ -1676,10 +2277,10 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | **0** | **Initialize** ✅ done | `create-next-app` with the flags chosen deliberately, folder layout, lint/format, `.env.example`, first commit. Outcome: the app runs on `:3000` and does nothing. | Every choice made here (App Router, `src/`, import alias, Turbopack) is expensive to reverse later.                                                                                                         |
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the middleware that draws the auth boundary.     | Everything sits on this, and it's the part where a mistake looks like a backend bug. It's also where unit testing arrives — this is the code most worth testing.                                            |
 | **2** | **Auth screens** ✅ done | Register → verify → login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime rather than against staging. CI is the cross-cutting item this phase unblocks. |
-| 3     | **Account and settings** ← _current_ | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
-| 4     | **Group onboarding** | `/app/groups`, create a group, join by invite code, the no-group empty state, the active-group switcher in the shell.                                                  | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. It's also where "which group am I looking at" gets decided.                                 |
+| 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
+| 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create a group, join by invite code, the no-group empty state, the group pill in the header, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do — no tasks, no categories, no tags. Nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state at all. |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete.                                                                                                     | This is the product. The app is genuinely useful at the end of this phase and not before. Likely where React Query earns its place — filters re-querying and optimistic completion are exactly its problem. |
-| 6     | **Members and roles**      | Member list, invite, role change, remove, last-admin handling.                                                                                                     | _Blocked on API gap 1_ — a member's display name can't be resolved yet.                                                                                                                                     |
+| 6     | ~~**Members and roles**~~  | Folded into phase 4. Gap 1 is closed, so the roster, invite, role change, remove and the last-admin handling ship with the groups work rather than after tasks.      | It was only separate because a member's display name could not be resolved; the membership now carries its user.                                                                                            |
 | 7     | **Categories and tags**    | Management screens for both.                                                                                                                                       | Task-tagging within it is _blocked on API gap 2_.                                                                                                                                                           |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`.                                                                                                                                          | A second view on data phase 5 already fetches — cheap once tasks exist, pointless before.                                                                                                                   |
 | 9     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
@@ -1723,8 +2324,6 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   active session never ends. A cap needs a limit *and* a decision on where the clock lives: one the
   cookie reports is one the cookie can lie about, so it must be sealed at first login and carried
   through every rotation.
-- **Active group** — a user is in several groups and nearly every list endpoint needs `?groupId=`, so
-  this is app-level state. Session cookie, URL, or both — undecided.
 - **Error tracking** — nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into
   error reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.

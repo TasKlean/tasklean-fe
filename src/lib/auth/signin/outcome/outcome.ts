@@ -13,20 +13,20 @@ import type { AuthResponse, SignInOutcome } from "@/lib/auth/auth.types";
  *
  * @param label How to name the exchange in a thrown message, e.g. `Login`.
  * @returns A challenge when the backend gated the sign-in, a token pair otherwise.
- * @throws Error when a 2xx carries neither, which would otherwise look like a
+ * @throws TypeError when a 2xx carries neither, which would otherwise look like a
  * session with no tokens in it.
  */
 export function signInOutcome(response: AuthResponse | undefined, label: string): SignInOutcome {
   if (response?.twoFactorRequired === true) {
     if (typeof response.challengeToken !== "string" || response.challengeToken === "") {
-      throw new Error(`${label} needs a second factor but returned no challenge token.`);
+      throw new TypeError(`${label} needs a second factor but returned no challenge token.`);
     }
     return { kind: "challenge", challengeToken: response.challengeToken };
   }
 
   // A session without a refresh token dies at the first expiry with no way back.
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error(`${label} succeeded but returned no token pair.`);
+    throw new TypeError(`${label} succeeded but returned no token pair.`);
   }
 
   return {

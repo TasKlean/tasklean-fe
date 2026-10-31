@@ -79,7 +79,7 @@ export async function getTwoFactorStatus(): Promise<TwoFactorStatus> {
  *
  * @param password Required where the account has one. A Google-only account
  * sends nothing and is confirmed by the session.
- * @throws Error when a 2xx arrives without both the secret and the URI, since
+ * @throws TypeError when a 2xx arrives without both the secret and the URI, since
  * one alone cannot be enrolled.
  * @throws ApiError on 401 for a wrong or missing password, and 409 when a
  * second factor is already on.
@@ -93,7 +93,7 @@ export async function startTwoFactorSetup(password?: string): Promise<TwoFactorS
   });
 
   if (typeof response?.secret !== "string" || typeof response?.otpauthUri !== "string") {
-    throw new Error("Two-factor setup started but returned nothing to enroll.");
+    throw new TypeError("Two-factor setup started but returned nothing to enroll.");
   }
 
   return { secret: response.secret, otpauthUri: response.otpauthUri };
@@ -105,7 +105,7 @@ export async function startTwoFactorSetup(password?: string): Promise<TwoFactorS
  * @returns The recovery codes, shown this once only, and the fresh pair the
  * caller must seal. The backend revokes every other session here, so losing
  * the pair ends this one too.
- * @throws Error when a 2xx arrives without a usable pair.
+ * @throws TypeError when a 2xx arrives without a usable pair.
  * @throws ApiError on 401 for a code that did not match, and 409 when there is
  * no pending setup to confirm.
  */
@@ -118,7 +118,7 @@ export async function enableTwoFactor(code: string): Promise<TwoFactorEnabled> {
   });
 
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Two-factor is on but no new token pair came back.");
+    throw new TypeError("Two-factor is on but no new token pair came back.");
   }
 
   return {
@@ -136,7 +136,7 @@ export async function enableTwoFactor(code: string): Promise<TwoFactorEnabled> {
  * @param password Required where the account has one.
  * @returns The fresh pair for this device, which the caller must seal. Every
  * other session is revoked here, so losing it ends this one too.
- * @throws Error when a 2xx arrives without a usable pair.
+ * @throws TypeError when a 2xx arrives without a usable pair.
  * @throws ApiError on 401 for a wrong password or code, and 409 when there is
  * no second factor to turn off.
  */
@@ -148,7 +148,7 @@ export async function disableTwoFactor(code: string, password?: string): Promise
   });
 
   if (typeof response?.token !== "string" || typeof response?.refreshToken !== "string") {
-    throw new Error("Two-factor is off but no new token pair came back.");
+    throw new TypeError("Two-factor is off but no new token pair came back.");
   }
 
   return { accessToken: response.token, refreshToken: response.refreshToken };
@@ -163,7 +163,7 @@ export async function disableTwoFactor(code: string, password?: string): Promise
  * @param code A code from the app, or one of the codes being replaced.
  * @param password Required where the account has one.
  * @returns The new codes, shown this once only.
- * @throws Error when a 2xx carries no codes, since the old set is already dead
+ * @throws TypeError when a 2xx carries no codes, since the old set is already dead
  * and there would be nothing to show in its place.
  * @throws ApiError on 401 for a wrong password or code, and 409 when there is
  * no second factor to reissue them for.
@@ -177,7 +177,7 @@ export async function regenerateRecoveryCodes(code: string, password?: string): 
 
   const codes = asRecoveryCodes(response?.recoveryCodes);
   if (codes.length === 0) {
-    throw new Error("The old recovery codes are gone but no new ones came back.");
+    throw new TypeError("The old recovery codes are gone but no new ones came back.");
   }
 
   return codes;

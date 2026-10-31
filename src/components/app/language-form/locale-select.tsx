@@ -120,6 +120,9 @@ export function LocaleSelect({ label, name, value, onChange }: Readonly<LocaleSe
             role="listbox"
             id={listId}
             aria-labelledby={labelId}
+            // Reachable programmatically but never in the tab order: the role
+            // is interactive, while the focus it works with stays on the button.
+            tabIndex={-1}
             // Keeps focus on the button, so a press on a row is not preceded by
             // a blur that closes the list before the click lands.
             onMouseDown={(event) => event.preventDefault()}

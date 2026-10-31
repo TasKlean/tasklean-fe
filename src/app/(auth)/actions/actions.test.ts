@@ -133,7 +133,6 @@ describe("googleSignInAction success", () => {
       accessToken: "access-1",
       refreshToken: "refresh-1",
       userUid: "user-uid-1",
-      activeGroupId: null,
     });
   });
 

@@ -43,7 +43,6 @@ export async function startSession(tokens: SignedInTokens): Promise<void> {
   await setSession({
     ...tokens,
     userUid,
-    activeGroupId: null,
     ...(name ? { name } : {}),
     ...(profile?.photoUrl ? { photoUrl: profile.photoUrl } : {}),
   });

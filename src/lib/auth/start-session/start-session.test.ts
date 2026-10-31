@@ -70,7 +70,6 @@ describe("startSession", () => {
       expect.objectContaining({
         accessToken: "at-1",
         refreshToken: "rt-1",
-        activeGroupId: null,
         photoUrl: "https://lh3.googleusercontent.com/a/abc",
       }),
     );

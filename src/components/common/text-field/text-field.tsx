@@ -3,7 +3,7 @@
  * describes a bordered field; the reviewed screens use a fill, and they win.
  */
 
-import type { InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode, RefAttributes } from "react";
 import { describedById } from "@/components/common/text-field/described-by-id";
 import { FieldMessage } from "@/components/common/text-field/field-message";
 
@@ -24,7 +24,8 @@ type TextFieldProps = {
   below?: ReactNode;
   // Sits opposite the label, for a "Forgot password?" style affordance.
   labelAction?: ReactNode;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, "className">;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "className"> &
+  RefAttributes<HTMLInputElement>;
 
 /** Renders a labelled input with an optional icon, trailing control and error. */
 export function TextField({
