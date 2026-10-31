@@ -567,9 +567,9 @@ starts in that feature's directory. **Tests sit beside the code** they cover.
 - **A notice is a `FormNotice`, and never wears `bg-muted`.** That fill is what every `TextField`
   and `CodeInput` box is painted in, so the two grey notices on `/login` read as disabled inputs.
   The tones are the vocabulary: `success`, `info` for something that merely happened, and `error`,
-  the only one that interrupts as an `alert`. Three hand-rolled notices are left in
-  `reset-password`, `forgot-password-form` and `verify-email-form`, none of them grey, and they get
-  swept as they are touched.
+  the only one that interrupts as an `alert`. Every notice in the app goes through it; the last
+  three hand-rolled ones, in `reset-password`, `forgot-password-form` and `verify-email-form`, are
+  gone.
 - **A `select` or a checkbox whose value lives in React state cancels the form reset.** React resets
   a form's DOM once its action answers, and never rewrites a controlled value it did not change, so
   the control keeps the reset value while state disagrees. `onReset={(event) => event.preventDefault()}`

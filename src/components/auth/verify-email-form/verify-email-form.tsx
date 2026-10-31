@@ -17,6 +17,7 @@ import {
 import { EmailField } from "@/components/auth/verify-email-form/email-field";
 import { expiryNote } from "@/components/auth/verify-email-form/expiry-note";
 import { CodeInput } from "@/components/common/code-input/code-input";
+import { FormNotice } from "@/components/common/form-notice";
 import { SubmitButton } from "@/components/common/submit-button";
 import { validateVerifyEmail } from "@/lib/validation/forms/verify-email.schema/verify-email.schema";
 
@@ -107,20 +108,9 @@ export function VerifyEmailForm({
 
   return (
     <div className="gap-space-md flex flex-col">
-      {banner ? (
-        <p
-          role="alert"
-          className="bg-destructive-subtle text-destructive-subtle-foreground text-body-md p-space-md rounded-md"
-        >
-          {banner}
-        </p>
-      ) : null}
+      {banner ? <FormNotice tone="error">{banner}</FormNotice> : null}
 
-      {notice && !banner ? (
-        <output className="bg-success-subtle text-success-subtle-foreground text-body-md p-space-md block rounded-md">
-          {notice}
-        </output>
-      ) : null}
+      {notice && !banner ? <FormNotice tone="success">{notice}</FormNotice> : null}
 
       <form
         action={formAction}
