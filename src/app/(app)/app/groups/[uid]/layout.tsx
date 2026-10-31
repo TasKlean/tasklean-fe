@@ -6,8 +6,8 @@
  */
 
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import { GroupBar } from "@/components/app/group-bar/group-bar";
-import { GroupSidebar } from "@/components/app/group-sidebar/group-sidebar";
+import { GroupBar } from "@/components/app/group/shell/group-bar/group-bar";
+import { GroupSidebar } from "@/components/app/group/shell/group-sidebar/group-sidebar";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { groupLabel } from "@/lib/groups/labels/labels";

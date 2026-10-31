@@ -5,7 +5,7 @@
  */
 
 import type { Metadata } from "next";
-import { SettingsNav } from "@/components/app/settings-nav/settings-nav";
+import { SettingsNav } from "@/components/app/settings/settings-nav/settings-nav";
 
 export const metadata: Metadata = {
   title: "Settings",

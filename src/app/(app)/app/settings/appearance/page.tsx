@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AppearanceForm } from "@/components/app/appearance-form/appearance-form";
+import { AppearanceForm } from "@/components/app/settings/appearance/appearance-form/appearance-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";

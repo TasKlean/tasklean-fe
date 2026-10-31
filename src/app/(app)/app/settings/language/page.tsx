@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LanguageForm } from "@/components/app/language-form/language-form";
+import { LanguageForm } from "@/components/app/settings/language/language-form/language-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";

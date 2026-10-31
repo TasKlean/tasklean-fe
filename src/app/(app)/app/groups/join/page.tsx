@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { BackLink } from "@/components/auth/back-link";
-import { JoinGroupForm } from "@/components/app/join-group-form/join-group-form";
+import { JoinGroupForm } from "@/components/app/groups/join-group-form/join-group-form";
 
 export const metadata: Metadata = {
   title: "Join a group",

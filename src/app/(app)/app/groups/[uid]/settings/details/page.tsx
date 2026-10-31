@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { loadAdminGroup } from "@/app/(app)/app/groups/[uid]/settings/settings.helpers";
-import { EditGroupForm } from "@/components/app/group-settings/edit-group-form";
-import { SettingsSection } from "@/components/app/group-settings/settings-section";
+import { EditGroupForm } from "@/components/app/group/settings/edit-group-form/edit-group-form";
+import { SettingsSection } from "@/components/app/group/settings/settings-section";
 
 export const metadata: Metadata = {
   title: "Group details",

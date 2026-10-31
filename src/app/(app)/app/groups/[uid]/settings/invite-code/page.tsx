@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { loadAdminGroup } from "@/app/(app)/app/groups/[uid]/settings/settings.helpers";
-import { InviteCode } from "@/components/app/group-settings/invite-code";
-import { SettingsSection } from "@/components/app/group-settings/settings-section";
+import { InviteCode } from "@/components/app/group/settings/invite-code/invite-code";
+import { SettingsSection } from "@/components/app/group/settings/settings-section";
 
 export const metadata: Metadata = {
   title: "Invite code",
