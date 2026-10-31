@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { GroupPreferences } from "@/components/app/group-settings/group-preferences";
-import { SettingsSection } from "@/components/app/group-settings/settings-section";
+import { GroupPreferences } from "@/components/app/group/settings/group-preferences/group-preferences";
+import { SettingsSection } from "@/components/app/group/settings/settings-section";
 
 export const metadata: Metadata = {
   title: "Preferences",

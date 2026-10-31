@@ -184,54 +184,62 @@ src/
                        non-UI logic lib/ is for: use-disclosure, the open state a
                        popup needs and the two ways out of it
   components/
-    common/            primitives, no feature knowledge: avatar, account-menu, logout-button,
+    common/            primitives, plus what more than one screen shares: avatar,
+                       account-menu, logout-button,
                        masked-email, load-error, form-notice, brand-mark, text-field,
                        password-field, code-input, two-factor-code-field (either kind of
                        code, and the switch), password-strength-meter, submit-button,
                        or-divider, greeting, copy-button (worded, or the icon
                        alone), qr-image, google-mark,
                        busy-overlay (the scrim over a card while an action runs),
-                       text-area (multi-line, painted like text-field)
-    app/               signed-in chrome: app-header with header-bar (how wide the
-                       row is), settings-nav, device-row
-                       with device-name (the inline rename), all-device-actions
-                       (sign out everywhere and remove every device),
-                       password-form, google-connection,
-                       unlink-google, deactivate-account, appearance-form, theme-preview,
-                       language-form with locale-select (the dropdown, ours not
-                       the platform's), notifications-form, notification-toggle,
-                       switch-track, two-factor-method (the shell every method shares),
-                       two-factor-card, two-factor-enroll, two-factor-manage,
-                       two-factor-confirm, recovery-codes, group-card, group-section
-                       (one labelled band of the list), group-filters with
-                       group-search, show-menu, sort-menu and no-matches (the row
-                       over the list, and what it says when nothing matches),
-                       add-group (the only two ways in, `lg` and up) with
-                       add-group-bar (the same two below it),
-                       no-groups (the onboarding empty state), create-group-form,
-                       join-group-form, add-task-button (the header's one offer,
-                       disabled until tasks exist), group-switcher with
-                       open-group-uid (which group the path is about), member-row
-                       with member-actions and confirm-remove (one membership and
-                       what may be done to it), leave-group (the way out, under the
-                       roster), group-sidebar
-                       with group-summary (the group's card) and group-description
-                       (the clamp, whose own text is the press), group-bar (what a
-                       phone offers in place of the rail) with invite-control
-                       (its invite half, press and panel), group-nav with
-                       nav-sections (a group's sections), nav-entry (one of them,
-                       wherever it is shown), item-tone (how it reads) and
-                       open-group-area (which area a path is in),
+                       text-area (multi-line, painted like text-field),
+                       switch-track (the painted track a toggle rides on),
                        group-avatar (a group's picture, or its first letter),
                        invite-code/: invite-code-field (the code and the press
                        that copies it) and share-invite (where sharing will go),
-                       both shared with the bar,
-                       group-settings/: settings-section (the heading and card
-                       every section wears), group-preferences and
-                       group-notifications (the two nobody can use yet),
-                       edit-group-form, invite-code (the field, the replacement
-                       and the share) with rotate-invite-code, and
+                       recovery-codes (what an action hands back exactly once)
+    app/               signed-in components, in a directory per screen they sit on
+      chrome/          what the shell carries everywhere: app-header with
+                       header-bar (how wide the row is), group-switcher with
+                       open-group-uid (which group the path is about),
+                       add-task-button (the header's one offer, disabled until
+                       tasks exist)
+      groups/          the group list at /app and the two ways into a group:
+                       group-card, group-section (one labelled band of the list),
+                       group-filters with group-search, show-menu, sort-menu and
+                       no-matches (the row over the list, and what it says when
+                       nothing matches), add-group (the only two ways in, `lg` and
+                       up) with add-group-bar (the same two below it), no-groups
+                       (the onboarding empty state), create-group-form,
+                       join-group-form
+      group/           one group's own screens
+        shell/         group-sidebar with group-summary (the group's card) and
+                       group-description (the clamp, whose own text is the press),
+                       group-bar (what a phone offers in place of the rail) with
+                       invite-control (its invite half, press and panel), group-nav
+                       with nav-sections (a group's sections), nav-entry (one of
+                       them, wherever it is shown), item-tone (how it reads) and
+                       open-group-area (which area a path is in)
+        overview/      member-row with member-actions and confirm-remove (one
+                       membership and what may be done to it), leave-group (the way
+                       out, under the roster)
+        settings/      settings-section (the heading and card every section wears),
+                       group-preferences and group-notifications (the two nobody can
+                       use yet), edit-group-form, invite-code (the field, the
+                       replacement and the share) with rotate-invite-code, and
                        delete-group (the name typed to confirm)
+      settings/        the account's own settings, one directory per page:
+                       settings-nav (the rail), appearance/ (appearance-form,
+                       theme-preview), language/ (language-form with locale-select,
+                       the dropdown, ours not the platform's), notifications/
+                       (notifications-form, notification-toggle), two-factor/
+                       (two-factor-method, the shell every method shares,
+                       two-factor-card, two-factor-enroll, two-factor-manage,
+                       two-factor-confirm), devices/ (device-row with device-name,
+                       the inline rename, and all-device-actions: sign out
+                       everywhere and remove every device), password/
+                       (password-form), connected-accounts/ (google-connection,
+                       unlink-google), deactivate/ (deactivate-account)
     auth/              login-form, register-form, verify-email-form, two-factor-form,
                        google-sign-in (the rule plus the button), google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -301,8 +309,10 @@ src/
 **Depth follows need, not symmetry**: `signin/` groups five modules because five endpoints exchange
 a credential, where `session/` is one module and stays one. **Server Actions stay with their route**,
 not in `components/`. Every name above that has a test, a `.types.ts` or parts of its own is a
-directory holding them, so `client.ts` is `api/client/client.ts`. A component used by one feature
-starts in that feature's directory. **Tests sit beside the code** they cover.
+directory holding them, so `client.ts` is `api/client/client.ts`. **A signed-in component lives under the
+screen that shows it**, so `components/app/` mirrors the route tree: `chrome/`, `groups/`,
+`group/{shell,overview,settings}/` and `settings/<page>/`. A component with callers on two different
+screens, or with none of its own feature's knowledge, moves to `components/common/` instead. **Tests sit beside the code** they cover.
 
 ## Conventions
 

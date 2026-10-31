@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { NotificationsForm } from "@/components/app/notifications-form/notifications-form";
+import { NotificationsForm } from "@/components/app/settings/notifications/notifications-form/notifications-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";

@@ -4,7 +4,7 @@
  * route group adds no path segment, the same as the public shell.
  */
 
-import { AppHeader } from "@/components/app/app-header/app-header";
+import { AppHeader } from "@/components/app/chrome/app-header/app-header";
 import { getSession } from "@/lib/auth/session/session";
 import { getMyGroups } from "@/lib/groups/groups";
 import type { MyGroup } from "@/lib/groups/groups.types";

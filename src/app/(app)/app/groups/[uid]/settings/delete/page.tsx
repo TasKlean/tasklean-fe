@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { loadAdminGroup } from "@/app/(app)/app/groups/[uid]/settings/settings.helpers";
-import { DeleteGroup } from "@/components/app/group-settings/delete-group";
-import { SettingsSection } from "@/components/app/group-settings/settings-section";
+import { DeleteGroup } from "@/components/app/group/settings/delete-group/delete-group";
+import { SettingsSection } from "@/components/app/group/settings/settings-section";
 import { groupLabel } from "@/lib/groups/labels/labels";
 
 export const metadata: Metadata = {

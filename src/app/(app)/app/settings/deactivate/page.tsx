@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
-import { DeactivateAccount } from "@/components/app/deactivate-account/deactivate-account";
+import { DeactivateAccount } from "@/components/app/settings/deactivate/deactivate-account/deactivate-account";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";

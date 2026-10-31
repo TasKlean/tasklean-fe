@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { AddGroupBar } from "@/components/app/add-group-bar/add-group-bar";
-import { AddGroup } from "@/components/app/add-group/add-group";
-import { GroupFilters } from "@/components/app/group-filters/group-filters";
-import { NoMatches } from "@/components/app/group-filters/no-matches";
-import { GroupSection } from "@/components/app/group-section/group-section";
-import { NoGroups } from "@/components/app/no-groups/no-groups";
+import { AddGroupBar } from "@/components/app/groups/add-group-bar/add-group-bar";
+import { AddGroup } from "@/components/app/groups/add-group/add-group";
+import { GroupFilters } from "@/components/app/groups/group-filters/group-filters";
+import { NoMatches } from "@/components/app/groups/group-filters/no-matches";
+import { GroupSection } from "@/components/app/groups/group-section/group-section";
+import { NoGroups } from "@/components/app/groups/no-groups/no-groups";
 import { FormNotice } from "@/components/common/form-notice";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";

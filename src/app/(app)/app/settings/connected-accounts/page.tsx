@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { BadgeCheck } from "lucide-react";
-import { GoogleConnection } from "@/components/app/google-connection";
+import { GoogleConnection } from "@/components/app/settings/connected-accounts/google-connection";
 import { BackLink } from "@/components/auth/back-link";
 import { GoogleMark } from "@/components/common/google-mark";
 import { LoadError } from "@/components/common/load-error";

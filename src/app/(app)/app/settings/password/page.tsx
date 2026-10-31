@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { PasswordForm } from "@/components/app/password-form/password-form";
+import { PasswordForm } from "@/components/app/settings/password/password-form/password-form";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import type { ConnectedAccounts } from "@/lib/account/account.types";

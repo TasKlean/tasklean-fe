@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import { GroupAvatar } from "@/components/app/group-avatar/group-avatar";
+import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 import type { Group } from "@/lib/groups/groups.types";
 import { createdLabel, groupLabel, memberCountLabel, roleLabel } from "@/lib/groups/labels/labels";
 
