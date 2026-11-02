@@ -10,10 +10,11 @@ import "server-only";
 import { cache } from "react";
 import { serverApi } from "@/lib/api/server/server";
 import type {
+  CreateGroupRequest,
   Group,
-  GroupDetailsRequest,
   JoinGroupRequest,
   MyGroup,
+  UpdateGroupRequest,
 } from "@/lib/groups/groups.types";
 
 const GROUPS_PATH = "/api/groups";
@@ -47,7 +48,7 @@ function groupPath(uid: string, suffix = ""): string {
  * @throws SessionExpiredError when the session is gone, ApiError otherwise,
  * including 400 for a name the backend refused.
  */
-export async function createGroup(fields: GroupDetailsRequest): Promise<Group> {
+export async function createGroup(fields: CreateGroupRequest): Promise<Group> {
   return serverApi<Group>(GROUPS_PATH, { method: "POST", body: fields });
 }
 
@@ -99,12 +100,15 @@ export const getGroup = cache(async (uid: string): Promise<Group> => {
 });
 
 /**
- * Renames a group, or changes its description.
+ * Saves a group's name, description and picture.
  *
+ * @param fields Everything the group will then hold: the backend replaces the
+ * lot, so an omitted `photoUid` takes the picture away.
  * @returns The group as the backend now holds it.
- * @throws SessionExpiredError when the session is gone, ApiError otherwise.
+ * @throws SessionExpiredError when the session is gone, ApiError otherwise. A
+ * 400 is an upload that cannot be attached, as well as a refused name.
  */
-export async function updateGroup(uid: string, fields: GroupDetailsRequest): Promise<Group> {
+export async function updateGroup(uid: string, fields: UpdateGroupRequest): Promise<Group> {
   return serverApi<Group>(groupPath(uid), { method: "PUT", body: fields });
 }
 

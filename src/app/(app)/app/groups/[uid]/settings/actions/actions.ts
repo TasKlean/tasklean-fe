@@ -12,18 +12,19 @@ import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/
 import { deleteGroup, rotateInviteCode, updateGroup } from "@/lib/groups/groups";
 import { parseGroupAction } from "@/lib/validation/forms/group-action.schema";
 import {
-  echoGroupDetails,
-  parseGroupDetails,
-  type GroupDetailsErrors,
-  type GroupDetailsFields,
-} from "@/lib/validation/forms/group-details.schema/group-details.schema";
+  echoEditGroup,
+  parseEditGroup,
+  type EditGroupErrors,
+  type EditGroupValues,
+} from "@/lib/validation/forms/edit-group.schema/edit-group.schema";
 
 export type GroupDetailsState = {
   error: string | null;
   saved: boolean;
-  fieldErrors?: GroupDetailsErrors;
-  // Echoed so a submit without JS keeps what was typed.
-  values?: GroupDetailsFields;
+  fieldErrors?: EditGroupErrors;
+  // Echoed so a submit without JS keeps what was typed. The picture is not
+  // among them: a hidden uid is nothing a reader could retype.
+  values?: EditGroupValues;
 };
 
 export type GroupActionState = {
@@ -44,21 +45,23 @@ function revalidateGroup(groupUid: string): void {
 }
 
 /**
- * Saves a group's name and description.
+ * Saves a group's name, description and picture.
  *
- * @returns The saved state, or the failure to show above the form.
+ * @returns The saved state, or the failure to show above the form. A 400 here
+ * is an upload the backend would not attach as well as a refused name, and
+ * both arrive as the line over the form.
  */
 export async function updateGroupDetailsAction(
   _previous: GroupDetailsState,
   formData: FormData,
 ): Promise<GroupDetailsState> {
   const submitted = Object.fromEntries(formData);
-  const values = echoGroupDetails(submitted);
+  const values = echoEditGroup(submitted);
   const groupUid = parseGroup(formData);
 
   if (!groupUid) return { error: GENERIC_FAILURE, saved: false, values };
 
-  const parsed = parseGroupDetails(submitted);
+  const parsed = parseEditGroup(submitted);
   if (!parsed.ok) return { error: null, saved: false, fieldErrors: parsed.errors, values };
 
   try {

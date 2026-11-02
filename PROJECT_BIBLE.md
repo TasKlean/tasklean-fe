@@ -1941,27 +1941,96 @@ still gets somebody to a working control.
 977px at 1280, and a name field and a primary pill that wide read as a page rather than as one
 section's control.
 
-### A group's picture is a link, and it is drawn unoptimized
+### A group's picture is an uploaded file, and every piece of that is forced
 
-**`GroupRequest.photoUrl` has been in the contract all along and nothing sent it.** There is no
-uploader anywhere in the product (gap 3), so the only picture a group can have is a URL somebody
-pastes, and that is what Group details now asks for, with the avatar beside the field drawn from
-what is typed: a link that will not render is worth seeing before the save rather than after it.
+The pasted `photoUrl` this section used to describe is gone. The backend grew object storage, so
+`GroupRequest` carries a `photoUid` naming an upload and the bucket is **private**: there is no
+address anything can simply fetch, and every decision below follows from that one fact.
 
-**`next/image` renders it with `unoptimized`.** The optimizer's allowlist is
-`**.googleusercontent.com`, and `next/image` throws on a host it was not configured with, which
-would take the whole page down. Widening the allowlist to render arbitrary links would make our
-optimizer an open image proxy for anyone who can type a URL into a group. `unoptimized` returns the
-`src` untouched and never calls the loader, so the allowlist is not consulted: verified in
-`next/dist/shared/lib/get-img-props.js`, where the unoptimized branch returns before the loader
-that carries the throw. The same file is why a unit test could not have proved it, since the host
-check is skipped when `NODE_ENV === "test"`.
+**The bytes go browser to bucket, and never through us.** `POST /api/uploads` answers with a
+presigned `PUT` URL, the browser sends the file to it, and the uid comes back to be attached. Our
+server never holds an image, which is what keeps a 5 MB upload off a small Render instance and out
+of the request body limit. It also means `put-object` is the second place in the app that calls
+`fetch` directly: that URL is not our API, carries no envelope and deals in bytes.
 
-**One module decides whether a link may be drawn.** `lib/groups/photo` is `https`-only, which rules
-out `javascript:` and `data:` and the mixed content a plain `http` image would be. The validation
-rule and the avatar both import it, because a URL the form accepted and the avatar then refused
-would look like a lost save. It is a square with the group's first letter behind it, where a
-person's avatar is a circle with their initials: a group is not somebody.
+**Resizing has to come first, because the length is signed.** `PutObjectRequest.contentType` and
+`.contentLength` are both inside the signature, so the bytes must be final before a signature can
+be asked for. The order is therefore decode, redraw, encode, read `blob.size`, presign, PUT, and
+nothing in it may be reordered. That is also why `useImageUpload` splits into `stage` and `upload`
+rather than doing the lot on Save: an unreadable file is worth reporting at the press that picked
+it.
+
+**Re-encoding is mandatory, not an optimisation.** The allowlist is `image/(jpeg|png|webp)` and an
+iPhone hands over HEIC, so a file passed through untouched would be refused by a backend that then
+checks magic bytes on attach. Decoding through an `<img>` and an object URL rather than
+`createImageBitmap` is what gets the browser's full decoder, HEIC included, with no feature
+detection. The canvas is asked for WebP and **falls back to JPEG rather than to whatever came
+back**: a canvas with no WebP encoder quietly returns a PNG, which for a photograph is several
+times the size and is in the allowlist, so nothing downstream would have complained.
+
+**A presigned URL must never reach the browser, which is why `/api/image/[uid]` exists.** The
+string is a bearer credential: whoever holds it reads the object for fifteen minutes with no
+session, and in a `src` it would sit in the HTML, the RSC payload, the referrer and the history,
+and keep working after the reader left the group. A route of ours also solves two things a signed
+URL cannot: an `<img>` fetches on its own and cannot be handed an access token, so the thing in
+`src` has to be same-origin for the session cookie to ride along, and a uid is permanent where a
+signature expires, so a page rendered at 10:00 and read at 10:20 still draws.
+
+**`unoptimized` is now load-bearing for a completely different reason.** Since Next 15.4.5 and
+14.2.31, the fix for CVE-2025-57752, the image optimizer's internal fetch deliberately drops
+`Cookie` and `Authorization`, because a cache keyed without them served one reader's private image
+to another. Our route is guarded by the session, so an optimized `src` is fetched without one and
+comes back 401. The practical consequence is that `next.config.ts` needed **no** change: the
+handoff's advice to add a `remotePatterns` entry would have produced a silently broken image.
+
+**The cache is `private, max-age=3600, immutable`.** `immutable` is honest because a uid addresses
+one object forever; `private` is the load-bearing half, since a shared cache holding a household's
+photo is the same leak the CVE was about. An hour rather than a day comes from the backend's own
+`supersededGrace` of one hour, and from a removed member's browser, which should not keep drawing
+the picture indefinitely.
+
+**A save replaces the group, so an omitted `photoUid` is how a picture is removed.** That is what
+split `group-details.schema` into `create-group` and `edit-group`: the form has to post the uid the
+group already holds on every save that is not a removal, which is a concern creating a group does
+not have. A **blank** uid is a third case and a trap: `GroupRequest.photoUid` is `@Size`-bounded but
+not `@NotBlank`, so `""` passes validation and then fails `findByUid` as a 400. `optionalUidRule`
+turns blank into absent, so the field is either missing or carries a uid.
+
+**The picture is the one JS-only field, and cannot be set while creating a group.**
+`UploadService.attachGroupPhoto` needs a group to check the caller against, and `GroupService`
+refuses a photo on create with `PHOTO_NEEDS_AN_EXISTING_GROUP`, so the create screen says a picture
+can be added once the group exists rather than holding a file and hoping. On the edit form the
+submit is intercepted, since the bytes have to land before the form can be sent at all, and the
+action is then dispatched by hand. Two consequences: without JavaScript the native post still saves
+the name and the description with the picture echoed from a hidden field, and `SubmitButton` needed
+a `busy` prop, because with no browser submission `useFormStatus` has nothing to report.
+
+**Every refusal collapses into one message on purpose.** `UploadSecurity.mayCreate` calls
+`groupSecurity.isAdmin` inside `@PreAuthorize`, before the group is resolved, and `mayRead` ends in
+`.orElse(false)`, so a nonexistent uid and an unauthorized one are both 403 and never 404. The
+attach side does the same: own, PENDING, right purpose, right group, declared length, declared type
+and the magic bytes all fail as `UPLOAD_NOT_USABLE`. The presign action therefore phrases its own
+403 rather than letting the backend's `Access Denied` through, and **never retries**, because
+`RateLimitFilter` keys on the user id and runs ahead of the controller, so a refusal spends one of
+the twenty signatures an hour. That is also why the request is validated against the backend's own
+bounds before it is sent: a 6 MB file caught here costs nothing and caught there costs a token.
+
+**A retry re-presigns rather than reusing the uid.** Caching it would make a retry free, and was
+rejected: every branch of `UPLOAD_NOT_USABLE` is deterministic for a given uid, so pressing Save
+again on the same one fails identically. A fresh presign is the only retry that can succeed.
+
+**The two size bounds are not the same bound, and the picker says the one a reader can reach.**
+`MAX_IMAGE_BYTES` is the backend's 5 MB on what is sent, which a 1024px lossy encode never
+approaches, so it is an invariant in the presign schema and nothing more. `MAX_SOURCE_BYTES` is
+25 MB on the file that is picked, checked before decoding because decoding is what costs a phone
+its memory, and it is the only one a reader ever meets. The picker quoted the wrong one until both
+the hint and the refusal were made to read the same constant.
+
+**One module still decides what a picture's `src` is**, as before, but `lib/groups/photo` now
+returns `/api/image/{uid}` or null rather than judging a link. The `https`-only rule, and the
+`javascript:` and `data:` cases behind it, are gone with the pasted link. It is still a square with
+the group's first letter behind it, where a person's avatar is a circle with their initials: a group
+is not somebody.
 
 ### A description sized to its content, and what `field-sizing` costs
 
@@ -2092,8 +2161,13 @@ workaround **before** the feature depending on it gets built.
 2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
    and the `TaskTag` junction has no controller. Tags are creatable and listable but not assignable,
    so filter-by-tag isn't buildable.
-3. **No file upload.** `photoUrl`, `taskPhotoUrl` and `completionPhotoUrl` are plain URL strings;
-   image storage is unbuilt on the backend. Photo proof can't ship until there's an upload path.
+3. **No file upload, except for a group's photo.** **Partly closed.** `/api/uploads` presigns and
+   `UploadPurpose` exists, but it holds `GROUP_PHOTO` alone: `taskPhotoUrl` and
+   `completionPhotoUrl` are still plain URL strings with nothing to point them at, so photo proof
+   remains unbuildable. Two things are owed when `TASK_PHOTO` arrives, both found by reading the
+   service: `UploadService.createUpload` resolves `targetUid` as a group unconditionally, and the
+   403 the presign returns is phrased by us as a group permission, which will have to become
+   per-purpose.
 4. **Notifications are read-only.** There's `GET` and `PATCH /{id}/read`, but no create endpoint — so
    "ping a member about a task", an MVP feature, has no API.
 5. **No server-side task filtering.** Client-side only for now.
@@ -2114,9 +2188,10 @@ workaround **before** the feature depending on it gets built.
    nested user, so even a list we could fetch would read as "user 41 did something". Three things
    are owed: a uid-scoped route or a numeric id on the group, the same for a membership, and an
    actor on the entry. The rail carries "Audit trail, coming soon" until then.
-9. **No group photo upload.** `GroupRequest.photoUrl` is a 500-character string and there is no
-   upload endpoint (gap 3), so a group's picture is a link somebody pastes. It is the same gap as
-   the user's `photoUrl`, recorded separately because the group screens hit it first.
+9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
+   `/api/uploads` signs one, so a group's picture is a file rather than a pasted link. The user's
+   own `photoUrl` is still Google's URL and is not covered by this: there is no `AVATAR` purpose,
+   so changing a profile photo remains unbuildable.
 
 ---
 
@@ -2263,6 +2338,20 @@ workaround **before** the feature depending on it gets built.
     now, and `aria-labelledby` still names each list from a `display: none` heading. Measured at
     1068, then 434, then 360.
 
+31. **A percentage height inside a `place-items-center` grid is indefinite, so `size-full` sized
+    only the width.** Both avatars draw their image in a fixed box that is a grid with
+    `place-items-center` and no explicit rows, so the implicit row is content-sized. A width of
+    100% resolved against a definite column and came out at 128px; a height of 100% against an
+    indefinite row resolved as `auto` and came out at the intrinsic height. `object-cover` then did
+    nothing, since the element already matched the image's own ratio, and `overflow-hidden` hid the
+    evidence: a tall photo was drawn at its own height and **clipped from the top rather than
+    cropped to its middle**. It only showed once a group photo came from a phone camera rather than
+    from Google, whose avatars are square. Next's own dev check caught it by comparing each rendered
+    dimension against its attribute and warning when exactly one differs. The fix is `fill` with
+    `relative` on the box, which is the API for this and sets the position and both dimensions
+    itself. `Avatar` carries the same shape and is latent for as long as every profile photo is
+    square.
+
 ---
 
 ## Roadmap
@@ -2287,7 +2376,7 @@ gap_ is still open doesn't get started; the gap gets raised with the backend ins
 | 9     | **Notifications**          | Inbox, unread badge, mark read.                                                                                                                                    | Pinging a member is _blocked on API gap 4_.                                                                                                                                                                 |
 | 10    | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell.                                                                                                    | Deliberately late: it's a capability layered onto a working app, and an offline shell for screens that don't exist yet is wasted work.                                                                      |
 | 11    | **Push notifications**     | Device registration and the permission flow. The device list itself landed in phase 3.                                                                                                    | Needs the PWA service worker from phase 9.                                                                                                                                                                  |
-| 12    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Blocked on API gap 3_ — there's no upload endpoint on the backend.                                                                                                                                         |
+| 12    | **Photos**                 | Task photos and completion photo proof.                                                                                                                            | _Still blocked on API gap 3_ — uploads exist and a group's photo ships with phase 4, but `UploadPurpose` holds `GROUP_PHOTO` alone, so a task photo has nothing to attach to.                                |
 
 **Cross-cutting work**, slotted where it earns its place rather than done up front:
 
@@ -2317,6 +2406,10 @@ Unanswered on purpose. Each gets decided when the work reaches it.
 - **Staging API URL** — recorded nowhere in either repo. Blocks `.env.example`'s staging row and
   `metadataBase`. No longer blocks refresh: rotation was proved in Docker by shortening
   `JWT_EXPIRATION`.
+- **The bucket's CORS policy in staging and production**: the browser PUTs straight to the
+  bucket, so it needs `PUT` allowed from our origin with `Content-Type` among the allowed headers,
+  or every upload is blocked before it leaves. Nothing in this repo can grant it and no presign can
+  make up for it. Local works; neither deployed environment has been tried.
 - **A real breached-password check** — `isGuessable` carries 24 common passwords, which stops the
   obvious ones and nothing else. Pwned Passwords' range API is the normal answer (k-anonymity, so no
   password or full hash leaves our server) at the cost of a call inside register; a bundled top-10k

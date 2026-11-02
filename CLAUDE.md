@@ -24,7 +24,7 @@ rail's top band: `overview/information` holds every field a group has, `overview
 roster an admin promotes, demotes and removes from, with leaving at the band on its end, and the
 audit trail is a dead entry the backend cannot answer. `settings/{preferences,notifications}` are
 everybody's and disabled with the reason beside them, while `settings/{details,invite-code,delete}`
-are an admin's and redirect a member: the name, description and pasted picture link, the code and
+are an admin's and redirect a member: the name, description and uploaded picture, the code and
 its replacement, and the deletion that asks for the group's name to be typed. **Tags & Categories is
 the only dead entry left in the rail.** **Two-factor is complete for the one provider the backend
 has**: a sign-in the backend gates is answered end to end, the settings page lists the methods, and
@@ -135,6 +135,8 @@ Per GitHub Environment (`Staging`, `Production`): `RENDER_DEPLOY_HOOK`, `RENDER_
 src/
   app/
     api/health/        route.ts, the 200 Render polls; outside Proxy's matcher
+    api/image/[uid]/   route.ts, the bytes of one uploaded image, read from the
+                       private bucket so no signed URL ever reaches the browser
     (app)/             the signed-in shell: layout.tsx, actions.ts (logout)
       app/             everything behind the session lives under /app
         page.tsx       the signed-in landing page: every group the caller is in,
@@ -165,6 +167,8 @@ src/
           password/    page.tsx and actions.ts: change a password, or set the first
           connected-accounts/  page.tsx and actions.ts: link and unlink Google
           deactivate/  page.tsx and actions.ts: closing the account
+      uploads/actions/ the presign every picker shares, in a segment with no
+                       page.tsx, so it is an action rather than a route
     (auth)/            shared shell (brand panel + form), robots noindex
       actions.ts       the Google Server Action, shared by both screens
       login/           page.tsx, actions.ts
@@ -182,7 +186,8 @@ src/
   proxy.ts             the auth boundary (Next 16 renamed Middleware → Proxy)
   hooks/               shared React state, which is neither a component nor the
                        non-UI logic lib/ is for: use-disclosure, the open state a
-                       popup needs and the two ways out of it
+                       popup needs and the two ways out of it, and
+                       use-image-upload, one picked image on its way to the bucket
   components/
     common/            primitives, plus what more than one screen shares: avatar,
                        account-menu, logout-button,
@@ -195,6 +200,8 @@ src/
                        text-area (multi-line, painted like text-field),
                        switch-track (the painted track a toggle rides on),
                        group-avatar (a group's picture, or its first letter),
+                       image-picker (one picture, picked or dropped, with the
+                       presses that change it),
                        invite-code/: invite-code-field (the code and the press
                        that copies it) and share-invite (where sharing will go),
                        recovery-codes (what an action hands back exactly once)
@@ -272,13 +279,15 @@ src/
     groups/            groups.ts (create, join, mine, detail, update, rotate the invite
                        code, delete) with groups.types.ts, members/members.ts (the roster,
                        a role change, and the removal that is also a leave), role.ts (the
-                       one place a role string is compared), photo/ (whether a
-                       pasted picture link may be drawn, which the rule and the
-                       avatar both read), labels.ts (the lines a card,
+                       one place a role string is compared), photo/ (the src a
+                       group's picture is read from, which is our own route and
+                       never the bucket), labels.ts (the lines a card,
                        a roster row or the overview shows), filter/ (the list's query: reading it
                        out of the URL, applying it here until the backend takes it,
                        and writing it back) with filter.types.ts, unavailable.ts (what
                        a 403 on a group route means) and last-admin.ts (the shared 409)
+    images/            fit-box/ (the size a picture is drawn at to fit a bound) and
+                       resize/ (the browser's own decode, redraw and re-encode)
     notifications/     settings.ts (the channels each notification type uses: a GET for the
                        page, a batch PUT that answers with the whole matrix) and
                        settings.types.ts
@@ -287,6 +296,9 @@ src/
                        theme-attribute.ts (the data-theme value, client-safe)
     qr/                qr-code.ts (the encoder, server side only) and qr-code.types.ts
     time/api-date.ts   API timestamps ↔ Date
+    uploads/           uploads.ts (the two presigns, server side) with
+                       uploads.types.ts (the caps and types the browser reads too)
+                       and put-object/ (the browser's PUT to the bucket)
     users/             me.ts (the caller's profile), name.ts (display name and initials)
     validation/        every form rule, shared by a form and its action
       rules.ts         the field-level Zod pieces (email, name, password, code, theme, locale,
@@ -298,8 +310,10 @@ src/
                        rename-device,
                        change-password, set-password, deactivate-account, appearance,
                        language, notifications, two-factor, two-factor-setup,
-                       two-factor-enable, two-factor-confirm, group-details (one schema
-                       for create and edit), join-group, group-action, member-action
+                       two-factor-enable, two-factor-confirm, create-group and
+                       edit-group (two schemas, because only an edit may carry a
+                       picture), upload-request (not a form: what a picker asks a
+                       signature for), join-group, group-action, member-action
       password/        policy.ts (the rules) and strength.ts (the advisory meter)
       code-length.ts   CODE_LENGTH, shared with CodeInput
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
@@ -326,19 +340,25 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   the value down as a prop. That is how the Google client id reaches the browser, and it keeps
   `config/env/env.ts`'s validation as the only gate.
 - **Components never call `fetch`.** All HTTP goes through `request()` in `api/client/client.ts`, which takes
-  the access token as a parameter and knows nothing about sessions.
+  the access token as a parameter and knows nothing about sessions. **The bucket is the one
+  exception, in both directions**: `api/image/[uid]` fetches a presigned object URL and
+  `uploads/put-object` PUTs the bytes to one, because that is not our API, carries no envelope
+  and deals in bytes rather than JSON. Nothing of ours rides along either way: the URL is the
+  credential.
 - **A module reading a server variable or holding a secret imports `server-only`**, and so does
   every feature module that calls `serverApi` or touches a cookie: `config/env/env.ts`, `api/client/client.ts`,
   `api/server/server.ts`, `api/action-failure/action-failure.ts`, `auth/session/session.ts`, `auth/device/device.ts`, `auth/signin/*`,
   `auth/tokens/refresh/refresh.ts`, `auth/two-factor-challenge/two-factor-challenge.ts`, `account/`, `devices/`, `users/`,
-  `groups/groups.ts`, `groups/members/members.ts`,
+  `groups/groups.ts`, `groups/members/members.ts`, `uploads/uploads.ts`,
   `qr/qr-code/qr-code.ts` (not for a secret: it keeps the encoder out of the browser bundle),
   `notifications/settings/settings.ts`, `preferences/preferences.ts` and `preferences/theme-cookie/theme-cookie.ts`. `validation/` must **not**, since
   client components import it, and neither may `qr/qr-code/qr-code.types.ts`, `preferences/preferences.types.ts`,
   `preferences/theme-attribute/theme-attribute.ts`, `notifications/settings/settings.types.ts`, which the forms read,
   or the four group modules a row in the browser reads: `groups/groups.types.ts` (which `rules.ts`
   imports for the role enum), `groups/role/role.ts`, `groups/unavailable/unavailable.ts` and
-  `groups/last-admin/last-admin.ts`.
+  `groups/last-admin/last-admin.ts`. Both halves of an upload that run in the browser stay out of
+  it too: `uploads/uploads.types.ts`, whose caps are what a picked file is measured against, and
+  `uploads/put-object/put-object.ts`, which is the browser's own PUT.
 - **Environment comes from `config/env/env.ts`**, never `process.env` (`NODE_ENV` is Next's, exempt).
   **No secrets in `NEXT_PUBLIC_*`**; the Google client id is the one public value.
 - **Styling is Tailwind utilities.** No CSS modules, no styled-components, no inline `style` except a
@@ -540,12 +560,24 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   refusing them. Each action still reports its own refusal, because the gate is UX and Spring is
   the authority. A form inside a section is bounded at `max-w-2xl`: the group's column is the
   window less the rail, which left a name field 831px wide at 1280.
-- **A group's picture is a pasted https link, drawn `unoptimized`.** `lib/groups/photo` is the one
-  place that decides whether a link may be shown, read by both the validation rule and
-  `GroupAvatar`, and the avatar is a square with the group's first letter where a person's is a
-  circle with their initials. `unoptimized` is what keeps `next/image` from throwing on a host the
-  optimizer was not configured with, and widening `remotePatterns` instead would make the optimizer
-  an open image proxy.
+- **A group's picture is an uploaded file, addressed by uid and drawn `unoptimized`.** The bucket is
+  private, so `Group.photoUid` is an upload rather than a URL and `lib/groups/photo` turns it into
+  `/api/image/{uid}`, the one address a page is ever given. The avatar is a square with the group's
+  first letter where a person's is a circle with their initials. `unoptimized` is not a preference:
+  that route is guarded by the session and Next's optimizer deliberately drops cookies from its own
+  fetch, so an optimized src would be refused and draw nothing.
+- **Saving a group replaces it, so an omitted `photoUid` is how a picture is removed.** `PUT
+  /api/groups/{uid}` takes the group as it will then be, which is why `EditGroupForm` posts the uid
+  the group already holds on every save that is not a removal, and why a blank one is never posted:
+  the backend's field is bounded but not required, so `""` passes its validation and then fails the
+  lookup behind it as a 400. `optionalUidRule` is where that is enforced.
+- **The picture is the one JS-only field, and it cannot be set while creating a group.** The bytes
+  have to reach the bucket and come back as a uid before the form can be sent, so `EditGroupForm`
+  intercepts its own submit and dispatches the action by hand, which is also why `SubmitButton`
+  takes a `busy` prop: with no browser submission, `useFormStatus` has nothing to report. Without
+  JavaScript the native post still saves the name and the description with the picture echoed
+  unchanged. Creating a group offers no picture at all, because the backend refuses to attach an
+  upload to a group that does not exist yet, and the create screen says so.
 - **A `TextArea` grows with what is typed, and `field-sizing` cancels `rows`.** The
   `field-sizing-content` utility does it with no effect and no ref, but the attribute stops
   applying, so `min-h-24` is the floor that keeps an empty field from collapsing to one line.
