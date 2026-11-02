@@ -11,17 +11,17 @@ import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { createGroup } from "@/lib/groups/groups";
 import type { Group } from "@/lib/groups/groups.types";
 import {
-  echoGroupDetails,
-  parseGroupDetails,
-  type GroupDetailsErrors,
-  type GroupDetailsFields,
-} from "@/lib/validation/forms/group-details.schema/group-details.schema";
+  echoCreateGroup,
+  parseCreateGroup,
+  type CreateGroupErrors,
+  type CreateGroupFields,
+} from "@/lib/validation/forms/create-group.schema/create-group.schema";
 
 export type CreateGroupState = {
   error: string | null;
-  fieldErrors?: GroupDetailsErrors;
+  fieldErrors?: CreateGroupErrors;
   // Echoed so a submit without JS keeps what was typed.
-  values?: GroupDetailsFields;
+  values?: CreateGroupFields;
 };
 
 /**
@@ -35,9 +35,9 @@ export async function createGroupAction(
   formData: FormData,
 ): Promise<CreateGroupState> {
   const submitted = Object.fromEntries(formData);
-  const values = echoGroupDetails(submitted);
+  const values = echoCreateGroup(submitted);
 
-  const parsed = parseGroupDetails(submitted);
+  const parsed = parseCreateGroup(submitted);
   if (!parsed.ok) return { error: null, fieldErrors: parsed.errors, values };
 
   let group: Group;

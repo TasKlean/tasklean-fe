@@ -13,7 +13,7 @@ import { GroupSidebar } from "@/components/app/group/shell/group-sidebar/group-s
 const GROUP = {
   uid: "g1",
   name: "Flat 12",
-  photoUrl: null,
+  photoUid: null,
   description: "Everything the four of us share",
   memberCount: 4,
   admin: true,

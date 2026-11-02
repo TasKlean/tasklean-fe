@@ -1,23 +1,23 @@
 /**
- * Whether a group's picture may be shown. One module, because the rule that
- * accepts a pasted link and the component that draws it have to agree: a URL
- * the form took and the avatar then refused would look like a lost save.
+ * Where a group's picture is read from. The bucket is private, so a group
+ * carries an upload's uid rather than a URL, and the only address a browser may
+ * be handed is our own route: it signs the read behind the session and streams
+ * the bytes back, so no signed URL ever reaches a page.
  *
- * No `server-only`: the form validates in the browser and a card renders there.
+ * No `server-only`: the avatar that calls this renders in the browser as well.
  */
+
+const IMAGE_PATH = "/api/image";
 
 /**
- * Reports whether this is a link a page may point an image at.
+ * Builds what an image element may point at for a group's picture.
  *
- * `https` only. `javascript:` and `data:` are the reason for checking at all,
- * and plain `http` would be blocked as mixed content on a page served securely.
+ * @returns The path to read it from, or null when the group has no picture. The
+ * uid is encoded, since it goes back out as a path segment.
  */
-export function isGroupPhotoUrl(photoUrl: string | null | undefined): photoUrl is string {
-  if (!photoUrl) return false;
+export function groupPhotoSrc(photoUid: string | null | undefined): string | null {
+  const uid = photoUid?.trim();
+  if (!uid) return null;
 
-  try {
-    return new URL(photoUrl).protocol === "https:";
-  } catch {
-    return false;
-  }
+  return `${IMAGE_PATH}/${encodeURIComponent(uid)}`;
 }

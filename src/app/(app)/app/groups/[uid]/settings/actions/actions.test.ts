@@ -58,14 +58,14 @@ describe("updateGroupDetailsAction", () => {
         groupUid: "g1",
         name: "  Flat 4  ",
         description: " Ours ",
-        photoUrl: " https://img.test/flat.png ",
+        photoUid: "  up-1 ",
       }),
     );
 
     expect(sent).toEqual({
       name: "Flat 4",
       description: "Ours",
-      photoUrl: "https://img.test/flat.png",
+      photoUid: "up-1",
     });
     expect(state).toEqual({ error: null, saved: true });
   });
@@ -78,7 +78,7 @@ describe("updateGroupDetailsAction", () => {
 
     expect(state.saved).toBe(false);
     expect(state.fieldErrors?.name).toBeTruthy();
-    expect(state.values).toEqual({ name: "", description: "Ours", photoUrl: "" });
+    expect(state.values).toEqual({ name: "", description: "Ours" });
   });
 
   it("shows what the backend refused", async () => {
@@ -99,7 +99,7 @@ describe("updateGroupDetailsAction", () => {
     expect(state).toEqual({
       error: "Not allowed here.",
       saved: false,
-      values: { name: "Flat 4", description: "", photoUrl: "" },
+      values: { name: "Flat 4", description: "" },
     });
   });
 

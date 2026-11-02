@@ -45,7 +45,7 @@ export default async function GroupLayout({ children, params }: LayoutProps<"/ap
       <GroupSidebar
         uid={uid}
         name={groupLabel(group.name)}
-        photoUrl={group.photoUrl ?? null}
+        photoUid={group.photoUid ?? null}
         description={group.description?.trim() || null}
         memberCount={group.memberCount ?? null}
         admin={admin}

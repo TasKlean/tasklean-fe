@@ -14,8 +14,8 @@ import {
 import { CODE_LENGTH } from "@/lib/validation/code-length";
 import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
-import { isGroupPhotoUrl } from "@/lib/groups/photo/photo";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
+import { IMAGE_TYPES, MAX_IMAGE_BYTES, UPLOAD_PURPOSES } from "@/lib/uploads/uploads.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
 // classes exclude the dot that separates the labels, so nothing backtracks.
@@ -35,9 +35,6 @@ export const GROUP_NAME_MAX_LENGTH = 255;
 // Deliberately shorter than the backend's 2000: a description is a line on a
 // card, and a thousand characters of it is a wall nobody reads.
 export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
-
-// The backend's own cap on a group's photo URL.
-export const GROUP_PHOTO_MAX_LENGTH = 500;
 
 // Eight characters, generated upper-case from a UUID prefix.
 const INVITE_CODE = /^[A-Z\d]{8}$/;
@@ -161,6 +158,20 @@ export const uidRule = (missing: string) =>
     .string({ error: missing })
     .check(z.trim(), z.minLength(1, missing), z.maxLength(UID_MAX_LENGTH, missing));
 
+/**
+ * A uid a form may leave out, such as the picture a group need not have.
+ *
+ * Blank becomes absent rather than staying an empty string: the backend's own
+ * field is bounded but not required, so `""` passes its validation and then
+ * fails the lookup behind it as a 400.
+ */
+export const optionalUidRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(UID_MAX_LENGTH, "That picture cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
 /** A group's name, bounded by the backend's `@Size` on the column. */
 export const groupNameRule = z
   .string({ error: "Enter a name for the group." })
@@ -181,23 +192,6 @@ export const groupDescriptionRule = z.optional(
         `Use ${GROUP_DESCRIPTION_MAX_LENGTH} characters or fewer.`,
       ),
     ),
-);
-
-/**
- * A group's picture: optional, and an https URL when there is one.
- *
- * There is no uploader anywhere in the product, so the only way to give a group
- * a picture is to paste a link to one. `http` is refused as well as the rest,
- * because the page asking for it is served over `https`.
- */
-export const groupPhotoRule = z.optional(
-  z.string().check(
-    z.trim(),
-    z.maxLength(GROUP_PHOTO_MAX_LENGTH, `Use ${GROUP_PHOTO_MAX_LENGTH} characters or fewer.`),
-    z.refine((value) => value === "" || isGroupPhotoUrl(value), {
-      error: "Enter a link starting with https://, or leave this empty.",
-    }),
-  ),
 );
 
 /**
@@ -225,3 +219,21 @@ export const localeRule = z.enum(LOCALES, { error: "Pick a language." });
 export const notificationTypeRule = z.enum(NOTIFICATION_TYPES, {
   error: "Pick a notification type.",
 });
+
+/** One of the things an upload can be for, which is what decides who may make it. */
+export const uploadPurposeRule = z.enum(UPLOAD_PURPOSES, {
+  error: "Pick what the upload is for.",
+});
+
+/** An image type the backend will sign for, and so what a canvas re-encodes to. */
+export const imageTypeRule = z.enum(IMAGE_TYPES, {
+  error: "Pick a JPEG, PNG or WebP image.",
+});
+
+/** The exact byte count of what will be sent, which is signed along with it. */
+export const imageSizeRule = z
+  .int({ error: "That picture cannot be measured." })
+  .check(
+    z.gte(1, "That picture is empty."),
+    z.lte(MAX_IMAGE_BYTES, `Pictures are limited to ${MAX_IMAGE_BYTES / 1024 / 1024} MB.`),
+  );

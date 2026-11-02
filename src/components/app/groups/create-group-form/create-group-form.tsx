@@ -16,25 +16,25 @@ import { SubmitButton } from "@/components/common/submit-button";
 import { TextArea } from "@/components/common/text-area/text-area";
 import { TextField } from "@/components/common/text-field/text-field";
 import {
-  validateGroupDetails,
-  type GroupDetailsFields,
-} from "@/lib/validation/forms/group-details.schema/group-details.schema";
+  validateCreateGroup,
+  type CreateGroupFields,
+} from "@/lib/validation/forms/create-group.schema/create-group.schema";
 import { GROUP_DESCRIPTION_MAX_LENGTH, GROUP_NAME_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
 const INITIAL: CreateGroupState = { error: null };
 
-const EMPTY: GroupDetailsFields = { name: "", description: "" };
+const EMPTY: CreateGroupFields = { name: "", description: "" };
 
 /** Renders the form that creates a group. */
 export function CreateGroupForm() {
   const [state, formAction] = useActionState(createGroupAction, INITIAL);
-  const [fields, setFields] = useState<GroupDetailsFields>(state.values ?? EMPTY);
+  const [fields, setFields] = useState<CreateGroupFields>(state.values ?? EMPTY);
   const [touched, setTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [edited, setEdited] = useState(false);
   const [handled, setHandled] = useState<CreateGroupState>(state);
 
-  const errors = validateGroupDetails(fields);
+  const errors = validateCreateGroup(fields);
 
   // Adjusted in render rather than in an effect, the way React prescribes, and
   // only once per answer the action gives.
@@ -94,6 +94,12 @@ export function CreateGroupForm() {
           }}
           error={errors.description ?? refused?.description}
         />
+
+        {/* The backend will not attach an upload to a group that does not exist
+            yet, so the picture is the first thing its settings offer. */}
+        <p className="text-label-md text-muted-foreground">
+          You can add a picture once the group exists.
+        </p>
 
         <SubmitButton pendingLabel="Creating the group…">Create group</SubmitButton>
       </form>

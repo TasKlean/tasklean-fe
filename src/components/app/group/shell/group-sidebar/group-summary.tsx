@@ -12,7 +12,7 @@ import { memberCountLabel } from "@/lib/groups/labels/labels";
 
 type GroupSummaryProps = {
   name: string;
-  photoUrl: string | null;
+  photoUid: string | null;
   description: string | null;
   memberCount: number | null;
   admin: boolean;
@@ -46,7 +46,7 @@ const ROLES = {
 /** Renders a group's identity card. */
 export function GroupSummary({
   name,
-  photoUrl,
+  photoUid,
   description,
   memberCount,
   admin,
@@ -66,7 +66,7 @@ export function GroupSummary({
         className={`gap-space-sm flex items-center justify-between ${collapsed ? "lg:justify-center" : ""} ${inArea ? "lg:hidden" : ""}`}
       >
         <span aria-hidden>
-          <GroupAvatar name={name} photoUrl={photoUrl} />
+          <GroupAvatar name={name} photoUid={photoUid} />
         </span>
 
         <span
