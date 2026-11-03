@@ -474,9 +474,10 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   `ChevronsUpDown` arrow opens the list, so the common move costs no popup, and each half is a real
   element with its own name rather than one button guessing from where the press landed.
 - **The header carries a trail at `lg` and the pill alone below it.** `GroupBreadcrumb` is four
-  crumbs at the deepest, My Groups, the group, the area and the section, each built like the pill
-  and each dropping a list of its own: the two ways in, every group, the three areas, and the area's
-  sections. Those sections come from `navSections`, the call the rail makes, so the trail cannot
+  crumbs at the deepest, My Groups, the group, the area and the section, each one two halves like
+  the pill and each dropping a list of its own: the two ways in, every group, the three areas, and
+  the area's sections. **A crumb wears no border until it is hovered**, and a `/` separates them,
+  so four of them read as a trail rather than as four buttons. Those sections come from `navSections`, the call the rail makes, so the trail cannot
   disagree with it about a label or about what is built yet. **A crumb is keyed by its level, never
   its href**, because a group's own page is both the group and its tasks and those two crumbs share
   a path. The pills are 36px where the switcher's are 44: four sit in one row, and the trail is

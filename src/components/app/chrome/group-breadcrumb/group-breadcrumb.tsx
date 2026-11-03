@@ -7,7 +7,6 @@
 
 "use client";
 
-import { ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { CrumbPill } from "@/components/app/chrome/group-breadcrumb/crumb-pill";
 import { buildCrumbs } from "@/components/app/chrome/group-breadcrumb/group-breadcrumb.helpers";
@@ -29,7 +28,11 @@ export function GroupBreadcrumb({ groups }: Readonly<GroupBreadcrumbProps>) {
         {crumbs.map((crumb, index) => (
           <li key={crumb.level} className="gap-space-xs flex min-w-0 items-center">
             {index === 0 ? null : (
-              <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              // Decoration: the list is what says these are four levels, so a
+              // reader is never told "slash" between them.
+              <span aria-hidden className="text-muted-foreground/60 shrink-0 select-none">
+                /
+              </span>
             )}
             <CrumbPill crumb={crumb} here={index === crumbs.length - 1} />
           </li>

@@ -1547,6 +1547,20 @@ switcher's height, and the trail is drawn at `lg` and up only, where every press
 than a finger. The rows each crumb drops keep their 44, since those are a list to aim at rather
 than a line of chrome.
 
+**A crumb's border appears on hover, and the border is transparent rather than absent.** Four
+outlined pills in a row read as a toolbar, where a trail should read as one line of text that
+happens to be pressable, so the outline is held back until the pointer is on it and says which
+crumb will answer. Setting no border and adding one on hover was the obvious way and it is wrong:
+the 2px arrives with the hover and moves every crumb after it, so the row twitches under the
+pointer. A transparent border of the same width reserves the space from the start. The divider
+between a crumb's two halves rides on the same hover through `group-hover`, or it hangs in space
+with nothing around it.
+
+**The separator is a `/` rather than a chevron.** An icon between two pressable things reads as a
+third control, and at the chevron's weight the row looked like a stepper. The slash is a quieter
+`muted-foreground/60`, `aria-hidden` because the `<ol>` is what says there are four levels, and
+`select-none` so copying the trail gives the labels back without the punctuation between them.
+
 **A phone gets the same tree, read as a page rather than a rail.** The card loses its border and
 padding below `lg` and reads as the page's own header, the band headings go, and the two bands part
 company: Workspace scrolls in a strip above the section and Administration moves into the bottom

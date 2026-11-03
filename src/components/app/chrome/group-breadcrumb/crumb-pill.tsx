@@ -6,6 +6,9 @@
  * Shorter than that pill at 36px, because four of these sit in one row and the
  * trail is drawn at `lg` and up only, where every press is a mouse. The rows it
  * drops keep their 44, since those are a list rather than a line of chrome.
+ *
+ * It wears no border until it is hovered, so a row of four reads as a trail
+ * rather than as four buttons.
  */
 
 "use client";
@@ -39,7 +42,9 @@ export function CrumbPill({ crumb, here }: Readonly<CrumbPillProps>) {
 
   return (
     <div ref={root} className="relative min-w-0">
-      <div className="border-border/60 flex min-w-0 items-center rounded-full border">
+      {/* The border is transparent rather than absent, so showing it on hover
+          costs no layout: dropping it outright moved every crumb by 2px. */}
+      <div className="hover:border-border/60 group flex min-w-0 items-center rounded-full border border-transparent transition-colors">
         <Link
           href={crumb.href}
           aria-current={here ? "page" : undefined}
@@ -56,7 +61,7 @@ export function CrumbPill({ crumb, here }: Readonly<CrumbPillProps>) {
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
           onClick={toggle}
-          className="border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-r-full border-l transition-colors"
+          className="group-hover:border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-r-full border-l border-transparent transition-colors"
         >
           <ChevronsUpDown className="size-4 shrink-0" aria-hidden />
         </button>
