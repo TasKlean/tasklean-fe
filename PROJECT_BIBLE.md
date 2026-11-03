@@ -2002,8 +2002,13 @@ refuses a photo on create with `PHOTO_NEEDS_AN_EXISTING_GROUP`, so the create sc
 can be added once the group exists rather than holding a file and hoping. On the edit form the
 submit is intercepted, since the bytes have to land before the form can be sent at all, and the
 action is then dispatched by hand. Two consequences: without JavaScript the native post still saves
-the name and the description with the picture echoed from a hidden field, and `SubmitButton` needed
-a `busy` prop, because with no browser submission `useFormStatus` has nothing to report.
+the name and the description with the picture echoed from a hidden field, and the press needs two
+pending flags rather than one. `SubmitButton`'s `busy` prop covers the upload, which no form
+submission covers at all. The save needs `useActionState`'s own flag beside it, because
+`useFormStatus` does pick up a dispatch made inside the submit event, as a name-only save shows,
+but this one comes after an await and the event it would be attributed to is already gone. With the
+prop alone the button went idle the moment the bytes landed and stayed idle for the whole save,
+which also left it pressable while the save was in flight.
 
 **Every refusal collapses into one message on purpose.** `UploadSecurity.mayCreate` calls
 `groupSecurity.isAdmin` inside `@PreAuthorize`, before the group is resolved, and `mayRead` ends in

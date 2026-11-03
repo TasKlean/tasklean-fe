@@ -69,6 +69,12 @@ function posted(): FormData | undefined {
   return updateGroupDetailsAction.mock.calls[0]?.[1];
 }
 
+function submitButton(): HTMLButtonElement {
+  const found = document.querySelector<HTMLButtonElement>('button[type="submit"]');
+  if (!found) throw new Error("no submit button");
+  return found;
+}
+
 describe("EditGroupForm", () => {
   it("starts from the details the group already has", () => {
     render(<EditGroupForm {...BASE} />);
@@ -198,5 +204,26 @@ describe("EditGroupForm", () => {
 
     await user.type(screen.getByLabelText("Group name"), "!");
     expect(screen.queryByText("That name is taken.")).toBeNull();
+  });
+
+  it("stays pending from the press until the save answers, not just until the upload does", async () => {
+    let answer: (state: State) => void = () => {};
+    updateGroupDetailsAction.mockImplementation(
+      () =>
+        new Promise<State>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const user = userEvent.setup({ delay: null });
+    render(<EditGroupForm {...BASE} />);
+
+    await user.upload(fileInput(), PICKED);
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(submitButton()).toHaveTextContent("Saving");
+    expect(submitButton()).toBeDisabled();
+
+    answer({ error: null, saved: true });
+    expect(await screen.findByText("Group details saved.")).toBeInTheDocument();
   });
 });
