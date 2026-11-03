@@ -1,27 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { isGroupPhotoUrl } from "@/lib/groups/photo/photo";
+import { groupPhotoSrc } from "@/lib/groups/photo/photo";
 
-describe("isGroupPhotoUrl", () => {
-  it("takes an https link", () => {
-    expect(isGroupPhotoUrl("https://example.test/flat.png")).toBe(true);
+describe("groupPhotoSrc", () => {
+  it("points at our own route rather than at the bucket", () => {
+    expect(groupPhotoSrc("up-1")).toBe("/api/image/up-1");
   });
 
-  it("refuses plain http, which a secure page would block anyway", () => {
-    expect(isGroupPhotoUrl("http://example.test/flat.png")).toBe(false);
+  it("encodes a uid, which goes back out as a path segment", () => {
+    expect(groupPhotoSrc("up/1")).toBe("/api/image/up%2F1");
   });
 
-  it("refuses a script or a data url", () => {
-    expect(isGroupPhotoUrl("javascript:alert(1)")).toBe(false);
-    expect(isGroupPhotoUrl("data:image/png;base64,iVBORw0KGgo=")).toBe(false);
-  });
-
-  it("refuses anything that is not a url", () => {
-    expect(isGroupPhotoUrl("example.test/flat.png")).toBe(false);
-    expect(isGroupPhotoUrl("")).toBe(false);
-  });
-
-  it("refuses a missing value", () => {
-    expect(isGroupPhotoUrl(null)).toBe(false);
-    expect(isGroupPhotoUrl(undefined)).toBe(false);
+  it("answers with nothing for a group that has no picture", () => {
+    expect(groupPhotoSrc(null)).toBeNull();
+    expect(groupPhotoSrc(undefined)).toBeNull();
+    expect(groupPhotoSrc("")).toBeNull();
+    expect(groupPhotoSrc("   ")).toBeNull();
   });
 });

@@ -34,7 +34,7 @@ const TOP = {
 type GroupSidebarProps = {
   uid: string;
   name: string;
-  photoUrl: string | null;
+  photoUid: string | null;
   description: string | null;
   memberCount: number | null;
   admin: boolean;
@@ -44,7 +44,7 @@ type GroupSidebarProps = {
 export function GroupSidebar({
   uid,
   name,
-  photoUrl,
+  photoUid,
   description,
   memberCount,
   admin,
@@ -60,7 +60,7 @@ export function GroupSidebar({
     >
       <GroupSummary
         name={name}
-        photoUrl={photoUrl}
+        photoUid={photoUid}
         description={description}
         memberCount={memberCount}
         admin={admin}
