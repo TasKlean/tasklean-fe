@@ -24,9 +24,9 @@ export function GroupName({ name, className = "" }: Readonly<GroupNameProps>) {
       type="button"
       onClick={() => setWhole(!whole)}
       aria-expanded={whole}
-      // `block` and `max-w-full`: `truncate` overflows a block box, and a
-      // button is not one, so without them the name pushes the card wider.
-      className={`focus-visible:ring-ring block max-w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none ${whole ? "break-words" : "truncate"} ${className}`}
+      // `truncate` overflows a block box and a button is not one; the padding is
+      // a target, taking a 32px line to the 44 a finger needs, not spacing.
+      className={`focus-visible:ring-ring block max-w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none pointer-coarse:py-1.5 ${whole ? "break-words" : "truncate"} ${className}`}
     >
       {name}
     </button>

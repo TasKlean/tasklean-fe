@@ -7,26 +7,26 @@ import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 
 describe("GroupAvatar", () => {
   it("reads the picture through our own route, never from the bucket", () => {
-    render(<GroupAvatar name="Flat 12" photoUid="up-1" />);
+    render(<GroupAvatar name="Flat 12" photoUid="up-1" size="list" />);
 
     expect(screen.getByRole("presentation")).toHaveAttribute("src", "/api/image/up-1");
   });
 
   it("stands in with the first letter of the name", () => {
-    render(<GroupAvatar name="flat 12" />);
+    render(<GroupAvatar name="flat 12" size="list" />);
 
     expect(screen.getByText("F")).toBeInTheDocument();
   });
 
   it("stands in for a group with no picture", () => {
-    render(<GroupAvatar name="Flat 12" photoUid="" />);
+    render(<GroupAvatar name="Flat 12" photoUid="" size="list" />);
 
     expect(screen.queryByRole("presentation")).toBeNull();
     expect(screen.getByText("F")).toBeInTheDocument();
   });
 
   it("stands in for a name that is nothing but space", () => {
-    render(<GroupAvatar name="   " />);
+    render(<GroupAvatar name="   " size="list" />);
 
     expect(screen.queryByRole("presentation")).toBeNull();
   });

@@ -36,7 +36,7 @@ export function GroupCard({ group }: Readonly<GroupCardProps>) {
       <div className="gap-space-xs flex items-start justify-between">
         <span className="gap-space-sm flex min-w-0 items-center">
           <span aria-hidden>
-            <GroupAvatar name={groupLabel(group.name)} photoUid={group.photoUid} />
+            <GroupAvatar name={groupLabel(group.name)} photoUid={group.photoUid} size="list" />
           </span>
           <span className="text-title-md text-foreground min-w-0 break-words">
             {groupLabel(group.name)}
