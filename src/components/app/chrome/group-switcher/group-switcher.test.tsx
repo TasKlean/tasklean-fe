@@ -26,10 +26,10 @@ describe("GroupSwitcher", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("reads Groups where no group is open, and points at the list", () => {
+  it("reads My Groups where no group is open, and points at the list", () => {
     render(<GroupSwitcher groups={GROUPS} />);
 
-    expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute("href", "/app");
+    expect(screen.getByRole("link", { name: "My Groups" })).toHaveAttribute("href", "/app");
   });
 
   it("names the group the path is inside, and points back into it", () => {
@@ -46,7 +46,7 @@ describe("GroupSwitcher", () => {
     pathname.mockReturnValue("/app/groups/new");
     render(<GroupSwitcher groups={GROUPS} />);
 
-    expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Groups" })).toBeInTheDocument();
   });
 
   it("leaves the list closed until the arrow is pressed", () => {

@@ -3,13 +3,16 @@
  * it, which `HeaderBar` decides, so the brand sits at the window's edge above a
  * group's rail and inside the column everywhere else.
  *
- * The group switcher is here because it answers "which group am I in" for every
- * screen inside one; the rest of the navigation belongs with its screens.
+ * The trail is here because it answers "where am I" for every screen inside a
+ * group; the rest of the navigation belongs with its screens. Below `lg` four
+ * pills do not fit beside a brand and an avatar, so the group switcher stands in
+ * for the whole trail and names the one level that matters on a phone.
  */
 
 import Link from "next/link";
 import { AddTaskButton } from "@/components/app/chrome/add-task-button";
 import { HeaderBar } from "@/components/app/chrome/app-header/header-bar";
+import { GroupBreadcrumb } from "@/components/app/chrome/group-breadcrumb/group-breadcrumb";
 import { GroupSwitcher } from "@/components/app/chrome/group-switcher/group-switcher";
 import { AccountMenu } from "@/components/common/account-menu/account-menu";
 import { BrandMark } from "@/components/common/brand-mark";
@@ -38,7 +41,11 @@ export function AppHeader({ name, photoUrl, groups }: Readonly<AppHeaderProps>) 
             <BrandMark wordmark="sm-up" />
           </Link>
 
-          <GroupSwitcher groups={groups} />
+          <div className="min-w-0 lg:hidden">
+            <GroupSwitcher groups={groups} />
+          </div>
+
+          <GroupBreadcrumb groups={groups} />
         </div>
 
         <div className="gap-space-xs flex shrink-0 items-center">
