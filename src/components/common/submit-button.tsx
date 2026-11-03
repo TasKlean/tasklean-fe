@@ -15,8 +15,8 @@ type SubmitButtonProps = {
   pendingLabel: string;
   // For a form with nothing to save yet, such as one holding no edits.
   disabled?: boolean;
-  // For a form whose action is dispatched by hand, where `useFormStatus` has no
-  // submission to report: the picker's form uploads before it saves.
+  // For work the form does before or around its action, which `useFormStatus`
+  // cannot see: the picker's form uploads to the bucket before it saves.
   busy?: boolean;
 };
 

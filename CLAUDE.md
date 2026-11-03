@@ -574,9 +574,11 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
 - **The picture is the one JS-only field, and it cannot be set while creating a group.** The bytes
   have to reach the bucket and come back as a uid before the form can be sent, so `EditGroupForm`
   intercepts its own submit and dispatches the action by hand, which is also why `SubmitButton`
-  takes a `busy` prop: with no browser submission, `useFormStatus` has nothing to report. Without
-  JavaScript the native post still saves the name and the description with the picture echoed
-  unchanged. Creating a group offers no picture at all, because the backend refuses to attach an
+  intercepts its own submit, **which is why the press reports itself through two flags**:
+  `SubmitButton`'s `busy` prop covers the upload, which no form submission covers at all, and
+  `useActionState`'s own pending flag covers the save, since `useFormStatus` sees only a dispatch
+  made inside the submit event. Without JavaScript the native post still saves the name and the
+  description with the picture echoed unchanged. Creating a group offers no picture at all, because the backend refuses to attach an
   upload to a group that does not exist yet, and the create screen says so.
 - **A `TextArea` grows with what is typed, and `field-sizing` cancels `rows`.** The
   `field-sizing-content` utility does it with no effect and no ref, but the attribute stops

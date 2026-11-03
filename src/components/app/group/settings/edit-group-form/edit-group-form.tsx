@@ -49,7 +49,9 @@ export function EditGroupForm({
   description,
   photoUid,
 }: Readonly<EditGroupFormProps>) {
-  const [state, formAction] = useActionState(updateGroupDetailsAction, INITIAL);
+  // `saving` is read rather than left to `useFormStatus`: the dispatch below
+  // happens after an await, so the submit event it would be attributed to is gone.
+  const [state, formAction, saving] = useActionState(updateGroupDetailsAction, INITIAL);
   const [fields, setFields] = useState<EditGroupValues>(state.values ?? { name, description });
   const [touched, setTouched] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -161,7 +163,9 @@ export function EditGroupForm({
         />
 
         <div className="flex">
-          <SubmitButton pendingLabel="Saving…" busy={image.busy}>
+          {/* Both halves: the picker reports the upload and the action reports
+              the save, and the press covers them with no gap between. */}
+          <SubmitButton pendingLabel="Saving…" busy={image.busy || saving}>
             Save changes
           </SubmitButton>
         </div>
