@@ -15,6 +15,9 @@ type SubmitButtonProps = {
   pendingLabel: string;
   // For a form with nothing to save yet, such as one holding no edits.
   disabled?: boolean;
+  // For a form whose action is dispatched by hand, where `useFormStatus` has no
+  // submission to report: the picker's form uploads before it saves.
+  busy?: boolean;
 };
 
 /** Renders a full-width pill submit button that shows progress while pending. */
@@ -22,8 +25,10 @@ export function SubmitButton({
   children,
   pendingLabel,
   disabled = false,
+  busy = false,
 }: Readonly<SubmitButtonProps>) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const pending = status.pending || busy;
 
   return (
     <button

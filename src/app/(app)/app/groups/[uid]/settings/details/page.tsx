@@ -25,7 +25,7 @@ export default async function GroupDetailsPage({
         groupUid={uid}
         name={group.name ?? ""}
         description={group.description ?? ""}
-        photoUrl={group.photoUrl ?? ""}
+        photoUid={group.photoUid ?? null}
       />
     </SettingsSection>
   );

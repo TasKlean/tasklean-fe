@@ -16,7 +16,9 @@ export type Group = {
   uid?: string;
   name?: string;
   description?: string;
-  photoUrl?: string;
+  // An upload's uid, read through `/api/image/[uid]`: the bucket is private,
+  // so a group has never carried an address anything could fetch.
+  photoUid?: string;
   inviteCode?: string;
   // Whatever the backend's enum holds, narrowed where it is read: a role we do
   // not recognise must not pass for an admin.
@@ -55,12 +57,15 @@ export type GroupMember = {
   removedBy?: GroupMemberUser;
 };
 
-// `photoUrl` is a link somebody pasted: there is no uploader or image storage
-// anywhere in the product, so a URL is the only picture a group can have.
-export type GroupDetailsRequest = {
+export type CreateGroupRequest = {
   name: string;
   description?: string;
-  photoUrl?: string;
+};
+
+// A full replace: an omitted `photoUid` clears the picture, so a save that is
+// not a removal has to carry the uid the group already holds.
+export type UpdateGroupRequest = CreateGroupRequest & {
+  photoUid?: string;
 };
 
 export type JoinGroupRequest = {
