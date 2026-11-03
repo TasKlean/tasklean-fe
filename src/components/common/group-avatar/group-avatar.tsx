@@ -15,11 +15,25 @@ type GroupAvatarProps = {
   name: string;
   // An upload's uid, not a URL: the bucket is private.
   photoUid?: string | null;
-  size?: "sm" | "lg";
+  size?: "sm" | "card" | "lg";
 };
 
-const BOX = { sm: "size-9 rounded-lg", lg: "size-20 rounded-xl" } as const;
-const TEXT = { sm: "text-label-lg", lg: "text-headline-md" } as const;
+// Two steps of the scale and one role. `card` is the group's own card, and it
+// is the only size that changes with the viewport, because that card is the
+// page's whole header on a phone and one item in a 288px rail at `lg`.
+const BOX = {
+  sm: "size-14 rounded-xl",
+  card: "size-16 rounded-xl lg:size-14",
+  lg: "size-24 rounded-xl",
+} as const;
+
+// Each token already carries its own weight, so the letter sets nothing beside
+// it: a `font-semibold` next to one is two utilities for one property.
+const TEXT = {
+  sm: "text-headline-sm",
+  card: "text-headline-md lg:text-headline-sm",
+  lg: "text-headline-lg",
+} as const;
 
 /** Renders a group's photo, or the letter standing in for it. */
 export function GroupAvatar({ name, photoUid, size = "sm" }: Readonly<GroupAvatarProps>) {
@@ -40,7 +54,7 @@ export function GroupAvatar({ name, photoUid, size = "sm" }: Readonly<GroupAvata
 
   return (
     <span className={shell}>
-      <span className={`${TEXT[size]} font-semibold`}>{name.trim().charAt(0).toUpperCase()}</span>
+      <span className={TEXT[size]}>{name.trim().charAt(0).toUpperCase()}</span>
     </span>
   );
 }

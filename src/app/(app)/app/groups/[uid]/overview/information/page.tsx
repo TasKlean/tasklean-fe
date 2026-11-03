@@ -62,7 +62,7 @@ export default async function GroupInformationPage({
       <div className={CARD}>
         <div className="gap-space-md flex items-center">
           <GroupAvatar name={name} photoUid={group.photoUid} size="lg" />
-          <h3 className="text-title-lg text-foreground min-w-0 break-words">{name}</h3>
+          <h3 className="text-headline-sm text-foreground min-w-0 break-words">{name}</h3>
         </div>
 
         <dl className="gap-space-md flex flex-col">

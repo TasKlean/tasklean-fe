@@ -1,7 +1,8 @@
 /**
- * One group on the list, as a card that is entirely a link. The admin chip is
- * outlined rather than filled: `bg-muted` is what every input is painted in, so
- * a filled grey pill beside a title reads as a disabled field.
+ * One group on the list, as a card that is entirely a link. The role pill is the
+ * same one the group's own card wears, filled in one of the two blues: a grey
+ * fill was what had to be avoided, since `bg-muted` paints every input and a
+ * grey pill beside a title reads as a disabled field.
  *
  * Every card is the same height: the grid gives equal widths already, and the
  * description's two lines are reserved rather than drawn only when filled.
@@ -10,6 +11,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
+import { RoleChip } from "@/components/common/role-chip/role-chip";
 import type { MyGroup } from "@/lib/groups/groups.types";
 import { groupLabel, joinedLabel, memberCountLabel } from "@/lib/groups/labels/labels";
 import { isGroupAdmin } from "@/lib/groups/role/role";
@@ -41,11 +43,7 @@ export function GroupCard({ group }: Readonly<GroupCardProps>) {
           </span>
         </span>
 
-        {isGroupAdmin(group.myRole) ? (
-          <span className="text-label-sm text-muted-foreground border-border/60 shrink-0 rounded-full border px-2 py-0.5">
-            Admin
-          </span>
-        ) : null}
+        <RoleChip admin={isGroupAdmin(group.myRole)} />
       </div>
 
       {/* The two lines are reserved whether or not there is a description, so
