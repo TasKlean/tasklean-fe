@@ -21,13 +21,17 @@ import { GroupSummary } from "@/components/app/group/shell/group-sidebar/group-s
 // pixels taller than the window every time a phone's address bar hid, and the
 // overflow is the safety valve for a rail taller than a short screen.
 const RAIL =
-  "gap-space-md px-margin md:px-margin-tablet pt-space-lg pb-space-md lg:px-space-md lg:pb-space-md border-border/60 lg:top-header lg:h-[calc(100svh-var(--spacing-header))] scrollbar-slim flex shrink-0 flex-col border-b lg:sticky lg:overflow-y-auto lg:border-r lg:border-b-0";
+  "gap-space-sm px-margin md:px-margin-tablet pt-space-lg pb-space-sm lg:px-space-md lg:pb-space-md border-border/60 lg:top-header lg:h-[calc(100svh-var(--spacing-header))] scrollbar-slim flex shrink-0 flex-col border-b lg:sticky lg:overflow-y-auto lg:border-r lg:border-b-0";
 
-// What sits above the first entry at `lg`. In an area the card is gone, so the
-// rail's own gap would be spacing above nothing: it goes with it, and the room
-// the card used to need goes too.
+// What sits above the first entry at `lg`, and the room between the card and the
+// nav under it. In an area the card is gone, so the rail's own gap would be
+// spacing above nothing: it goes with it, and the room the card needed goes too.
+//
+// The gap at `lg` is stated here for both states rather than in `RAIL`: two
+// `lg:gap-*` utilities resolve by Tailwind's own output order, so the class list
+// would have no say over which one an area got. A phone keeps the tighter base.
 const TOP = {
-  tasks: "lg:pt-space-xl",
+  tasks: "lg:gap-space-md lg:pt-space-xl",
   area: "lg:gap-0 lg:pt-space-lg",
 } as const;
 

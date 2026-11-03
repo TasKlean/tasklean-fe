@@ -9,6 +9,10 @@ import { isGroupAdmin } from "@/lib/groups/role/role";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 import { fullName } from "@/lib/users/name/name";
 
+// What the group list is called wherever it is pointed at: the header's trail
+// names it, and so does the switcher that stands in for the trail on a phone.
+export const MY_GROUPS_LABEL = "My Groups";
+
 /**
  * Names a group.
  *

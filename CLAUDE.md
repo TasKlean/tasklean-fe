@@ -16,8 +16,8 @@ Never restate backend internals here — link to them.
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
 and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
 lists them behind a search, a role filter and a sort that all live in the URL and all run in the
-browser, since no endpoint takes them yet; creating one and joining by code both work, a pill in the
-header reaches every group from anywhere, and `/app/groups/[uid]` is a shell whose rail stands still
+browser, since no endpoint takes them yet; creating one and joining by code both work, the header carries a
+trail into every level of a group with that pill standing in for it on a phone, and `/app/groups/[uid]` is a shell whose rail stands still
 while the section beside it scrolls. The group's own path is **Tasks**, which carries nothing but a
 notice. **Overview** and **Settings** are areas of sections, and the open one's sections fill the
 rail's top band: `overview/information` holds every field a group has, `overview/members` is the
@@ -207,8 +207,9 @@ src/
                        recovery-codes (what an action hands back exactly once)
     app/               signed-in components, in a directory per screen they sit on
       chrome/          what the shell carries everywhere: app-header with
-                       header-bar (how wide the row is), group-switcher with
-                       open-group-uid (which group the path is about),
+                       header-bar (how wide the row is), group-breadcrumb with
+                       crumb-pill (one crumb and the list it drops), group-switcher
+                       with open-group-uid (which group the path is about),
                        add-task-button (the header's one offer, disabled until
                        tasks exist)
       groups/          the group list at /app and the two ways into a group:
@@ -433,8 +434,8 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   context to go stale. `/app` is the list, so nothing has to remember which group you were in.
 - **A group's rail owns its identity, and a screen inside it owns only its section.** The card at
   the top of `GroupSidebar` carries the group's `h1`, its description and the member and role line,
-  so a section page never repeats them, and the pill in the header is what says which group you are
-  in from anywhere else. It is a card at every width, since the picture, the chips and the name are
+  so a section page never repeats them, and the header's trail is what says which group you are in
+  from anywhere else. It is a card at every width, since the picture, the chips and the name are
   one thing about one group and a phone showed them as three loose rows; inside an area at `lg` it
   gives that up, and nowhere else. `group.helpers.ts` holds the one
   `loadGroup` the shell and every page call, so the 403 bounce and the inline failure are written
@@ -472,6 +473,16 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
 - **The group pill is two controls in one border.** The name navigates into the group and the
   `ChevronsUpDown` arrow opens the list, so the common move costs no popup, and each half is a real
   element with its own name rather than one button guessing from where the press landed.
+- **The header carries a trail at `lg` and the pill alone below it.** `GroupBreadcrumb` is four
+  crumbs at the deepest, My Groups, the group, the area and the section, each one two halves like
+  the pill and each dropping a list of its own: the two ways in, every group, the three areas, and
+  the area's sections. **A crumb wears no border until it is hovered**, and a `/` separates them,
+  so four of them read as a trail rather than as four buttons. Those sections come from `navSections`, the call the rail makes, so the trail cannot
+  disagree with it about a label or about what is built yet. **A crumb is keyed by its level, never
+  its href**, because a group's own page is both the group and its tasks and those two crumbs share
+  a path. The pills are 36px where the switcher's are 44: four sit in one row, and the trail is
+  never drawn at a width where a press is a finger. `MY_GROUPS_LABEL` lives in `groups/labels` so
+  the trail and the switcher cannot drift apart.
 - **A collapsed rail is an `lg:` class, never a second tree.** `GroupSidebar` holds the state and
   every piece of it is `lg:`-prefixed, so the strip below `lg` keeps its labels. A collapsed label
   is `lg:hidden`, which takes it out of the accessible name, so every entry spells its name out in

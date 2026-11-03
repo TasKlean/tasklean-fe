@@ -1515,6 +1515,52 @@ opened a panel the group itself sat in was the alternative, and it buried that m
 `ChevronsUpDown` rather than a chevron down, because the panel swaps one group for another rather
 than dropping a menu of actions.
 
+**At `lg` the pill becomes a trail of four of them, and the pill stays on a phone.** My Groups, the
+group, the area and the section, each one a pill of the same construction, so a reader can both see
+where they are and move sideways at any level without first going back. The area earns a crumb of
+its own rather than being skipped: with three crumbs a reader on the roster sees `Members` with no
+hint that Overview is the thing holding it, and the area crumb is also the only cheap way to cross
+from Overview to Group settings. Below `lg` the whole trail is one pill again, because four of them
+plus a brand, an add-task button and an avatar do not fit, and the group is the one level a phone
+needs named.
+
+**The list crumb drops the two ways in, not the groups.** Switching group is the crumb immediately
+beside it, so putting the group list under both would be the same panel twice in one row, and the
+list crumb is otherwise the only control in the header that offers Create and Join at all. It was
+built the other way first, and the test asserting that `Join a group` was absent from the group
+crumb is what caught it.
+
+**The sections a crumb drops come from `navSections`, not a table of its own.** The rail already
+decides what a section is called, in what order they come, which three an admin gets and which one
+is not built, so a second list would be a second place to forget. The trail filters out the way back
+out, which is the rail's own affordance rather than one of the sections, and inherits the dead
+`Audit trail` row with its `Coming soon` and no link.
+
+**A crumb is keyed by its level.** A group's own page is both the group and its tasks, so those two
+crumbs carry the same href, and React reported duplicate keys on every group landing page. The href
+was never unique by construction; the level is. The suite rendered that exact path and said nothing,
+because a duplicate key is a console warning, so a test now asserts that the levels of a trail are
+distinct.
+
+**The crumbs are 36px where the switcher is 44.** Four pills in one row read as a wall at the
+switcher's height, and the trail is drawn at `lg` and up only, where every press is a mouse rather
+than a finger. The rows each crumb drops keep their 44, since those are a list to aim at rather
+than a line of chrome.
+
+**A crumb's border appears on hover, and the border is transparent rather than absent.** Four
+outlined pills in a row read as a toolbar, where a trail should read as one line of text that
+happens to be pressable, so the outline is held back until the pointer is on it and says which
+crumb will answer. Setting no border and adding one on hover was the obvious way and it is wrong:
+the 2px arrives with the hover and moves every crumb after it, so the row twitches under the
+pointer. A transparent border of the same width reserves the space from the start. The divider
+between a crumb's two halves rides on the same hover through `group-hover`, or it hangs in space
+with nothing around it.
+
+**The separator is a `/` rather than a chevron.** An icon between two pressable things reads as a
+third control, and at the chevron's weight the row looked like a stepper. The slash is a quieter
+`muted-foreground/60`, `aria-hidden` because the `<ol>` is what says there are four levels, and
+`select-none` so copying the trail gives the labels back without the punctuation between them.
+
 **A phone gets the same tree, read as a page rather than a rail.** The card loses its border and
 padding below `lg` and reads as the page's own header, the band headings go, and the two bands part
 company: Workspace scrolls in a strip above the section and Administration moves into the bottom

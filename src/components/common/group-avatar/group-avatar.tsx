@@ -15,14 +15,30 @@ type GroupAvatarProps = {
   name: string;
   // An upload's uid, not a URL: the bucket is private.
   photoUid?: string | null;
-  size?: "sm" | "lg";
+  // Named for the screen it is on, not for a scale: each of the three has one
+  // caller, and two of them are the same size once the viewport is wide.
+  size: "list" | "card" | "page";
 };
 
-const BOX = { sm: "size-9 rounded-lg", lg: "size-20 rounded-xl" } as const;
-const TEXT = { sm: "text-label-lg", lg: "text-headline-md" } as const;
+// `card` is the only one that changes with the viewport, because the group's own
+// card is the whole of a page's header on a phone and one item in a 288px rail
+// at `lg`, where it matches the list's.
+const BOX = {
+  list: "size-14 rounded-xl",
+  card: "size-16 rounded-xl lg:size-14",
+  page: "size-24 rounded-xl",
+} as const;
+
+// Each token already carries its own weight, so the letter sets nothing beside
+// it: a `font-semibold` next to one is two utilities for one property.
+const TEXT = {
+  list: "text-headline-sm",
+  card: "text-headline-md lg:text-headline-sm",
+  page: "text-headline-lg",
+} as const;
 
 /** Renders a group's photo, or the letter standing in for it. */
-export function GroupAvatar({ name, photoUid, size = "sm" }: Readonly<GroupAvatarProps>) {
+export function GroupAvatar({ name, photoUid, size }: Readonly<GroupAvatarProps>) {
   // `relative` is what `fill` needs, and `fill` is what makes the picture
   // actually fill the box: the shell is a grid whose row is content sized, so a
   // height of 100% there is indefinite and a tall photo was drawn at its own
@@ -40,7 +56,7 @@ export function GroupAvatar({ name, photoUid, size = "sm" }: Readonly<GroupAvata
 
   return (
     <span className={shell}>
-      <span className={`${TEXT[size]} font-semibold`}>{name.trim().charAt(0).toUpperCase()}</span>
+      <span className={TEXT[size]}>{name.trim().charAt(0).toUpperCase()}</span>
     </span>
   );
 }

@@ -13,7 +13,7 @@ import { useId } from "react";
 import { openGroupUid } from "@/components/app/chrome/group-switcher/open-group-uid";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { MyGroup } from "@/lib/groups/groups.types";
-import { groupLabel } from "@/lib/groups/labels/labels";
+import { groupLabel, MY_GROUPS_LABEL } from "@/lib/groups/labels/labels";
 
 type GroupSwitcherProps = {
   groups: MyGroup[];
@@ -29,13 +29,13 @@ export function GroupSwitcher({ groups }: Readonly<GroupSwitcherProps>) {
   const panelId = useId();
 
   // Nothing to switch between, and `/app` already offers the two ways in, so a
-  // trigger reading "Groups" over an almost empty panel would only be noise.
+  // trigger reading "My Groups" over an almost empty panel would only be noise.
   if (groups.length === 0) return null;
 
   const uid = openGroupUid(pathname);
   const current = uid ? groups.find((group) => group.uid === uid) : undefined;
-  const label = current ? groupLabel(current.name) : "Groups";
-  // With no group open the name reads "Groups", so the list is what it points
+  const label = current ? groupLabel(current.name) : MY_GROUPS_LABEL;
+  // With no group open the name reads "My Groups", so the list is what it points
   // at, which is also where that name belongs.
   const home = uid ? `/app/groups/${uid}` : "/app";
 
