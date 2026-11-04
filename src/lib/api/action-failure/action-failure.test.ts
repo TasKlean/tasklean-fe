@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
-import { ApiError } from "@/lib/api/errors";
+import { actionFailureMessage, unreachableOr } from "@/lib/api/action-failure/action-failure";
+import { ApiError, ApiUnreachableError, GENERIC_FAILURE, UNREACHABLE } from "@/lib/api/errors";
 import { SessionExpiredError } from "@/lib/api/server/server";
 
 describe("actionFailureMessage", () => {
@@ -24,6 +24,10 @@ describe("actionFailureMessage", () => {
     expect(actionFailureMessage(new TypeError("fetch failed"))).toBe(GENERIC_FAILURE);
   });
 
+  it("names an outage rather than telling them to try again", () => {
+    expect(actionFailureMessage(new ApiUnreachableError())).toBe(UNREACHABLE);
+  });
+
   it("sends a dead session to the login screen instead of returning", () => {
     let thrown: unknown;
     try {
@@ -33,5 +37,20 @@ describe("actionFailureMessage", () => {
     }
 
     expect(String((thrown as { digest?: string }).digest).split(";")[2]).toBe("/login");
+  });
+});
+
+describe("unreachableOr", () => {
+  it("names an outage in place of the caller's own wording", () => {
+    expect(unreachableOr(new ApiUnreachableError(), "Something went wrong signing you in.")).toBe(
+      UNREACHABLE,
+    );
+  });
+
+  it("leaves every other throw to the caller's own wording", () => {
+    expect(unreachableOr(new TypeError("boom"), "Something went wrong signing you in.")).toBe(
+      "Something went wrong signing you in.",
+    );
+    expect(unreachableOr(new ApiError(500, ""), GENERIC_FAILURE)).toBe(GENERIC_FAILURE);
   });
 });

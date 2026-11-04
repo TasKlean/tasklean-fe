@@ -11,6 +11,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { GoogleActionState } from "@/components/auth/google-button/google-button.types";
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import {
@@ -84,7 +85,7 @@ export async function googleSignInAction(
     }
     // Nothing else reports this: an env or network fault here is otherwise silent.
     console.error("Google sign-in failed", error);
-    return { error: GENERIC_FAILURE };
+    return { error: unreachableOr(error, GENERIC_FAILURE) };
   }
 
   // Google proved who they are, the second factor proves it is them.

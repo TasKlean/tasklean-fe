@@ -8,7 +8,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { deleteGroup, rotateInviteCode, updateGroup } from "@/lib/groups/groups";
 import { parseGroupAction } from "@/lib/validation/forms/group-action.schema";
 import {

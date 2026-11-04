@@ -7,6 +7,7 @@
 
 import { redirect } from "next/navigation";
 import { safeNext } from "@/lib/auth/safe-next/safe-next";
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device/device";
@@ -52,7 +53,7 @@ export async function verifyAction(
       // arrive as one message, so there is nothing to tell them apart with.
       return { error: error.message || GENERIC_FAILURE };
     }
-    return { error: GENERIC_FAILURE };
+    return { error: unreachableOr(error, GENERIC_FAILURE) };
   }
 
   redirect(next);
@@ -82,7 +83,7 @@ export async function resendAction(
       }
       return { error: error.message || GENERIC_FAILURE };
     }
-    return { error: GENERIC_FAILURE };
+    return { error: unreachableOr(error, GENERIC_FAILURE) };
   }
 
   return { error: null, notice: "If that address has an account, a new code is on its way." };

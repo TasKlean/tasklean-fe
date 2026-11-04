@@ -1,7 +1,7 @@
 /**
- * Turns a 429 into something to show. The backend sends the reason as prose and
- * the window as a `Retry-After` header, so the two are only one sentence once
- * put back together here. Never auto-retry on the strength of it.
+ * Turns a 429 into something to show. The reason is ours rather than the
+ * backend's: that one is a single constant saying "try again later", which read
+ * twice over once the window was added. Never auto-retry on the strength of it.
  */
 
 import type { ApiError } from "@/lib/api/errors";
@@ -15,7 +15,7 @@ function retryPhrase(seconds: number | null): string {
   return `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`;
 }
 
-/** Composes a rate-limited failure and its window into one message. */
+/** Composes a rate limit and the window it carried into one message. */
 export function rateLimitMessage(error: ApiError): string {
-  return `${error.message || TOO_MANY} ${retryPhrase(error.retryAfterSeconds)}`;
+  return `${TOO_MANY} ${retryPhrase(error.retryAfterSeconds)}`;
 }

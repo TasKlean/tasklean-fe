@@ -94,7 +94,7 @@ describe("requestUploadAction", () => {
 
     expect(await requestUploadAction(REQUEST)).toEqual({
       ok: false,
-      message: "Too many uploads. Please try again in 10 minutes.",
+      message: "Too many attempts. Please try again in 10 minutes.",
     });
   });
 

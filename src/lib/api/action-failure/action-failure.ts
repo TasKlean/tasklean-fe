@@ -7,12 +7,19 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { isApiError } from "@/lib/api/errors";
+import { GENERIC_FAILURE, isApiError, isApiUnreachableError, UNREACHABLE } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { isSessionExpiredError } from "@/lib/api/server/server";
 
-/** What a failure with nothing usable in it says. */
-export const GENERIC_FAILURE = "Something went wrong. Please try again.";
+/**
+ * Picks the line for a throw a caller has no handling of its own for.
+ *
+ * @returns The unreachable line, or the caller's own wording. An outage is
+ * worth naming, since "try again" is the wrong advice while nothing answers.
+ */
+export function unreachableOr(error: unknown, fallback: string): string {
+  return isApiUnreachableError(error) ? UNREACHABLE : fallback;
+}
 
 /**
  * Turns a failed call into a message.
@@ -22,6 +29,7 @@ export const GENERIC_FAILURE = "Something went wrong. Please try again.";
  */
 export function actionFailureMessage(error: unknown): string {
   if (isSessionExpiredError(error)) redirect("/login");
+  if (isApiUnreachableError(error)) return UNREACHABLE;
   if (!isApiError(error)) return GENERIC_FAILURE;
 
   const message = error.status === 429 ? rateLimitMessage(error) : error.message;

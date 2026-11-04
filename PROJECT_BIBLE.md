@@ -138,6 +138,29 @@ matters precisely where `credentialCheck` is on: those endpoints answer 401 for 
 ordinary. A 2xx that _does_ carry a body must be the envelope. The leniency is deliberately
 one-sided: absence is plausible, malformed presence is not.
 
+**A third type, `ApiUnreachableError`, for "nothing answered".** A refused `fetch` used to surface
+as whatever `TypeError` the runtime threw, which every caller flattened into the generic line, so a
+backend that was simply not running read as a bug in the app and told the reader to try again, which
+is the one thing that cannot help. It is a type rather than a status because there is no status: the
+request never completed. An `AbortError` is let through as itself, since the caller asked for that
+and it is not a failure to report.
+
+**The status never appears in a message a reader sees.** `client.ts` used to fall back to "Request
+failed with status 429." whenever a response carried no envelope message, and since the backend
+always sends one, that only happens when something else answered: a gateway, a tunnel, a wrong
+`API_BASE_URL`. The number tells a reader nothing they can act on, and it leaked all the way into a
+rate-limit notice as "Request failed with status 429. Please try again shortly." The status stays on
+the error for branching and the message falls back to `GENERIC_FAILURE`. That constant and
+`UNREACHABLE` live in `api/errors` rather than beside the actions, because `client.ts` needs them
+and importing `action-failure` from the client would close a cycle through `api/server`.
+
+**A 429's reason is ours, and the backend's own words are dropped.** Its message is one constant,
+`"Too many requests, please try again later"`, with no full stop, so composing it with the window
+produced "Too many requests, please try again later Please try again shortly.": a run-on that said
+the same thing twice. The window is the only part that varies, and the rate-limit filter is the one
+place a 429 is produced, so the reason is written here instead. The tests hid this for as long as
+they existed, because every fixture ended in a full stop where the real constant does not.
+
 ### Time
 
 `src/lib/time/api-date/api-date.ts` is the only crossing point between API timestamps and `Date`.
