@@ -1749,17 +1749,61 @@ action redirects to `/app?left=1` and the list says what happened, the same shap
 already had. A silent landing on the list would be indistinguishable from a navigation that did
 nothing.
 
-### The group list's filter lives in the URL, not in the browser
+### The group list's filter lives in the URL, and the backend answers it
 
-**`/app?q=&show=&sort=` is the whole state, and the browser is standing in for a backend that
-cannot filter yet.** There is no list endpoint that takes a search, a role or an order, so the page
-reads the query out of the URL with `groupQuery`, applies it with `filterGroups` to the list
-`/api/groups/mine` already answered with, and hands the same object to the row of controls.
-`filterGroups` is the single call that goes when the backend grows the parameters: the query shape
-is what a `GET` would take, so `getMyGroups(query)` replaces it and nothing else moves. Client
-state was the alternative and it is the same work twice: the query would have to be lifted into the
-URL later anyway, because a filtered list that cannot be pasted, reloaded or reached with the back
-button is a filter people lose by accident.
+**`/app?q=&show=&sort=` is the whole state, and `GET /api/groups/mine` is what answers it.** The
+page reads the query out of the URL with `groupQuery`, hands it to `searchMyGroups`, and hands the
+same object to the row of controls. Client state was the alternative and it is the same work twice:
+the query would have to be lifted into the URL anyway, because a filtered list that cannot be
+pasted, reloaded or reached with the back button is a filter people lose by accident. The browser
+did the narrowing and the ordering first, for as long as no endpoint took them, and the shape of
+the query is what made that a swap of one call rather than a rewrite.
+
+**The URL kept its own vocabulary when the backend took over.** `show=admin` and
+`sort=members-desc` are short, lowercase and readable in a pasted link, where `role=GROUP_ADMIN`
+and `sort=MEMBERS_DESC` are an enum leaking into a page's address; adopting the enums would also
+have broken every link already shared. `groupApiQuery` is the one place the two meet, and the two
+tables are deliberately dumb: the role half is typed `Record<GroupShow, GroupRole>` so a typo is a
+compile error, while a sort is a bare string the backend owns, so each of the five has a test. A
+wrong value is not a degraded list, it is a `400`.
+
+**Which is why nothing is sent that was not normalised first.** The endpoint refuses a role or a
+sort it does not know rather than falling back, so `groupQuery` runs on every value before it
+leaves: an unknown sort becomes name order and an unknown role becomes both sides, exactly as
+before. `QUERY_MAX_LENGTH` is pinned to the backend's `FieldLimits.SEARCH_TEXT` for the same
+reason, with the comment naming it, since the two drifting apart turns a long paste into a `400`.
+
+**The chrome's list and the page's list are two different reads.** The header's switcher shows
+every group whatever the page is filtered to, so `getMyGroups` stays unfiltered and stays
+`cache()`d, and `searchMyGroups` is the filtered one. It is not memoised: one page calls it, and
+`cache()` keys on argument identity, so a fresh query object would never hit it. An unfiltered page
+is the common case, so `searchMyGroups` hands an empty query straight to `getMyGroups` and shares
+the call the layout has already made; only an active filter costs a second request.
+
+**An empty list means two different things, and a sort is not a narrowing.** With the filtering
+done server-side, a search that matches nothing answers with zero groups, which is indistinguishable
+from having none. Taken as having none the page would render `NoGroups`, which carries no row of
+controls, so the search box and the "Clear the filter" link would both vanish and the only way back
+would be editing the URL. `narrowsList` is what tells them apart, and it counts a search and a role
+box but not an order: `?sort=members-desc` with no groups is somebody with no groups, not a filter
+that hid them.
+
+**Nothing orders the list after it arrives.** `getMyGroups` used to sort by name for the switcher,
+which would now fight an order the list asked for: picking `MEMBERS_DESC` and then re-sorting by
+name answers the wrong question. The endpoint orders by name when no sort is named, which is what
+the switcher and the trail want, so both take the order as it comes. Two small behaviours went with
+the comparators. A group with no readable name sorted last here and sorts first there, which is
+unreachable while `name` is `@NotBlank` on create and update. And the search matched
+`"${name} ${description}"` joined, so a needle straddling the two fields hit; the backend matches
+each field on its own, which is the better reading of a search box anyway.
+
+**`request()` can send a parameter repeated, because `role` is the only form the endpoint takes.**
+`QueryValue` gained `readonly string[]` and `buildUrl` appends an entry at a time, since
+`String(["a", "b"])` is `a,b`, one value the backend reads as a single invalid enum. Today a
+restriction is always exactly one side, so a single value would have done; that is a dependency on
+`GROUP_SHOWS` having two members, and the day a third role appears it would be a silent `400`
+rather than a type error. `Array.isArray` is declared `arg is any[]`, which does not narrow a
+`readonly` array, so the check is a named guard rather than the bare call.
 
 **The search box is the one control that does not write the URL immediately.** A keystroke cannot
 be a navigation, so the box holds what is typed and commits 300ms after typing stops, with the

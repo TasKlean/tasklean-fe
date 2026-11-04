@@ -83,6 +83,25 @@ describe("request", () => {
     expect(url.searchParams.has("cursor")).toBe(false);
   });
 
+  it("sends a repeated parameter once per entry, and nothing for an empty one", async () => {
+    let seenUrl = "";
+    server.use(
+      http.get(`${BASE}/api/groups/mine`, ({ request: req }) => {
+        seenUrl = req.url;
+        return HttpResponse.json({ success: true, data: [] });
+      }),
+    );
+
+    await request<unknown[]>("/api/groups/mine", {
+      query: { role: ["GROUP_ADMIN", "GROUP_MEMBER"], sort: "NAME_DESC", show: [] },
+    });
+
+    const url = new URL(seenUrl);
+    expect(url.searchParams.getAll("role")).toEqual(["GROUP_ADMIN", "GROUP_MEMBER"]);
+    expect(url.searchParams.get("sort")).toBe("NAME_DESC");
+    expect(url.searchParams.has("show")).toBe(false);
+  });
+
   it("throws ApiError carrying the backend's human-readable message on 409", async () => {
     server.use(
       http.post(`${BASE}/api/categories`, () =>

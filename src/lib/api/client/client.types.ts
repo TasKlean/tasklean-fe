@@ -14,7 +14,9 @@ export type Envelope = {
   data?: unknown;
 };
 
-export type QueryValue = string | number | boolean | null | undefined;
+// An array is a parameter the backend takes repeated, such as the group list's
+// `role`: one key with one entry each, never the entries joined into one value.
+export type QueryValue = string | number | boolean | null | undefined | readonly string[];
 
 export type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
