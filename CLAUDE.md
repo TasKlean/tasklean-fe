@@ -199,7 +199,7 @@ src/
                        busy-overlay (the scrim over a card while an action runs),
                        text-area (multi-line, painted like text-field),
                        switch-track (the painted track a toggle rides on),
-                       group-avatar (a group's picture, or its first letter),
+                       group-avatar (a group's picture over its first letter),
                        image-picker (one picture, picked or dropped, with the
                        presses that change it),
                        invite-code/: invite-code-field (the code and the press
@@ -575,12 +575,23 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   refusing them. Each action still reports its own refusal, because the gate is UX and Spring is
   the authority. A form inside a section is bounded at `max-w-2xl`: the group's column is the
   window less the rail, which left a name field 831px wide at 1280.
-- **A group's picture is an uploaded file, addressed by uid and drawn `unoptimized`.** The bucket is
-  private, so `Group.photoUid` is an upload rather than a URL and `lib/groups/photo` turns it into
-  `/api/image/{uid}`, the one address a page is ever given. The avatar is a square with the group's
-  first letter where a person's is a circle with their initials. `unoptimized` is not a preference:
-  that route is guarded by the session and Next's optimizer deliberately drops cookies from its own
-  fetch, so an optimized src would be refused and draw nothing.
+- **A group's picture is an uploaded file, addressed by uid and painted as a background.** The
+  bucket is private, so `Group.photoUid` is an upload rather than a URL and `lib/groups/photo`
+  turns it into `/api/image/{uid}`, the one address a page is ever given. The avatar is a square
+  with the group's first letter where a person's is a circle with their initials, and **the letter
+  is always drawn, with the picture as a layer over it**: a background that 404s paints nothing, so
+  a dead upload falls back with no handler, no state and one request. That is the whole reason it
+  is not an `<img>`, which draws the browser's own broken glyph whatever its `alt` says, and
+  `GroupAvatar` is the one place an inline style is used for the URL it needs. The letter is
+  `aria-hidden` behind a picture, since the group's name is beside it everywhere. `Avatar`, for a
+  person, is still `next/image` and still **`unoptimized`**, which is not a preference: our route
+  is guarded by the session and Next's optimizer deliberately drops cookies from its own fetch, so
+  an optimized src would be refused and draw nothing.
+- **The image route tells a missing object from a broken bucket.** A read is presigned without
+  checking the key exists, deliberately, since a `head` per avatar is a round trip, so a bucket that
+  lost its objects while the database kept its rows answers 404 and `/api/image/[uid]` passes that
+  on as a 404. Every other failed read stays a 502. Nothing clears the dead `photoUid`: a write
+  driven by a render would delete a good picture on a passing outage.
 - **Saving a group replaces it, so an omitted `photoUid` is how a picture is removed.** `PUT
   /api/groups/{uid}` takes the group as it will then be, which is why `EditGroupForm` posts the uid
   the group already holds on every save that is not a removal, and why a blank one is never posted:

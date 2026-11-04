@@ -2073,6 +2073,44 @@ to another. Our route is guarded by the session, so an optimized `src` is fetche
 comes back 401. The practical consequence is that `next.config.ts` needed **no** change: the
 handoff's advice to add a `remotePatterns` entry would have produced a silently broken image.
 
+**A row in the database outlives the object it points at, so a miss is a 404 and not a 502.** A
+download is presigned from the upload's stored key without checking the key is there: the existence
+check belongs at attach time, where it already runs, and a `head` per avatar would be a round trip
+on every card in a list. The cost of that is a bucket recreated under a database that kept its rows,
+where every presign succeeds and every fetch of one comes back empty. The route used to answer 502
+for all of it, which reads as a broken bucket when nothing is broken, so the bucket's own 404 now
+passes through as a 404 and only a real failure stays a bad gateway. **Nothing clears the dead
+`photoUid`**, which was the obvious next step and is the wrong one: a write driven by a render would
+delete a perfectly good picture the first time the bucket was slow.
+
+**That 404 is what the avatar falls back from, and the fallback is a background rather than an
+`<img>`.** A group with a dead uid drew a broken image where the whole point of `GroupAvatar` is
+the letter standing in. Two ways were built before this one, and both failed in a way worth
+recording, because each looked obviously right.
+
+**`onError` was the first, and it fetches the picture twice.** `next/image` runs `img.src =
+img.src` in its ref callback whenever an `onError` is passed, since an error fired before hydration
+is otherwise lost. A 404 carries no cache headers, so there is nothing to reuse and the reassignment
+is a second request; the first attempt meanwhile sits in the layout as a broken image until the
+second one fails and React swaps the letter in, which reads as a flash. It also drags the component
+over the client boundary for a list of cards that otherwise needs no JavaScript. The mechanism had
+already shown itself as a test failure, where the reassignment turned the `src` attribute into its
+absolute form, and that was read as cosmetic rather than as the symptom it was.
+
+**Layering the letter under an `<img alt="">` was the second, and the browser draws its glyph
+anyway.** An empty `alt` means the image is decorative, not that a failed one is invisible: Chrome
+puts its broken-image mark in the corner of the element's box regardless, which with `fill` is the
+whole avatar. That was asserted rather than checked, and a screenshot settled it.
+
+**A background image has neither problem.** `background-image` that 404s paints nothing at all, so
+the letter underneath simply shows: no handler, no state, no second request, and `GroupAvatar`
+stays a Server Component. The cost is that the group's picture is the one image in the app outside
+`next/image`, which buys nothing here anyway, since the route is `unoptimized` and `fill` reduces
+it to an absolutely positioned `<img>`. The URL is the genuinely dynamic value the styling rule
+allows inline, and it is safe to interpolate because `groupPhotoSrc` encodes the uid. The letter
+carries `aria-hidden` behind a picture so a reader is not told "F" over a photograph: every caller
+puts the group's name beside the avatar, so the letter is decoration in both states.
+
 **The cache is `private, max-age=3600, immutable`.** `immutable` is honest because a uid addresses
 one object forever; `private` is the load-bearing half, since a shared cache holding a household's
 photo is the same leak the CVE was about. An hour rather than a day comes from the backend's own

@@ -5,11 +5,15 @@ import { describe, expect, it } from "vitest";
 
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 
+function picture(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>("[style*='background-image']");
+}
+
 describe("GroupAvatar", () => {
   it("reads the picture through our own route, never from the bucket", () => {
-    render(<GroupAvatar name="Flat 12" photoUid="up-1" size="list" />);
+    const { container } = render(<GroupAvatar name="Flat 12" photoUid="up-1" size="list" />);
 
-    expect(screen.getByRole("presentation")).toHaveAttribute("src", "/api/image/up-1");
+    expect(picture(container)?.style.backgroundImage).toContain("/api/image/up-1");
   });
 
   it("stands in with the first letter of the name", () => {
@@ -19,15 +23,22 @@ describe("GroupAvatar", () => {
   });
 
   it("stands in for a group with no picture", () => {
-    render(<GroupAvatar name="Flat 12" photoUid="" size="list" />);
+    const { container } = render(<GroupAvatar name="Flat 12" photoUid="" size="list" />);
 
-    expect(screen.queryByRole("presentation")).toBeNull();
+    expect(picture(container)).toBeNull();
     expect(screen.getByText("F")).toBeInTheDocument();
   });
 
   it("stands in for a name that is nothing but space", () => {
-    render(<GroupAvatar name="   " size="list" />);
+    const { container } = render(<GroupAvatar name="   " size="list" />);
 
-    expect(screen.queryByRole("presentation")).toBeNull();
+    expect(picture(container)).toBeNull();
+  });
+
+  it("keeps the letter under a picture, so a read that fails needs no handler", () => {
+    const { container } = render(<GroupAvatar name="Flat 12" photoUid="up-1" size="list" />);
+
+    expect(picture(container)).toBeInTheDocument();
+    expect(screen.getByText("F")).toHaveAttribute("aria-hidden", "true");
   });
 });
