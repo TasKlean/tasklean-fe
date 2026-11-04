@@ -22,8 +22,8 @@ import {
   credentialFailure,
   refreshOnConflict,
 } from "@/app/(app)/app/settings/two-factor/actions/actions.helpers";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
-import { isApiError } from "@/lib/api/errors";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
 import { startSession } from "@/lib/auth/start-session/start-session";
 import { encodeQr } from "@/lib/qr/qr-code/qr-code";
 import { parseTwoFactorConfirm } from "@/lib/validation/forms/two-factor-confirm.schema/two-factor-confirm.schema";

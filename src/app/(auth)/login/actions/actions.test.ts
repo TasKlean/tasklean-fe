@@ -17,6 +17,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import { loginAction, type LoginState } from "@/app/(auth)/login/actions/actions";
+import { UNREACHABLE } from "@/lib/api/errors";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session/session";
 import { CHALLENGE_COOKIE_NAME } from "@/lib/auth/two-factor-challenge/two-factor-challenge";
 
@@ -237,7 +238,7 @@ describe("loginAction rate limiting", () => {
 
     const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
 
-    expect(state.error).toBe("Slow down. Please try again shortly.");
+    expect(state.error).toBe("Too many attempts. Please try again shortly.");
   });
 });
 
@@ -310,5 +311,15 @@ describe("loginAction two-factor", () => {
     ).catch((error: unknown) => error);
 
     expect(String((thrown as { digest?: string }).digest)).toContain("next=%2Fapp%2Faccount");
+  });
+});
+
+describe("loginAction with nothing answering", () => {
+  it("says the app could not be reached rather than blaming the sign-in", async () => {
+    server.use(http.post(`${BASE}/api/auth/login`, () => HttpResponse.error()));
+
+    const state = await loginAction(EMPTY, form({ email: "a@b.test", password: "Chores12!" }));
+
+    expect(state.error).toBe(UNREACHABLE);
   });
 });

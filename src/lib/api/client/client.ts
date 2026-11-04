@@ -6,7 +6,12 @@
 import "server-only";
 
 import type { Envelope, QueryValue, RequestOptions } from "@/lib/api/client/client.types";
-import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
+import {
+  ApiError,
+  ApiResponseFormatError,
+  ApiUnreachableError,
+  GENERIC_FAILURE,
+} from "@/lib/api/errors";
 import { getEnv } from "@/lib/config/env/env";
 
 /**
@@ -83,7 +88,10 @@ function parseRetryAfter(header: string | null): number | null {
  * @param options Method, body, query parameters, bearer token, abort signal.
  * @returns The envelope's `data`, typed as `T`. An empty 2xx body gives
  * `undefined`, for a caller typed `request<void>`.
- * @throws ApiError on any non-2xx, carrying the backend's message when it sent one.
+ * @throws ApiError on any non-2xx, carrying the backend's message when it sent
+ * one and a generic line when nothing answered with our envelope. The status is
+ * on the error and never in the message: a reader cannot act on a number.
+ * @throws ApiUnreachableError when the request got no answer at all.
  * @throws ApiResponseFormatError when a 2xx body is not the envelope.
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -93,14 +101,22 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (body !== undefined) requestHeaders["Content-Type"] = "application/json";
   if (accessToken) requestHeaders.Authorization = `Bearer ${accessToken}`;
 
-  const response = await fetch(buildUrl(path, query), {
-    method,
-    headers: requestHeaders,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal,
-    // Never let a per-user response land in a shared cache.
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, query), {
+      method,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
+      // Never let a per-user response land in a shared cache.
+      cache: "no-store",
+    });
+  } catch (error) {
+    // An abort is the caller's own doing and is not a failure to report;
+    // everything else here is nothing answering at all.
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    throw new ApiUnreachableError();
+  }
 
   // Text, not .json(), so an empty body stays distinguishable from malformed
   // JSON. Unconditional: the backend renders failures as envelope JSON too.
@@ -115,7 +131,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       if (!response.ok) {
         throw new ApiError(
           response.status,
-          `Request failed with status ${response.status}.`,
+          GENERIC_FAILURE,
           parseRetryAfter(response.headers.get("Retry-After")),
         );
       }
@@ -135,7 +151,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      message ?? `Request failed with status ${response.status}.`,
+      message || GENERIC_FAILURE,
       parseRetryAfter(response.headers.get("Retry-After")),
       code,
     );

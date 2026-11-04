@@ -8,7 +8,8 @@
 
 import { redirect } from "next/navigation";
 import { deactivateAccount } from "@/lib/account/account";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { refusedCredential } from "@/lib/api/credential-field/credential-field";
 import { clearSession } from "@/lib/auth/session/session";
 import { parseDeactivateAccount } from "@/lib/validation/forms/deactivate-account.schema/deactivate-account.schema";

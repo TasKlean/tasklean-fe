@@ -7,6 +7,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device/device";
@@ -64,7 +65,7 @@ export async function loginAction(_previous: LoginState, formData: FormData): Pr
       }
       return { error: error.message || GENERIC_FAILURE, email };
     } else {
-      return { error: GENERIC_FAILURE, email };
+      return { error: unreachableOr(error, GENERIC_FAILURE), email };
     }
   }
 

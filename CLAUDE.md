@@ -256,7 +256,9 @@ src/
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (the caller's own password, connections and deactivation)
                        and two-factor.ts, which reads the second factor's state and turns it on
-    api/               client.ts (the only module that knows the envelope), errors.ts,
+    api/               client.ts (the only module that knows the envelope),
+                       errors.ts (the error types, and the two lines shown when a
+                       failure carried nothing worth reading),
                        error-codes.ts (the envelope codes more than one module reads),
                        server.ts (session-aware), client.types.ts,
                        retry-phrase.ts (the 429 message),
@@ -635,6 +637,15 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   bare "Something went wrong" when the envelope carried a `message`. A screen that loads data
   catches `ApiError` and renders `LoadError` inline, keeping the rest of the page usable; the route
   boundary is for the failures nobody anticipated, and `SessionExpiredError` redirects to `/login`.
+- **A status code is never in a message a reader sees.** "Request failed with status 429" is a
+  developer's sentence, and the status is on `ApiError` for branching, so `client.ts` falls back to
+  `GENERIC_FAILURE` when nothing answered with our envelope. That constant and `UNREACHABLE` live
+  in `api/errors`, which `client.ts` and the actions both import: the other way round is a cycle.
+- **Nothing answering at all is its own error, with its own line.** A refused `fetch` becomes
+  `ApiUnreachableError`, so "We could not reach TasKlean" is said instead of "try again", which is
+  the wrong advice while the backend is down. An `AbortError` passes through untouched, since the
+  caller asked for it. `actionFailureMessage` handles it, and the auth actions, which each write
+  their own wording, wrap theirs in `unreachableOr`.
 - **A notice is a `FormNotice`, and never wears `bg-muted`.** That fill is what every `TextField`
   and `CodeInput` box is painted in, so the two grey notices on `/login` read as disabled inputs.
   The tones are the vocabulary: `success`, `info` for something that merely happened, and `error`,
@@ -1000,7 +1011,10 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   `403` → show a permission message, never log out, never retry. The exception is an endpoint that
   checks a credential from the request body, where `401` is that credential's verdict.
 - **`429` is real and carries `Retry-After`.** Show the window; never auto-retry.
-  `api/retry-phrase/retry-phrase.ts` composes the two into one message and every auth action uses it.
+  `api/retry-phrase/retry-phrase.ts` composes the message and every auth action uses it. **The
+  reason is ours, not the backend's**: its 429 is a single constant saying "try again later", so
+  pasting it in front of the window said the same thing twice, unpunctuated. The window is the only
+  part that varies, and the one place a 429 is produced is the rate-limit filter.
 - **A 403 on a group route means "not available to you", and never "no such group".** The
   membership check answers false for a group that is not yours and for a uid that does not exist
   alike, and the framework refuses before any service code runs, so the two cannot be told apart.

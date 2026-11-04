@@ -9,7 +9,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { lastAdminMessage } from "@/lib/groups/last-admin/last-admin";
 import { changeMemberRole, removeMember } from "@/lib/groups/members/members";
 import {

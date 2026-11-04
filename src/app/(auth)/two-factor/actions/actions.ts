@@ -6,6 +6,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device/device";
@@ -46,7 +47,8 @@ function endingFor(
 ): { kind: "leave"; to: string } | { kind: "state"; state: TwoFactorState } {
   if (isAccountDeactivated(error)) return { kind: "leave", to: DEACTIVATED };
   if (isChallengeDead(error)) return { kind: "leave", to: CHALLENGE_GONE };
-  if (!isApiError(error)) return { kind: "state", state: { error: GENERIC_FAILURE } };
+  if (!isApiError(error))
+    return { kind: "state", state: { error: unreachableOr(error, GENERIC_FAILURE) } };
 
   if (error.status === 429) return { kind: "state", state: { error: rateLimitMessage(error) } };
   // Whatever else a 401 says here, it is about the code they just typed.

@@ -171,6 +171,6 @@ describe("resendAction", () => {
 
     const state = await resendAction(EMPTY, form({ email: "a@b.test" }));
 
-    expect(state.error).toBe("Slow down. Please try again shortly.");
+    expect(state.error).toBe("Too many attempts. Please try again shortly.");
   });
 });

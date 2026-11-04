@@ -6,6 +6,7 @@
 
 "use server";
 
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device/device";
@@ -54,7 +55,7 @@ export async function forgotPasswordAction(
       }
       return { error: error.message || GENERIC_FAILURE, email };
     }
-    return { error: GENERIC_FAILURE, email };
+    return { error: unreachableOr(error, GENERIC_FAILURE), email };
   }
 
   return { error: null, notice: SENT, email };

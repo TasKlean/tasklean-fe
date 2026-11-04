@@ -10,7 +10,8 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import type { GoogleActionState } from "@/components/auth/google-button/google-button.types";
 import { linkGoogle, unlinkGoogle } from "@/lib/account/account";
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import {
   NONCE_COOKIE_NAME,
   NONCE_COOKIE_OPTIONS,

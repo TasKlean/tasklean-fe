@@ -5,7 +5,8 @@
 
 "use server";
 
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { getPreferences, savePreferences } from "@/lib/preferences/preferences";
 import { parseLanguage } from "@/lib/validation/forms/language.schema/language.schema";
 

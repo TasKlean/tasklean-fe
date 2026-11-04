@@ -6,6 +6,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { unreachableOr } from "@/lib/api/action-failure/action-failure";
 import { isApiError } from "@/lib/api/errors";
 import { rateLimitMessage } from "@/lib/api/retry-phrase/retry-phrase";
 import { deviceHeaders } from "@/lib/auth/device/device";
@@ -63,7 +64,7 @@ export async function registerAction(
       }
       return { error: error.message || GENERIC_FAILURE, values };
     }
-    return { error: GENERIC_FAILURE, values };
+    return { error: unreachableOr(error, GENERIC_FAILURE), values };
   }
 
   // The address travels in the URL so the verify screen can show it without

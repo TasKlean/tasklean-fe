@@ -6,7 +6,8 @@
 
 "use server";
 
-import { actionFailureMessage, GENERIC_FAILURE } from "@/lib/api/action-failure/action-failure";
+import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { saveNotificationSettings } from "@/lib/notifications/settings/settings";
 import {
   matrixFrom,

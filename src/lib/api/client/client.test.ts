@@ -1,6 +1,12 @@
 import { HttpResponse, http } from "msw";
 import { beforeAll, describe, expect, it } from "vitest";
-import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
+import {
+  ApiError,
+  ApiResponseFormatError,
+  ApiUnreachableError,
+  GENERIC_FAILURE,
+  UNREACHABLE,
+} from "@/lib/api/errors";
 import { request } from "@/lib/api/client/client";
 import { server } from "@/test/msw";
 
@@ -197,14 +203,51 @@ describe("request", () => {
     expect((error as ApiError).retryAfterSeconds).toBeNull();
   });
 
-  it("falls back to a status message when the envelope carries none", async () => {
+  it("falls back to a readable line when the envelope carries none, never the status", async () => {
     server.use(
       http.get(`${BASE}/api/thing`, () =>
         HttpResponse.json({ success: false, data: null }, { status: 500 }),
       ),
     );
 
-    await expect(request("/api/thing")).rejects.toThrow("Request failed with status 500.");
+    const error = await request("/api/thing").catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe(GENERIC_FAILURE);
+    expect((error as ApiError).message).not.toContain("500");
+    expect((error as ApiError).status).toBe(500);
+  });
+
+  it("falls back the same way when nothing answered with JSON at all", async () => {
+    server.use(
+      http.get(`${BASE}/api/thing`, () => new HttpResponse("<html>502</html>", { status: 502 })),
+    );
+
+    const error = await request("/api/thing").catch((thrown: unknown) => thrown);
+
+    expect((error as ApiError).message).toBe(GENERIC_FAILURE);
+    expect((error as ApiError).status).toBe(502);
+  });
+
+  it("throws ApiUnreachableError when the request gets no answer", async () => {
+    server.use(http.get(`${BASE}/api/thing`, () => HttpResponse.error()));
+
+    const error = await request("/api/thing").catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(ApiUnreachableError);
+    expect((error as Error).message).toBe(UNREACHABLE);
+  });
+
+  it("lets an abort through as itself, since the caller asked for it", async () => {
+    server.use(http.get(`${BASE}/api/thing`, () => HttpResponse.json({ success: true })));
+    const controller = new AbortController();
+    controller.abort();
+
+    const error = await request("/api/thing", { signal: controller.signal }).catch(
+      (thrown: unknown) => thrown,
+    );
+
+    expect(error).not.toBeInstanceOf(ApiUnreachableError);
   });
 
   it("returns undefined for an empty 2xx body", async () => {
