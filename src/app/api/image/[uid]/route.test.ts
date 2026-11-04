@@ -99,6 +99,15 @@ describe("image route", () => {
     expect((await call("")).status).toBe(404);
   });
 
+  it("answers 404 for a signed read of an object the bucket no longer holds", async () => {
+    server.use(
+      signsTheRead(),
+      http.get(OBJECT, () => new HttpResponse(null, { status: 404 })),
+    );
+
+    expect((await call("up-1")).status).toBe(404);
+  });
+
   it("answers 502 when the object itself cannot be fetched", async () => {
     server.use(
       signsTheRead(),

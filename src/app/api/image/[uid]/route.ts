@@ -39,8 +39,8 @@ function statusFor(error: unknown): number {
  * Streams an uploaded image to a caller the backend allows to see it.
  *
  * @returns The bytes with the type they were stored as, 401 with no session,
- * 404 for an image that is not this caller's, and 502 where the object itself
- * could not be fetched.
+ * 404 for an image that is not this caller's or whose object is gone, and 502
+ * where the bucket could not answer for it at all.
  */
 export async function GET(
   _request: Request,
@@ -61,6 +61,10 @@ export async function GET(
   // The one raw fetch outside `api/client`: this is the bucket rather than our
   // API, so there is no envelope to unwrap and the body is bytes, not JSON.
   const object = await fetch(signed).catch(() => null);
+
+  // A key that is not in the bucket is a miss, the same as a uid the backend
+  // refuses: nothing upstream is broken, so it is not a bad gateway.
+  if (object?.status === 404) return new NextResponse(null, { status: 404 });
   if (!object?.ok || !object.body) return new NextResponse(null, { status: 502 });
 
   return new NextResponse(object.body, {
