@@ -1,7 +1,7 @@
 /**
- * The group list's query: what the URL asks for. The shape is what a backend
- * filter would take as parameters, so the single call site that applies it to
- * the list we already hold can be swapped for a call that sends it.
+ * The group list's query: what the URL asks for, and what the endpoint that
+ * answers it is sent. The tokens are the URL's own, short and lowercase, so a
+ * pasted link reads as a sentence; `groupApiQuery` maps them to the enums.
  *
  * No `server-only`: the row of controls reads this in the browser.
  */

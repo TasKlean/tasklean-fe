@@ -1,12 +1,12 @@
 /**
- * Searching, narrowing and ordering the group list in the copy we already hold.
- * `filterGroups` is the one call site a backend filter replaces: the rest of
- * this module reads the query out of the URL and writes it back, which stays
- * true either way.
+ * The group list's query in all three of its vocabularies: read out of the URL,
+ * written back into it, and translated for the endpoint that answers it.
  *
- * The backend has no filter at all today, so no endpoint takes any of this.
+ * Nothing here narrows or orders anything. The backend does both now, so the
+ * URL's own tokens and its enums are kept in step by hand, under a test each.
  */
 
+import type { QueryValue } from "@/lib/api/client/client.types";
 import {
   GROUP_SHOWS,
   GROUP_SORTS,
@@ -15,13 +15,10 @@ import {
   type GroupShow,
   type GroupSort,
 } from "@/lib/groups/filter/filter.types";
-import type { MyGroup } from "@/lib/groups/groups.types";
-import { groupLabel } from "@/lib/groups/labels/labels";
-import { isGroupAdmin } from "@/lib/groups/role/role";
-import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
+import type { GroupRole } from "@/lib/groups/groups.types";
 
-// A search longer than this is somebody pasting, not searching, and the value
-// goes back into a URL.
+// `FieldLimits.SEARCH_TEXT` on the backend, which refuses a longer search as a
+// 400: this cap is what keeps a pasted one from ever becoming one.
 const QUERY_MAX_LENGTH = 100;
 
 export const DEFAULT_SORT: GroupSort = "name-asc";
@@ -43,34 +40,19 @@ export const SHOW_OPTIONS: readonly { value: GroupShow; label: string }[] = [
   { value: "member", label: "Groups you're in" },
 ];
 
-/** Orders two groups by the name the list shows for them. */
-function byName(first: MyGroup, second: MyGroup): number {
-  return groupLabel(first.name).localeCompare(groupLabel(second.name), "en", {
-    sensitivity: "base",
-  });
-}
+// The backend's own vocabulary, which the URL's is not. A role is checked
+// against the contract's own type; a sort is a bare string, hence its test.
+const ROLE_FOR_SHOW: Record<GroupShow, GroupRole> = {
+  admin: "GROUP_ADMIN",
+  member: "GROUP_MEMBER",
+};
 
-/**
- * Reads an API timestamp as a number to compare.
- *
- * @returns The time, or 0 for a field the backend did not send, which sorts it
- * last under every ordering here.
- */
-function at(value: string | undefined): number {
-  return parseApiDateOrNull(value)?.getTime() ?? 0;
-}
-
-// Name is every ordering's tiebreak, so a list of groups that joined on the
-// same day does not shuffle between renders.
-const COMPARATORS: Record<GroupSort, (first: MyGroup, second: MyGroup) => number> = {
-  "name-asc": byName,
-  "name-desc": (first, second) => -byName(first, second),
-  "joined-desc": (first, second) =>
-    at(second.dateJoined) - at(first.dateJoined) || byName(first, second),
-  "created-desc": (first, second) =>
-    at(second.dateCreated) - at(first.dateCreated) || byName(first, second),
-  "members-desc": (first, second) =>
-    (second.memberCount ?? 0) - (first.memberCount ?? 0) || byName(first, second),
+const SORT_FOR_TOKEN: Record<GroupSort, string> = {
+  "name-asc": "NAME_ASC",
+  "name-desc": "NAME_DESC",
+  "joined-desc": "JOINED_DESC",
+  "created-desc": "CREATED_DESC",
+  "members-desc": "MEMBERS_DESC",
 };
 
 /** Takes the first value of a search param that may have arrived repeated. */
@@ -102,35 +84,6 @@ export function groupQuery(params: GroupSearchParams): GroupQuery {
   return { q, show: show.length === 0 ? GROUP_SHOWS : show, sort };
 }
 
-/** Says whether a group is on a side of the list the query asked for. */
-function shows(group: MyGroup, show: readonly GroupShow[]): boolean {
-  return show.includes(isGroupAdmin(group.myRole) ? "admin" : "member");
-}
-
-/** Says whether a group's name or description holds the search text. */
-function matches(group: MyGroup, needle: string): boolean {
-  if (!needle) return true;
-
-  return `${group.name ?? ""} ${group.description ?? ""}`.toLocaleLowerCase().includes(needle);
-}
-
-/**
- * Applies a query to the groups we hold.
- *
- * This is the function a backend filter replaces: everything it does, a `GET`
- * carrying the same query would answer with.
- *
- * @returns A new list, narrowed and ordered. The input is left alone, since
- * `sort` would otherwise reorder the caller's array.
- */
-export function filterGroups(groups: readonly MyGroup[], query: GroupQuery): MyGroup[] {
-  const needle = query.q.toLocaleLowerCase();
-
-  return groups
-    .filter((group) => shows(group, query.show) && matches(group, needle))
-    .sort(COMPARATORS[query.sort]);
-}
-
 /**
  * Writes a query back as the URL that reproduces it.
  *
@@ -148,4 +101,34 @@ export function groupQueryParams(query: GroupQuery): URLSearchParams {
   if (query.sort !== DEFAULT_SORT) params.set("sort", query.sort);
 
   return params;
+}
+
+/**
+ * Turns a query into the parameters `GET /api/groups/mine` takes.
+ *
+ * @returns Only what narrows or reorders the list, the same way the URL carries
+ * only that: naming both roles and naming none are the same request, and name
+ * order is what the endpoint answers with when no sort is named at all.
+ */
+export function groupApiQuery(query: GroupQuery): Record<string, QueryValue> {
+  const params: Record<string, QueryValue> = {};
+
+  if (query.q) params.q = query.q;
+  if (query.show.length < GROUP_SHOWS.length) {
+    params.role = query.show.map((show) => ROLE_FOR_SHOW[show]);
+  }
+  if (query.sort !== DEFAULT_SORT) params.sort = SORT_FOR_TOKEN[query.sort];
+
+  return params;
+}
+
+/**
+ * Says whether a query hides any group it could have shown.
+ *
+ * @returns True for a search or a role box, false for an order: a sort moves
+ * groups about and removes none, so an empty list under one holds no groups at
+ * all, which is a different thing to say.
+ */
+export function narrowsList(query: GroupQuery): boolean {
+  return query.q !== "" || query.show.length < GROUP_SHOWS.length;
 }

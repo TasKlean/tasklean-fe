@@ -1,14 +1,16 @@
 /**
  * The caller's groups: creating one, joining with a code, and reading or
- * changing one they are already in. The two reads are memoised per request,
- * because a layout and the page inside it ask for the same thing and
- * `request()` sends `cache: "no-store"`, so fetch will not dedupe them.
+ * changing one they are already in. `getMyGroups` and `getGroup` are memoised
+ * per request, because a layout and the page inside it ask for the same thing
+ * and `request()` sends `cache: "no-store"`, so fetch will not dedupe them.
  */
 
 import "server-only";
 
 import { cache } from "react";
 import { serverApi } from "@/lib/api/server/server";
+import { groupApiQuery } from "@/lib/groups/filter/filter";
+import type { GroupQuery } from "@/lib/groups/filter/filter.types";
 import type {
   CreateGroupRequest,
   Group,
@@ -18,22 +20,6 @@ import type {
 } from "@/lib/groups/groups.types";
 
 const GROUPS_PATH = "/api/groups";
-
-/**
- * Orders groups by name, which is the order a list and a switcher both want.
- *
- * @returns A comparator. A group with no readable name sorts last rather than
- * jumping to the top as an empty string.
- */
-function byName(left: MyGroup, right: MyGroup): number {
-  const leftName = left.name?.trim() ?? "";
-  const rightName = right.name?.trim() ?? "";
-
-  if (leftName === rightName) return 0;
-  if (!leftName) return 1;
-  if (!rightName) return -1;
-  return leftName.localeCompare(rightName);
-}
 
 /** Builds the path to one group, encoding a uid that came from the URL. */
 function groupPath(uid: string, suffix = ""): string {
@@ -69,10 +55,10 @@ export async function joinGroup(inviteCode: string): Promise<MyGroup> {
 }
 
 /**
- * Lists the groups the caller is an active member of.
+ * Lists every group the caller is an active member of, in name order.
  *
- * The backend returns them unordered and never paginates, so they are sorted
- * here, which is where every other ordering in this app lives.
+ * Asked for without a query, the endpoint answers ordered by name, so nothing
+ * is sorted here: a second ordering on top would fight one the list asked for.
  *
  * @returns Every group, each with the caller's own role, the member count and
  * when they joined.
@@ -81,8 +67,31 @@ export async function joinGroup(inviteCode: string): Promise<MyGroup> {
 export const getMyGroups = cache(async (): Promise<MyGroup[]> => {
   const groups = await serverApi<MyGroup[]>(`${GROUPS_PATH}/mine`);
 
-  return Array.isArray(groups) ? [...groups].sort(byName) : [];
+  return Array.isArray(groups) ? groups : [];
 });
+
+/**
+ * Lists the caller's groups, narrowed and ordered by what the list asked for.
+ *
+ * Not memoised, unlike the two reads above: one page calls it, and `cache()`
+ * keys on argument identity, so a fresh query object would never hit it anyway.
+ *
+ * @param query Already normalised by `groupQuery`, which matters: the endpoint
+ * answers a role or a sort it does not know with a 400, not with a fallback.
+ * @returns The groups that match, in the order asked for.
+ * @throws SessionExpiredError when the session is gone or refused.
+ */
+export async function searchMyGroups(query: GroupQuery): Promise<MyGroup[]> {
+  const params = groupApiQuery(query);
+
+  // A list with nothing asked of it is the one the chrome's switcher already
+  // read, so the page shares that call rather than making an identical second.
+  if (Object.keys(params).length === 0) return getMyGroups();
+
+  const groups = await serverApi<MyGroup[]>(`${GROUPS_PATH}/mine`, { query: params });
+
+  return Array.isArray(groups) ? groups : [];
+}
 
 /**
  * Reads one group.

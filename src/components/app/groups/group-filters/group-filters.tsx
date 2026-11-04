@@ -5,8 +5,8 @@
  * the one exception, keeping what is typed locally and pushing it once typing
  * stops, because a keystroke cannot be a navigation.
  *
- * Nothing here filters anything. `filterGroups` does that today and a backend
- * taking the same query does it later; this row only says what was asked for.
+ * Nothing here filters anything, and nothing here reads a group: the backend
+ * narrows and orders the list, and this row only says what was asked of it.
  */
 
 "use client";

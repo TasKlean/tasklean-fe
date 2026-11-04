@@ -1,50 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SORT,
-  filterGroups,
+  groupApiQuery,
   groupQuery,
   groupQueryParams,
+  narrowsList,
 } from "@/lib/groups/filter/filter";
 import type { GroupQuery } from "@/lib/groups/filter/filter.types";
-import type { MyGroup } from "@/lib/groups/groups.types";
-
-const FLAT: MyGroup = {
-  uid: "g1",
-  name: "Flat 12",
-  description: "The upstairs kitchen",
-  myRole: "GROUP_ADMIN",
-  memberCount: 4,
-  dateJoined: "2026-01-10T09:00:00",
-  dateCreated: "2026-01-01T09:00:00",
-};
-
-const HOUSE: MyGroup = {
-  uid: "g2",
-  name: "Beach house",
-  description: "Summers only",
-  myRole: "GROUP_MEMBER",
-  memberCount: 9,
-  dateJoined: "2026-03-20T09:00:00",
-  dateCreated: "2026-02-01T09:00:00",
-};
-
-const CABIN: MyGroup = {
-  uid: "g3",
-  name: "Cabin",
-  myRole: "GROUP_MEMBER",
-  memberCount: 2,
-  dateJoined: "2026-02-15T09:00:00",
-  dateCreated: "2026-03-01T09:00:00",
-};
-
-const ALL = [FLAT, HOUSE, CABIN];
 
 function query(fields: Partial<GroupQuery> = {}): GroupQuery {
   return { q: "", show: ["admin", "member"], sort: DEFAULT_SORT, ...fields };
-}
-
-function names(groups: readonly MyGroup[]): (string | undefined)[] {
-  return groups.map((group) => group.name);
 }
 
 describe("groupQuery", () => {
@@ -89,84 +54,6 @@ describe("groupQuery", () => {
   });
 });
 
-describe("filterGroups", () => {
-  it("searches the name and the description, whatever the case", () => {
-    expect(names(filterGroups(ALL, query({ q: "KITCHEN" })))).toEqual(["Flat 12"]);
-    expect(names(filterGroups(ALL, query({ q: "beach" })))).toEqual(["Beach house"]);
-  });
-
-  it("shows everything when both sides are on", () => {
-    expect(filterGroups(ALL, query())).toHaveLength(3);
-  });
-
-  it("shows one side of the list when its box is on", () => {
-    expect(names(filterGroups(ALL, query({ show: ["admin"] })))).toEqual(["Flat 12"]);
-    expect(names(filterGroups(ALL, query({ show: ["member"] })))).toEqual(["Beach house", "Cabin"]);
-  });
-
-  it("treats a role we do not know as a plain membership", () => {
-    const guest: MyGroup = { uid: "g4", name: "Guest", myRole: "GROUP_GUEST" };
-
-    expect(names(filterGroups([guest], query({ show: ["member"] })))).toEqual(["Guest"]);
-  });
-
-  it("orders by name both ways", () => {
-    expect(names(filterGroups(ALL, query()))).toEqual(["Beach house", "Cabin", "Flat 12"]);
-    expect(names(filterGroups(ALL, query({ sort: "name-desc" })))).toEqual([
-      "Flat 12",
-      "Cabin",
-      "Beach house",
-    ]);
-  });
-
-  it("orders by when you joined, when the group was made, and by size", () => {
-    expect(names(filterGroups(ALL, query({ sort: "joined-desc" })))).toEqual([
-      "Beach house",
-      "Cabin",
-      "Flat 12",
-    ]);
-    expect(names(filterGroups(ALL, query({ sort: "created-desc" })))).toEqual([
-      "Cabin",
-      "Beach house",
-      "Flat 12",
-    ]);
-    expect(names(filterGroups(ALL, query({ sort: "members-desc" })))).toEqual([
-      "Beach house",
-      "Flat 12",
-      "Cabin",
-    ]);
-  });
-
-  it("breaks a tie by name, so the order never shuffles", () => {
-    const same = [
-      { uid: "a", name: "Zinc", memberCount: 3 },
-      { uid: "b", name: "Alder", memberCount: 3 },
-    ];
-
-    expect(names(filterGroups(same, query({ sort: "members-desc" })))).toEqual(["Alder", "Zinc"]);
-  });
-
-  it("sorts a group the backend sent no date for last", () => {
-    const undated: MyGroup = { uid: "g5", name: "Undated" };
-
-    expect(names(filterGroups([undated, FLAT], query({ sort: "joined-desc" })))).toEqual([
-      "Flat 12",
-      "Undated",
-    ]);
-  });
-
-  it("leaves the list it was handed alone", () => {
-    const given = [FLAT, HOUSE];
-    filterGroups(given, query({ sort: "members-desc" }));
-
-    expect(names(given)).toEqual(["Flat 12", "Beach house"]);
-  });
-
-  it("answers with nothing when nothing matches", () => {
-    expect(filterGroups(ALL, query({ q: "garage" }))).toEqual([]);
-  });
-});
-
 describe("groupQueryParams", () => {
   it("writes only what is not the default", () => {
     expect(groupQueryParams(query()).toString()).toBe("");
@@ -186,5 +73,44 @@ describe("groupQueryParams", () => {
         sort: "joined-desc",
       }),
     ).toEqual(asked);
+  });
+});
+
+describe("groupApiQuery", () => {
+  it("asks for nothing when nothing was asked of the list", () => {
+    expect(groupApiQuery(query())).toEqual({});
+  });
+
+  it("names every order the way the backend does", () => {
+    expect(groupApiQuery(query({ sort: "name-desc" })).sort).toBe("NAME_DESC");
+    expect(groupApiQuery(query({ sort: "joined-desc" })).sort).toBe("JOINED_DESC");
+    expect(groupApiQuery(query({ sort: "created-desc" })).sort).toBe("CREATED_DESC");
+    expect(groupApiQuery(query({ sort: "members-desc" })).sort).toBe("MEMBERS_DESC");
+  });
+
+  it("names no order for the default one, which is the endpoint's own", () => {
+    expect(groupApiQuery(query({ sort: "name-asc" })).sort).toBeUndefined();
+  });
+
+  it("names each side of the list by its role", () => {
+    expect(groupApiQuery(query({ show: ["admin"] })).role).toEqual(["GROUP_ADMIN"]);
+    expect(groupApiQuery(query({ show: ["member"] })).role).toEqual(["GROUP_MEMBER"]);
+  });
+
+  it("names no role when both sides are on", () => {
+    expect(groupApiQuery(query({ show: ["admin", "member"] })).role).toBeUndefined();
+  });
+
+  it("sends the search exactly as it was read", () => {
+    expect(groupApiQuery(query({ q: "beach" })).q).toBe("beach");
+  });
+});
+
+describe("narrowsList", () => {
+  it("counts a search and a role box, and never an order", () => {
+    expect(narrowsList(query())).toBe(false);
+    expect(narrowsList(query({ sort: "members-desc" }))).toBe(false);
+    expect(narrowsList(query({ q: "beach" }))).toBe(true);
+    expect(narrowsList(query({ show: ["admin"] }))).toBe(true);
   });
 });

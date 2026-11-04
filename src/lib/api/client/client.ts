@@ -10,6 +10,16 @@ import { ApiError, ApiResponseFormatError } from "@/lib/api/errors";
 import { getEnv } from "@/lib/config/env/env";
 
 /**
+ * Narrows a query value to one the backend takes repeated.
+ *
+ * Its own guard rather than a bare `Array.isArray`, which does not narrow a
+ * `readonly` array.
+ */
+function isRepeated(value: QueryValue): value is readonly string[] {
+  return Array.isArray(value);
+}
+
+/**
  * Joins the configured base URL, a path and a query object into a request URL.
  *
  * @param query Null and undefined values are dropped rather than serialised.
@@ -28,6 +38,14 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
     // A missing scope param is the caller's bug, best surfaced as the backend's
     // 400 rather than as an error this layer invents.
     if (value === null || value === undefined) continue;
+
+    // One entry at a time: `String(["a", "b"])` is `a,b`, which the backend
+    // reads as a single value rather than as the two that were asked for.
+    if (isRepeated(value)) {
+      for (const entry of value) params.append(key, entry);
+      continue;
+    }
+
     params.set(key, String(value));
   }
 

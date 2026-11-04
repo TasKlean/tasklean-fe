@@ -16,6 +16,7 @@ vi.mock("@/lib/auth/session/session", () => ({
 }));
 
 import { isApiError } from "@/lib/api/errors";
+import type { GroupQuery } from "@/lib/groups/filter/filter.types";
 import {
   createGroup,
   deleteGroup,
@@ -23,6 +24,7 @@ import {
   getMyGroups,
   joinGroup,
   rotateInviteCode,
+  searchMyGroups,
   updateGroup,
 } from "@/lib/groups/groups";
 
@@ -46,33 +48,31 @@ function watch(seen: Seen, request: Request): void {
   seen.headers = request.headers;
 }
 
+function askFor(fields: Partial<GroupQuery> = {}): GroupQuery {
+  return { q: "", show: ["admin", "member"], sort: "name-asc", ...fields };
+}
+
+function sent(seen: Seen): URLSearchParams {
+  return new URL(seen.url ?? "").searchParams;
+}
+
 describe("getMyGroups", () => {
-  it("orders groups by name, whatever order the backend used", async () => {
+  it("asks for the whole list and keeps the order it was answered in", async () => {
+    const seen: Seen = {};
     server.use(
-      http.get(`${BASE}/api/groups/mine`, () =>
-        envelope([
+      http.get(`${BASE}/api/groups/mine`, ({ request }) => {
+        watch(seen, request);
+        return envelope([
           { uid: "g2", name: "Lake house" },
           { uid: "g1", name: "Flat 12" },
-          { uid: "g3", name: "Mum and Dad" },
-        ]),
-      ),
+        ]);
+      }),
     );
 
     const groups = await getMyGroups();
 
-    expect(groups.map((group) => group.uid)).toEqual(["g1", "g2", "g3"]);
-  });
-
-  it("sorts a group with no readable name last", async () => {
-    server.use(
-      http.get(`${BASE}/api/groups/mine`, () =>
-        envelope([{ uid: "g1", name: "   " }, { uid: "g2" }, { uid: "g3", name: "Flat 12" }]),
-      ),
-    );
-
-    const groups = await getMyGroups();
-
-    expect(groups[0]?.uid).toBe("g3");
+    expect(sent(seen).toString()).toBe("");
+    expect(groups.map((group) => group.uid)).toEqual(["g2", "g1"]);
   });
 
   it("answers with an empty list when the envelope carried no array", async () => {
@@ -93,6 +93,45 @@ describe("getMyGroups", () => {
     await getMyGroups();
 
     expect(seen.headers?.get("x-device-id")).toBe("dev-1");
+  });
+});
+
+describe("searchMyGroups", () => {
+  it("sends the search, the role and the order the list asked for", async () => {
+    const seen: Seen = {};
+    server.use(
+      http.get(`${BASE}/api/groups/mine`, ({ request }) => {
+        watch(seen, request);
+        return envelope([]);
+      }),
+    );
+
+    await searchMyGroups(askFor({ q: "beach", show: ["admin"], sort: "members-desc" }));
+
+    expect(sent(seen).get("q")).toBe("beach");
+    expect(sent(seen).getAll("role")).toEqual(["GROUP_ADMIN"]);
+    expect(sent(seen).get("sort")).toBe("MEMBERS_DESC");
+  });
+
+  it("reads the plain list when nothing was asked of it", async () => {
+    const seen: Seen = {};
+    server.use(
+      http.get(`${BASE}/api/groups/mine`, ({ request }) => {
+        watch(seen, request);
+        return envelope([{ uid: "g1", name: "Flat 12" }]);
+      }),
+    );
+
+    const groups = await searchMyGroups(askFor());
+
+    expect(sent(seen).toString()).toBe("");
+    expect(groups).toHaveLength(1);
+  });
+
+  it("answers with an empty list when the envelope carried no array", async () => {
+    server.use(http.get(`${BASE}/api/groups/mine`, () => envelope(null)));
+
+    await expect(searchMyGroups(askFor({ q: "beach" }))).resolves.toEqual([]);
   });
 });
 

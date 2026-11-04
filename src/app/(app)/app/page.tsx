@@ -11,8 +11,8 @@ import { FormNotice } from "@/components/common/form-notice";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
-import { filterGroups, groupQuery } from "@/lib/groups/filter/filter";
-import { getMyGroups } from "@/lib/groups/groups";
+import { groupQuery, narrowsList } from "@/lib/groups/filter/filter";
+import { searchMyGroups } from "@/lib/groups/groups";
 import type { MyGroup } from "@/lib/groups/groups.types";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 
@@ -31,7 +31,7 @@ export default async function AppHomePage({ searchParams }: PageProps<"/app">) {
   let failure: string | null = null;
 
   try {
-    groups = await getMyGroups();
+    groups = await searchMyGroups(query);
   } catch (error) {
     if (isSessionExpiredError(error)) redirect("/login");
 
@@ -42,26 +42,24 @@ export default async function AppHomePage({ searchParams }: PageProps<"/app">) {
   let body: ReactNode;
   if (failure) {
     body = <LoadError title="We could not load your groups." message={failure} />;
-  } else if (groups.length === 0) {
+  } else if (groups.length === 0 && !narrowsList(query)) {
+    // Only where the query hid nothing: an empty answer to a search is the
+    // no-matches card below, which is the only way back out of the filter.
     body = <NoGroups />;
   } else {
-    // The one call a backend filter replaces: the same query, answered by a
-    // `GET` instead of by the list we are already holding.
-    const shown = filterGroups(groups, query);
-
     body = (
       <>
         <GroupFilters query={query} />
 
-        {shown.length === 0 ? <NoMatches /> : null}
+        {groups.length === 0 ? <NoMatches /> : null}
 
         <GroupSection
           title="Groups you manage"
-          groups={shown.filter((group) => isGroupAdmin(group.myRole))}
+          groups={groups.filter((group) => isGroupAdmin(group.myRole))}
         />
         <GroupSection
           title="Groups you're in"
-          groups={shown.filter((group) => !isGroupAdmin(group.myRole))}
+          groups={groups.filter((group) => !isGroupAdmin(group.myRole))}
         />
       </>
     );

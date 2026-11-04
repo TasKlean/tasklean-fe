@@ -15,8 +15,8 @@ Never restate backend internals here — link to them.
 `/forgot-password`, `/reset-password`, `/two-factor`, Google sign-in, `/app`, `/app/account`,
 `/app/settings/{appearance,language,notifications,two-factor,devices,password,connected-accounts,deactivate}`
 and logout exist. Everything else behind the session does not. **Groups are partly built**: `/app`
-lists them behind a search, a role filter and a sort that all live in the URL and all run in the
-browser, since no endpoint takes them yet; creating one and joining by code both work, the header carries a
+lists them behind a search, a role filter and a sort that all live in the URL and are all answered
+by the backend; creating one and joining by code both work, the header carries a
 trail into every level of a group with that pill standing in for it on a phone, and `/app/groups/[uid]` is a shell whose rail stands still
 while the section beside it scrolls. The group's own path is **Tasks**, which carries nothing but a
 notice. **Overview** and **Settings** are areas of sections, and the open one's sections fill the
@@ -277,15 +277,16 @@ src/
                        the two-factor prompt's path
     config/env.ts      validated environment
     devices/devices.ts the caller's own devices and sessions
-    groups/            groups.ts (create, join, mine, detail, update, rotate the invite
-                       code, delete) with groups.types.ts, members/members.ts (the roster,
+    groups/            groups.ts (create, join, mine, that same list filtered, detail,
+                       update, rotate the invite code, delete) with
+                       groups.types.ts, members/members.ts (the roster,
                        a role change, and the removal that is also a leave), role.ts (the
                        one place a role string is compared), photo/ (the src a
                        group's picture is read from, which is our own route and
                        never the bucket), labels.ts (the lines a card,
                        a roster row or the overview shows), filter/ (the list's query: reading it
-                       out of the URL, applying it here until the backend takes it,
-                       and writing it back) with filter.types.ts, unavailable.ts (what
+                       out of the URL, writing it back, and turning it into the
+                       parameters the endpoint takes) with filter.types.ts, unavailable.ts (what
                        a 403 on a group route means) and last-admin.ts (the shared 409)
     images/            fit-box/ (the size a picture is drawn at to fit a bound) and
                        resize/ (the browser's own decode, redraw and re-encode)
@@ -493,11 +494,14 @@ screens, or with none of its own feature's knowledge, moves to `components/commo
   Administration moves into the bottom bar's More menu, which the band itself says
   (`phone: "strip" | "menu"`). `NavEntry` renders an entry wherever it lands, so the rail, the strip
   and the menu cannot disagree about what a section is called or whether it is built.
-- **The group list's filter is the URL, and the browser is a stand-in for the backend.**
-  `/app?q=&show=&sort=` is the whole state: the page narrows it with `groupQuery`, applies it with
-  `filterGroups` and passes it to `GroupFilters`, which writes every press back into the path. A
-  filtered list is therefore a link somebody can paste, and the backend version replaces the one
-  `filterGroups` call with a `getMyGroups(query)` sending the same object. **Both boxes start
+- **The group list's filter is the URL, and the backend answers it.** `/app?q=&show=&sort=` is the
+  whole state: the page narrows it with `groupQuery`, reads it with `searchMyGroups` and passes it
+  to `GroupFilters`, which writes every press back into the path. A filtered list is therefore a
+  link somebody can paste. **The URL's tokens are not the endpoint's enums**, so `groupApiQuery` is
+  the one place `show=admin` becomes `role=GROUP_ADMIN` and `sort=members-desc` becomes
+  `MEMBERS_DESC`, and nothing orders the list after it arrives: a second sort would fight the one
+  that was asked for. **Nothing is sorted or narrowed on the client at all**, which is why
+  `request()` can send a parameter repeated, the only form the endpoint takes `role` in. **Both boxes start
   ticked and the last ticked one is disabled**, so one side is the only restriction there is and
   `show` is never empty; the URL carries a side only when one is off. The two bands stay: a box
   hides a whole band rather than reshuffling the list.
@@ -998,8 +1002,12 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   `400`, not an empty list. **The group and membership routes are the exception**: their scope is in
   the path (`/api/groups/mine`, `/api/groups/{uid}/members`) and `?groupId=` is gone from them,
   though tasks, categories, tags and audit logs still take it.
-- **No pagination, sorting or server-side filtering exists.** Filter and sort on the client, keeping
-  the predicates in one place per resource.
+- **No pagination exists, and only the group list filters, sorts and searches.**
+  `GET /api/groups/mine` takes `q`, a repeatable `role` and a `sort`, and refuses a value it does
+  not know with a `400` rather than falling back, so a query is normalised before it is sent. Every
+  other resource is still filtered and sorted on the client, with the predicates in one place per
+  resource. **The search cap is a shared constant**: `QUERY_MAX_LENGTH` in `groups/filter` is the
+  backend's `FieldLimits.SEARCH_TEXT`, and a longer search is a `400`.
 - **Types are hand-written per feature** from `openapi.json` — we do not generate a client.
 
 ## Tests
