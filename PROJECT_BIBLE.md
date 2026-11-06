@@ -1458,7 +1458,7 @@ other way first, and a test asserting `Join a group` was absent from the group c
 **The sections a crumb drops come from `navSections`, not a table of its own.** The rail already
 decides what a section is called, in what order, which three an admin gets and which is not built, so
 a second list would be a second place to forget. The trail filters out the way back, which is the
-rail's own affordance, and inherits the dead `Audit trail` row.
+rail's own affordance, and links no section the rail marks unbuilt.
 
 **A crumb is keyed by its level.** A group's own page is both the group and its tasks, so those two
 crumbs carry the same href, and React reported duplicate keys on every group landing page. The href
@@ -1781,7 +1781,7 @@ header that is already sticky. Sticky gets the same picture for four classes. On
 rail is 400px tall and scrolls itself, which is the safety valve the overflow is for.
 
 **The band where Workspace sits is the open area's own sections.** Inside the overview it is
-Information, Members and Audit trail; inside settings it is the five an admin has and the two
+Information, Members and Activity; inside settings it is the five an admin has and the two
 everybody has, under the heading "Group settings", since "Settings" in a group's rail reads as the
 account's. Administration stays put underneath. Each contextual band is headed by **"Back to
 tasks"**, because with Workspace replaced the rail would otherwise hold no way back to the screen a
@@ -1919,6 +1919,22 @@ there are 28 actions not 27.
 
 **`ipAddress` is absent from the type.** The backend stops sending it for the group scope, and a
 field a screen must not show is safest not to have.
+
+**The line a row reads is ours, keyed on the action and the entity together.** `actionMessage` is
+English that cannot be localized, names nobody on a membership event and prints the raw role enum, so
+it is only the fallback for a pair we have no copy for, and it stands alone there: it is a whole
+sentence, and pinned to a subject it would read "Alice Member left group". One action reads
+differently per entity, which is why `CREATE` alone is not the key. The sentence is returned whole
+rather than as subject plus phrase, because an accessible name built from two elements loses the space
+between them.
+
+**A timestamp is relative, with the exact value behind it in UTC.** The row renders on the server,
+where the zone is the container's and not the reader's, so `time/relative` pins it. Past a month the
+phrase says less than a date does, so it gives a date. A timestamp a few seconds ahead of us is "just
+now", because clock skew between two machines is ordinary and "in 3 seconds" reads as a bug.
+
+**An empty feed says something different to a member.** Their rows are narrowed, so "nothing has
+happened" would be a lie in a busy household; they are told what they will see instead.
 
 ### A group's picture is an uploaded file, and every piece of that is forced
 

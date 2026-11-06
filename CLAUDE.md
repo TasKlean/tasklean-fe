@@ -22,7 +22,8 @@ is a shell: a rail that stands still beside a scrolling section. The group's own
 which carries only a notice.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
-  promotes, demotes and removes from, with leaving at the end. The audit trail is a dead entry.
+  promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
+  trail, newest first; it reads one page and offers no filter yet.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -145,7 +146,7 @@ src/
                        on), group.helpers.ts (the shared read)
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
-                       the leave that is the same call
+                       the leave that is the same call; activity/ is the trail
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -190,7 +191,8 @@ src/
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
-      group/overview/  member-row (+ member-actions, confirm-remove), leave-group
+      group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
+                       activity/ (activity-row, activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -207,7 +209,8 @@ src/
     account/           account.ts (own password, connections, deactivation),
                        two-factor.ts
     audit/             audit.ts (one page of a group's trail), audit.types.ts,
-                       entity/ (the type set, and the six a group holds)
+                       entity/ (the type set, and the six a group holds),
+                       labels/ (the line a row reads, from action + entity)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -236,7 +239,8 @@ src/
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
-    time/api-date.ts   API timestamps <-> Date
+    time/              api-date/ (API timestamps <-> Date), relative/ (how long
+                       ago, in words, drawn in UTC)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
@@ -286,8 +290,9 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), the two audit modules a feed in the browser reads
-(`audit/audit.types.ts`, `audit/entity`), and the two upload halves that run in the browser
+`groups/unavailable`, `groups/last-admin`), the three audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`), and the two upload halves that run in the
+browser
 (`uploads/uploads.types.ts`, `uploads/put-object`).
 
 ### Styling
@@ -497,6 +502,11 @@ It must **not** be imported by anything a client component imports: all of `vali
 - **A step that cannot be undone asks for the name, not a second press.** `DeleteGroup` matches the
   typed name trimmed and case-insensitively. **Replacing the invite code confirms neutrally**,
   because nothing is lost.
+- **A trail's line is ours, keyed on the action and the entity together.** The backend's
+  `actionMessage` is the fallback for a pair we have no copy for, and stands alone, being a whole
+  sentence. `auditSentence` returns one string, since a name built from two elements loses the space.
+- **A trail's timestamp is relative, with the exact UTC value in the `title`.** `time/relative` pins
+  the zone because the row renders on the server, and gives a date past a month.
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.
