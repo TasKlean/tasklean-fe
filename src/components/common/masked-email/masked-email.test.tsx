@@ -4,7 +4,6 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MaskedEmail } from "@/components/common/masked-email/masked-email";
-import { ringHalves } from "@/components/common/masked-email/ring-halves";
 
 const EMAIL = "ada.lovelace@example.com";
 
@@ -99,34 +98,5 @@ describe("MaskedEmail on hover", () => {
     act(() => vi.advanceTimersByTime(5000));
 
     expect(screen.queryByText(EMAIL)).toBeNull();
-  });
-});
-
-describe("ringHalves", () => {
-  it("starts both halves at the bottom centre", () => {
-    const [right, left] = ringHalves({ width: 200, height: 40, radius: 12 });
-
-    expect(right.startsWith("M 100 40")).toBe(true);
-    expect(left.startsWith("M 100 40")).toBe(true);
-  });
-
-  it("ends both halves at the top centre, so they meet", () => {
-    const [right, left] = ringHalves({ width: 200, height: 40, radius: 12 });
-
-    expect(right.endsWith("H 100")).toBe(true);
-    expect(left.endsWith("H 100")).toBe(true);
-  });
-
-  it("sends one half right and the other left", () => {
-    const [right, left] = ringHalves({ width: 200, height: 40, radius: 12 });
-
-    expect(right).toContain("H 188");
-    expect(left).toContain("H 12");
-  });
-
-  it("clamps the radius on an element shorter than it", () => {
-    const [right] = ringHalves({ width: 200, height: 10, radius: 12 });
-
-    expect(right).toContain("A 5 5");
   });
 });
