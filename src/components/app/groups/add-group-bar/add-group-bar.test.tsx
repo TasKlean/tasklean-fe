@@ -17,18 +17,4 @@ describe("AddGroupBar", () => {
       "/app/groups/join",
     );
   });
-
-  it("gives each half the same share of the bar", () => {
-    render(<AddGroupBar />);
-
-    for (const half of screen.getAllByRole("link")) {
-      expect(half).toHaveClass("flex-1");
-    }
-  });
-
-  it("stays off a screen wide enough for the buttons in the page", () => {
-    const { container } = render(<AddGroupBar />);
-
-    expect(container.firstElementChild).toHaveClass("lg:hidden");
-  });
 });

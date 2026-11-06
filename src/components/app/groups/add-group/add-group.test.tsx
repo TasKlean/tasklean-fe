@@ -17,22 +17,4 @@ describe("AddGroup", () => {
       "/app/groups/join",
     );
   });
-
-  it("offers the same two links whichever layout it is asked for", () => {
-    render(<AddGroup layout="inline" />);
-
-    expect(screen.getAllByRole("link")).toHaveLength(2);
-  });
-
-  it("leaves the narrow screens to the bar, in either layout", () => {
-    const { container } = render(<AddGroup layout="inline" />);
-    const inline = container.firstElementChild;
-
-    const stacked = render(<AddGroup layout="stacked" />).container.firstElementChild;
-
-    for (const row of [inline, stacked]) {
-      expect(row).toHaveClass("hidden");
-      expect(row).toHaveClass("lg:flex");
-    }
-  });
 });

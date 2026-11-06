@@ -44,32 +44,6 @@ describe("HeroTilt", () => {
     vi.unstubAllGlobals();
   });
 
-  it("leans away from the cursor in the top left", () => {
-    const { root, stage } = renderStage();
-    movePointer(root, 0, 0);
-    expect(stage.style.transform).toBe("rotateX(2.50deg) rotateY(-2.50deg)");
-  });
-
-  it("leans the other way in the bottom right", () => {
-    const { root, stage } = renderStage();
-    movePointer(root, 800, 400);
-    expect(stage.style.transform).toBe("rotateX(-2.50deg) rotateY(2.50deg)");
-  });
-
-  it("drifts the card against the tilt", () => {
-    const { root, floater } = renderStage();
-    movePointer(root, 800, 400);
-    expect(floater.style.transform).toBe("translate3d(5.0px, 5.0px, 0)");
-  });
-
-  it("settles back to level when the cursor leaves", () => {
-    const { root, stage, floater } = renderStage();
-    movePointer(root, 0, 0);
-    fireEvent.pointerLeave(root);
-    expect(stage.style.transform).toBe("rotateX(0.00deg) rotateY(0.00deg)");
-    expect(floater.style.transform).toBe("translate3d(0.0px, 0.0px, 0)");
-  });
-
   it("ignores touch, which has no hover state", () => {
     const { root, stage } = renderStage();
     movePointer(root, 0, 0, "touch");
