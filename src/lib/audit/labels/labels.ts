@@ -70,14 +70,17 @@ export function auditSentence(entry: AuditEntry, viewerUid?: string | null): str
 }
 
 /**
- * Counts what the reader can reach in this feed.
+ * Counts what the reader has on screen against what they can reach.
  *
+ * @param shown How many rows are loaded, which grows a page at a time.
  * @param total The backend's own count, which is narrowed per caller: two
  * people legitimately see different numbers for one household.
- * @returns The count in words, or null when there is nothing to label.
+ * @returns The progress while more exists, the plain count once it does not,
+ * or null when there is nothing to label.
  */
-export function entryCountLabel(total: number): string | null {
+export function feedCountLabel(shown: number, total: number): string | null {
   if (!Number.isFinite(total) || total <= 0) return null;
+  if (shown < total) return `${shown} of ${total}`;
 
   return `${total} ${total === 1 ? "entry" : "entries"}`;
 }

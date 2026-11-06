@@ -43,6 +43,10 @@ const INVITE_CODE = /^[A-Z\d]{8}$/;
 // segment. Generous rather than exact, in case that format ever changes.
 const UID_MAX_LENGTH = 64;
 
+// AuditLogQueryRequest's own @Size, so an over-long cursor is refused here
+// rather than coming back as a 400.
+const CURSOR_MAX_LENGTH = 128;
+
 /** A required, trimmed address. */
 export const emailRule = z
   .string({ error: "Enter your email address." })
@@ -229,6 +233,19 @@ export const uploadPurposeRule = z.enum(UPLOAD_PURPOSES, {
 export const imageTypeRule = z.enum(IMAGE_TYPES, {
   error: "Pick a JPEG, PNG or WebP image.",
 });
+
+/**
+ * A page cursor, which a caller only ever echoes back from a previous page.
+ *
+ * Blank becomes absent, so a press with nothing to continue from asks for the
+ * first page rather than sending an empty parameter.
+ */
+export const cursorRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(CURSOR_MAX_LENGTH, "That page cannot be loaded.")),
+    z.transform((value) => value || undefined),
+  ),
+);
 
 /** The exact byte count of what will be sent, which is signed along with it. */
 export const imageSizeRule = z

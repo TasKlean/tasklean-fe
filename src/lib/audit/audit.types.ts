@@ -22,8 +22,8 @@ export type AuditEntity = {
   ref?: string | null;
 };
 
-// Deliberately no `ipAddress`: the backend sends it on the account feed only,
-// and a field the group feed must not show is safest absent from the type.
+// Deliberately no `ipAddress`: a group entry never carries one, and an account
+// entry carries only the reader's own, so a group's feed cannot show one.
 export type AuditEntry = {
   uid?: string;
   action?: string;

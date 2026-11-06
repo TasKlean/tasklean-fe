@@ -23,7 +23,7 @@ which carries only a notice.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
-  trail, newest first; it reads one page and offers no filter yet.
+  trail, newest first, a page of 20 at a time behind a Load more press; no filter yet.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -146,7 +146,8 @@ src/
                        on), group.helpers.ts (the shared read)
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
-                       the leave that is the same call; activity/ is the trail
+                       the leave that is the same call; activity/ is the trail,
+                       with actions/ for the page after a cursor
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -192,7 +193,7 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (activity-row, activity-empty)
+                       activity/ (activity-feed, activity-row, activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -245,7 +246,8 @@ src/
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
-                       <form>.schema.ts each, plus upload-request),
+                       <form>.schema.ts each, plus upload-request and
+                       audit-page, which no form posts),
                        password/ (policy.ts, strength.ts), code-length.ts
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)
@@ -506,7 +508,13 @@ browser
   `actionMessage` is the fallback for a pair we have no copy for, and stands alone, being a whole
   sentence. `auditSentence` returns one string, since a name built from two elements loses the space.
 - **A trail's timestamp is relative, with the exact UTC value in the `title`.** `time/relative` pins
-  the zone because the row renders on the server, and gives a date past a month.
+  the zone because the row renders on the server, and gives a date past a month. **The whole feed is
+  measured against one instant**, passed down from the page, so appended rows agree with the first
+  and the browser hydrates to what the server drew.
+- **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
+  the pages and asks for the next through an action that revalidates nothing, since a re-render would
+  throw away what is on screen. A refused cursor is reported, never retried from the first page.
+  `nextCursor` is the only thing that says more exists, and `total` is the label beside the heading.
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.

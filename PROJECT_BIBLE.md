@@ -1913,12 +1913,25 @@ uid before the service runs. `isGroupUnavailable` already covered both.
 filter the recipient is not on, and a reload would re-send one the backend may refuse. `nextCursor`
 is the only thing that says more exists; `total` is a label.
 
+**A refused cursor is reported, not retried from the first page.** The backend's decoder refuses an
+unparseable cursor precisely so a client cannot loop over page one, and the cursor is plain base64 of
+a timestamp and a row id, so one we handed back unchanged can only fail through a bug of ours. A
+silent restart would re-show rows already read and lose the reader's place to hide it, so they are
+told to reload instead.
+
+**The press revalidates nothing, and the feed is measured against one instant.** The pages on screen
+are state the server does not hold, so a `revalidatePath` would discard them. The page passes its
+`now` down, since a row drawn on the server and re-measured in the browser can straddle a minute and
+report a hydration mismatch for a difference nobody can see.
+
 **Types are hand-written, against the handoff's advice**, which is what found its three errors: the
 failure field is `message` not `error`, `total` reflects the filter as well as the narrowing, and
 there are 28 actions not 27.
 
-**`ipAddress` is absent from the type.** The backend stops sending it for the group scope, and a
-field a screen must not show is safest not to have.
+**`ipAddress` is absent from the type, because a group entry no longer carries one.** The backend
+passes no viewer to the mapper for a group feed, and on an account feed it fills the field per entry
+and only for the reader's own actions. An address belongs to the person who acted, not to the
+household, so there is nothing for this screen to leak and nothing for the type to hold.
 
 **The line a row reads is ours, keyed on the action and the entity together.** `actionMessage` is
 English that cannot be localized, names nobody on a membership event and prints the raw role enum, so

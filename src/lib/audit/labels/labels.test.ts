@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuditEntry } from "@/lib/audit/audit.types";
-import { auditSentence, entityLabel, entryCountLabel } from "@/lib/audit/labels/labels";
+import { auditSentence, entityLabel, feedCountLabel } from "@/lib/audit/labels/labels";
 
 function entry(fields: Partial<AuditEntry> = {}): AuditEntry {
   return {
@@ -59,10 +59,17 @@ describe("entityLabel", () => {
   });
 });
 
-describe("entryCountLabel", () => {
-  it("counts in words, and leaves the label out when there is nothing to count", () => {
-    expect(entryCountLabel(1)).toBe("1 entry");
-    expect(entryCountLabel(48)).toBe("48 entries");
-    expect(entryCountLabel(0)).toBeNull();
+describe("feedCountLabel", () => {
+  it("shows progress while a page is still unread", () => {
+    expect(feedCountLabel(20, 48)).toBe("20 of 48");
+  });
+
+  it("counts in words once everything is on screen", () => {
+    expect(feedCountLabel(1, 1)).toBe("1 entry");
+    expect(feedCountLabel(48, 48)).toBe("48 entries");
+  });
+
+  it("leaves the label out when there is nothing to count", () => {
+    expect(feedCountLabel(0, 0)).toBeNull();
   });
 });

@@ -13,15 +13,18 @@ type ActivityRowProps = {
   entry: AuditEntry;
   // The reader's own user uid, so their own rows read "You".
   viewerUid: string | null;
+  // Measured once for the whole feed, so appended rows agree with the first
+  // page and the server's render is what the browser hydrates to.
+  now: Date;
 };
 
 const CHIP =
   "text-label-sm bg-muted text-muted-foreground shrink-0 px-space-sm rounded-full py-0.5";
 
 /** Renders one audit entry as a card. */
-export function ActivityRow({ entry, viewerUid }: Readonly<ActivityRowProps>) {
+export function ActivityRow({ entry, viewerUid, now }: Readonly<ActivityRowProps>) {
   const kind = entityLabel(entry.entity?.type);
-  const when = relativeTime(entry.dateCreated);
+  const when = relativeTime(entry.dateCreated, now);
 
   return (
     <li className="bg-card border-border/60 p-space-md gap-space-md flex items-start rounded-xl border">
