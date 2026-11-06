@@ -1894,6 +1894,32 @@ gets somebody to a working control.
 977px at 1280, and a name field and a primary pill that wide read as a page rather than as one
 section's control.
 
+### The audit trail is read per caller
+
+**Two members of one household get different rows from the same URL.** Membership gets a 200; what
+is in it is decided per row in the backend's query. An admin reads the whole trail, a member their
+own actions plus the history of what they created, and `total` counts only what they reach. So the
+rule cannot be mirrored on the client, a short feed is correct rather than broken, and the feed is
+never cached per URL, which is why `getGroupActivity` is not `cache()`d.
+
+**403 and 404 are one answer, as on every group route.** The handoff says they tell a former member
+from a stranger; for an ordinary caller they do not, since `isMember` answers false for an unknown
+uid before the service runs. `isGroupUnavailable` already covered both.
+
+**A page is normalised, not refused.** Nothing in the envelope is required, so a page without
+`items` is an empty page: absence is plausible here where a missing token pair is not.
+
+**The cursor stays in memory, the filter goes in the URL.** A shared link would carry a cursor from a
+filter the recipient is not on, and a reload would re-send one the backend may refuse. `nextCursor`
+is the only thing that says more exists; `total` is a label.
+
+**Types are hand-written, against the handoff's advice**, which is what found its three errors: the
+failure field is `message` not `error`, `total` reflects the filter as well as the narrowing, and
+there are 28 actions not 27.
+
+**`ipAddress` is absent from the type.** The backend stops sending it for the group scope, and a
+field a screen must not show is safest not to have.
+
 ### A group's picture is an uploaded file, and every piece of that is forced
 
 `GroupRequest` carries a `photoUid` naming an upload rather than the pasted `photoUrl` this section
@@ -2151,13 +2177,10 @@ workaround **before** the feature depending on it gets built.
 7. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
    plain member may call it on their own membership is a `@PreAuthorize` question the spec cannot
    answer. Verify against a running backend before building the control.
-8. **The audit log can't be read for a group.** `GET /api/audit-logs` takes a **numeric** `groupId`,
-   and no response carries a group's numeric id, since `GroupResponse` and `MyGroupResponse` are
-   addressed by `uid` alone; `/audit-logs/member/{groupMemberId}` has the same problem one level down.
-   `AuditLogResponse` also names nobody: `actorUserId` and `groupMemberId` are bare numbers, so even a
-   list we could fetch would read as "user 41 did something". Three things are owed: a uid-scoped
-   route or a numeric id on the group, the same for a membership, and an actor on the entry. The rail
-   carries "Audit trail, coming soon" until then.
+8. ~~**The audit log can't be read for a group.**~~ **Closed.** `GET /api/audit-logs/groups/{groupUid}`
+   is uid-scoped and an entry names its actor and its target. The three old endpoints are gone and
+   carried no authorization at all, so nothing migrates. Still owed, neither blocking: field-level
+   diffs on an `UPDATE`, and any filter beyond `entityType` and `entityRef`.
 9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
    `/api/uploads` signs one. The user's own `photoUrl` is still Google's URL and is not covered:
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.

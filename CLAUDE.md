@@ -206,6 +206,8 @@ src/
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (own password, connections, deactivation),
                        two-factor.ts
+    audit/             audit.ts (one page of a group's trail), audit.types.ts,
+                       entity/ (the type set, and the six a group holds)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -275,7 +277,8 @@ feature's knowledge, moves to `components/common/`. **Tests sit beside the code*
 **A module reading a server variable, holding a secret, calling `serverApi` or touching a cookie
 imports `server-only`**: `config/env`, `api/client`, `api/server`, `api/action-failure`,
 `auth/session`, `auth/device`, `auth/signin/*`, `auth/tokens/refresh`, `auth/two-factor-challenge`,
-`account/`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`, `uploads/uploads.ts`,
+`account/`, `audit/audit.ts`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`,
+`uploads/uploads.ts`,
 `qr/qr-code` (not for a secret: it keeps the encoder out of the browser bundle),
 `notifications/settings`, `preferences/preferences.ts`, `preferences/theme-cookie`.
 
@@ -283,7 +286,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), and the two upload halves that run in the browser
+`groups/unavailable`, `groups/last-admin`), the two audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`), and the two upload halves that run in the browser
 (`uploads/uploads.types.ts`, `uploads/put-object`).
 
 ### Styling
@@ -402,6 +406,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 - **A read two renders in one request both need is wrapped in `cache()`.** `getMyGroups` and
   `getGroup` are, because `request()` sends `cache: "no-store"` so fetch will not dedupe them. React
   memoises per request, so the second caller gets the first one's promise and a failure reaches both.
+- **A group's audit trail is never memoised and never shared.** `getGroupActivity` is the one read
+  whose rows differ per caller for the same URL, so a cache keyed on it leaks between accounts.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath`. Appearance, language and notifications return the saved value and render from

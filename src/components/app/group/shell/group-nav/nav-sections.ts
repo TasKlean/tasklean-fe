@@ -46,8 +46,8 @@ function overviewItems(group: string): GroupNavItem[] {
     backToTasks(group),
     { href: `${group}/overview/information`, label: "Information", icon: Info },
     { href: `${group}/overview/members`, label: "Members", icon: Users },
-    // Blocked rather than unwritten: the audit endpoint takes a numeric group
-    // id the API never hands out, and its entries name nobody.
+    // Unwritten rather than blocked: the uid-scoped endpoint it needed landed
+    // with the backend's audit revamp.
     { label: "Audit trail", icon: ScrollText, soon: true },
   ];
 }
