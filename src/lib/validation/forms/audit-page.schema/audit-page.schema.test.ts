@@ -17,4 +17,19 @@ describe("parseAuditPage", () => {
   it("needs the group, since an action never sees the route", () => {
     expect(parseAuditPage({ cursor: "c1" }).ok).toBe(false);
   });
+
+  it("carries the filter the cursor was issued under", () => {
+    const parsed = parseAuditPage({ groupUid: "g1", cursor: "c1", type: "member", ref: "m1" });
+
+    expect(parsed.ok && parsed.values).toEqual({
+      groupUid: "g1",
+      cursor: "c1",
+      type: "member",
+      ref: "m1",
+    });
+  });
+
+  it("refuses a type that is not one of the trail's own", () => {
+    expect(parseAuditPage({ groupUid: "g1", type: "user" }).ok).toBe(false);
+  });
 });

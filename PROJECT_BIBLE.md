@@ -1919,8 +1919,33 @@ a timestamp and a row id, so one we handed back unchanged can only fail through 
 silent restart would re-show rows already read and lose the reader's place to hide it, so they are
 told to reload instead.
 
+**A ref is read with its type or not at all.** `entityRef` without `entityType` is a 400 carrying no
+code, so `auditFilter` returns both or neither and an unknown type drops the ref with it. The cursor
+carries the filter too, since a cursor is a position in one narrowed feed.
+
+**The feed component is keyed on the filter.** It holds its pages in state, and React reuses a
+component in the same position across a navigation, so without the key a new first page would arrive
+to a component still showing the old filter's rows.
+
+**Filtering is by the thing, not by the person.** The endpoint takes no actor, so there is no "what
+Dan did" feed to build: a member's filtered trail is that membership's own history, which is what the
+line above it says. A type with no ref narrows to a kind; a ref pins one entity.
+
+**A narrowed trail is drawn as a timeline, and the chips are links.** Every row under a filter is the
+same kind of thing, so the entity chip would repeat one word down the page and the connecting line
+says more. The chip row needs no client component: the filter is the URL, so the server knows which
+chip is current, and `aria-current` comes from the path.
+
+**The name above a pinned feed costs one roster read, and falls back to the kind.** A ref is an
+identifier, not a label. Passing a name through the URL would render caller-chosen text, and the
+roster is the only thing that can turn a membership uid into a person, so a departed membership and a
+kind with no screen behind it both read as "one member's history" rather than guessing.
+
 **The press revalidates nothing, and the feed is measured against one instant.** The pages on screen
-are state the server does not hold, so a `revalidatePath` would discard them. The page passes its
+are state the server does not hold, so a `revalidatePath` would discard them. The busy flag is plain
+state rather than `useTransition`, because a transition is deprioritised by design and a reader who
+pressed the button is waiting on exactly those rows: under load the append arrived late enough to
+fail a one-second assertion. The page passes its
 `now` down, since a row drawn on the server and re-measured in the browser can straddle a minute and
 report a hydration mismatch for a difference nobody can see.
 

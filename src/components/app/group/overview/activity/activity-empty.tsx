@@ -6,12 +6,22 @@
 
 type ActivityEmptyProps = {
   admin: boolean;
+  // Whether a filter is on, which is a likelier reason for an empty feed than
+  // a quiet group and is the one the reader can do something about.
+  filtered: boolean;
 };
 
+const WRAPPER =
+  "text-body-md text-muted-foreground bg-card border-border/60 p-space-lg rounded-xl border";
+
 /** Renders the quiet state the reader's own view earns. */
-export function ActivityEmpty({ admin }: Readonly<ActivityEmptyProps>) {
+export function ActivityEmpty({ admin, filtered }: Readonly<ActivityEmptyProps>) {
+  if (filtered) {
+    return <p className={WRAPPER}>Nothing has been recorded for this yet.</p>;
+  }
+
   return (
-    <p className="text-body-md text-muted-foreground bg-card border-border/60 p-space-lg rounded-xl border">
+    <p className={WRAPPER}>
       {admin
         ? "Nothing has happened in this group yet."
         : "Nothing here you can see yet. You will see what you do in this group, and what happens to the things you make."}

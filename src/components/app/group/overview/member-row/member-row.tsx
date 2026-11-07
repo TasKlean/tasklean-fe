@@ -15,6 +15,7 @@ import {
 } from "@/app/(app)/app/groups/[uid]/overview/members/actions/actions";
 import { ConfirmRemove } from "@/components/app/group/overview/member-row/confirm-remove";
 import { MemberActions } from "@/components/app/group/overview/member-row/member-actions";
+import { MemberHistoryLink } from "@/components/app/group/overview/member-row/member-history-link";
 import { CHIP } from "@/components/app/group/overview/member-row/member-row.styles";
 import { Avatar } from "@/components/common/avatar/avatar";
 
@@ -112,8 +113,13 @@ export function MemberRow({
           </p>
         ) : null}
 
-        {controls ? (
-          <div className="gap-space-xs flex flex-wrap items-center">{controls}</div>
+        {/* The history link is everybody's, so the row of presses exists
+            wherever there is a membership to point at. */}
+        {memberUid ? (
+          <div className="gap-space-xs flex flex-wrap items-center">
+            <MemberHistoryLink groupUid={groupUid} memberUid={memberUid} name={name} />
+            {controls}
+          </div>
         ) : null}
       </div>
     </li>

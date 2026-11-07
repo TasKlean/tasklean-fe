@@ -23,7 +23,8 @@ which carries only a notice.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
-  trail, newest first, a page of 20 at a time behind a Load more press; no filter yet.
+  trail, newest first, a page of 20 at a time behind a Load more press, narrowed by `?type=&ref=`
+  in the URL. A narrowed feed is drawn as a timeline instead of cards.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -147,7 +148,8 @@ src/
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
-                       with actions/ for the page after a cursor
+                       with actions/ for the page after a cursor and
+                       page.helpers.ts for the name of a pinned entity
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -193,7 +195,9 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (activity-feed, activity-row, activity-empty)
+                       activity/ (activity-feed, activity-row, timeline-row,
+                       activity-filters (+ filter-chip), activity-subject,
+                       activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -211,7 +215,8 @@ src/
                        two-factor.ts
     audit/             audit.ts (one page of a group's trail), audit.types.ts,
                        entity/ (the type set, and the six a group holds),
-                       labels/ (the line a row reads, from action + entity)
+                       labels/ (the line a row reads, from action + entity),
+                       filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -515,6 +520,15 @@ browser
   the pages and asks for the next through an action that revalidates nothing, since a re-render would
   throw away what is on screen. A refused cursor is reported, never retried from the first page.
   `nextCursor` is the only thing that says more exists, and `total` is the label beside the heading.
+- **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses
+  that pair with a 400 carrying no code, so `auditFilter` drops both or neither, and the cursor
+  carries the filter so page two cannot resume in another feed. **The feed is keyed on the filter**,
+  or React keeps the pages the last one loaded.
+- **Filtering is by the thing, never by the person.** The endpoint takes no actor, so a member's
+  filtered feed is that membership's own history and not everything they did.
+- **A narrowed trail is a timeline, and the chips that narrow it are links.** `TimelineRow` drops the
+  entity chip, since every row under a filter carries the same word, and `ActivityFilters` needs no
+  JavaScript because the server already knows which chip is current.
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.

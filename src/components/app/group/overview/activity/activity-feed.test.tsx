@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditPage } from "@/lib/audit/audit.types";
+import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 type Result = { ok: true; page: AuditPage } | { ok: false; message: string };
 
@@ -35,15 +36,18 @@ function page(entries: AuditPage["entries"], nextCursor: string | null): AuditPa
   return { entries, nextCursor, total: 3 };
 }
 
-function renderFeed() {
+function renderFeed(filter: AuditFilter = { type: null, ref: "" }) {
   render(
     <ActivityFeed
       groupUid="g1"
       first={FIRST}
       viewerUid="u1"
       now={NOW}
+      filter={filter}
       heading={<h2>Activity</h2>}
-    />,
+    >
+      <p>Filters</p>
+    </ActivityFeed>,
   );
 }
 
@@ -98,6 +102,21 @@ describe("ActivityFeed", () => {
 
     expect(await screen.findByText("3 entries")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("pages a filtered feed under the same filter the cursor was issued for", async () => {
+    const user = userEvent.setup({ delay: null });
+    loadActivityPageAction.mockResolvedValue({ ok: true, page: page([{ uid: "a2" }], null) });
+
+    renderFeed({ type: "member", ref: "m1" });
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(loadActivityPageAction).toHaveBeenCalledWith({
+      groupUid: "g1",
+      cursor: "c1",
+      type: "member",
+      ref: "m1",
+    });
   });
 
   it("keeps the rows it has when a page is refused, and says so", async () => {

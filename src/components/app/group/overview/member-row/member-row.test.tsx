@@ -104,9 +104,13 @@ describe("MemberRow", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("offers a member no controls at all", () => {
+  it("offers a member the history and none of the controls", () => {
     render(<MemberRow {...BASE} manageable={false} />);
 
+    expect(screen.getByRole("link", { name: "History: Maja Bregar" })).toHaveAttribute(
+      "href",
+      "/app/groups/g1/overview/activity?type=member&ref=m1",
+    );
     expect(screen.queryByRole("button")).toBeNull();
   });
 
@@ -114,6 +118,7 @@ describe("MemberRow", () => {
     render(<MemberRow {...BASE} memberUid={null} />);
 
     expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("reports a refusal on the row it happened to", async () => {

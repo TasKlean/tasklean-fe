@@ -16,6 +16,7 @@ import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, UPLOAD_PURPOSES } from "@/lib/uploads/uploads.types";
+import { AUDIT_FILTER_TYPES } from "@/lib/audit/filter/filter.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
 // classes exclude the dot that separates the labels, so nothing backtracks.
@@ -46,6 +47,10 @@ const UID_MAX_LENGTH = 64;
 // AuditLogQueryRequest's own @Size, so an over-long cursor is refused here
 // rather than coming back as a 400.
 const CURSOR_MAX_LENGTH = 128;
+
+// FieldLimits.UID, which is what an entity ref is bounded by whichever kind of
+// identifier it carries.
+const ENTITY_REF_MAX_LENGTH = 100;
 
 /** A required, trimmed address. */
 export const emailRule = z
@@ -243,6 +248,24 @@ export const imageTypeRule = z.enum(IMAGE_TYPES, {
 export const cursorRule = z.optional(
   z.pipe(
     z.string().check(z.trim(), z.maxLength(CURSOR_MAX_LENGTH, "That page cannot be loaded.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** One of the kinds of thing a group's trail can be narrowed to. */
+export const auditFilterTypeRule = z.optional(
+  z.enum(AUDIT_FILTER_TYPES, { error: "That is not a kind of thing this trail records." }),
+);
+
+/**
+ * The one entity a trail is pinned to, addressed the way the API addresses it.
+ *
+ * Blank becomes absent, so a press carrying an empty ref asks for the kind
+ * rather than for an entity with no identifier.
+ */
+export const entityRefRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(ENTITY_REF_MAX_LENGTH, "That filter cannot be used.")),
     z.transform((value) => value || undefined),
   ),
 );

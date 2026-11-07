@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { History } from "lucide-react";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
+import { auditFilterParams } from "@/lib/audit/filter/filter";
 import type { Group } from "@/lib/groups/groups.types";
 import { createdLabel, groupLabel, memberCountLabel, roleLabel } from "@/lib/groups/labels/labels";
 
@@ -9,6 +12,9 @@ export const metadata: Metadata = {
 };
 
 const CARD = "bg-card border-border/60 p-space-lg gap-space-lg flex flex-col rounded-xl border";
+
+const HISTORY =
+  "text-label-md gap-space-xs px-space-md border-border/60 text-muted-foreground hover:bg-muted flex min-h-11 w-fit items-center rounded-full border transition-colors";
 
 /** One fact about the group, as a row of its own. */
 type Fact = {
@@ -78,6 +84,14 @@ export default async function GroupInformationPage({
             </div>
           ))}
         </dl>
+
+        <Link
+          href={`/app/groups/${encodeURIComponent(uid)}/overview/activity?${auditFilterParams({ type: "group", ref: uid })}`}
+          className={HISTORY}
+        >
+          <History className="size-4" aria-hidden />
+          Group history
+        </Link>
       </div>
     </section>
   );

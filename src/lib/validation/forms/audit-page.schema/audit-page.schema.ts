@@ -6,11 +6,20 @@
 
 import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
-import { cursorRule, uidRule } from "@/lib/validation/rules/rules";
+import {
+  auditFilterTypeRule,
+  cursorRule,
+  entityRefRule,
+  uidRule,
+} from "@/lib/validation/rules/rules";
 
 export const auditPageSchema = z.object({
   groupUid: uidRule("Pick a group."),
   cursor: cursorRule,
+  // The filter rides along with the cursor: a cursor is a position in one
+  // narrowed feed, so a page asked for without it would resume in another.
+  type: auditFilterTypeRule,
+  ref: entityRefRule,
 });
 
 export type AuditPageFields = z.infer<typeof auditPageSchema>;
