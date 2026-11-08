@@ -15,6 +15,16 @@ export type AuditActor = {
   photoUrl?: string;
 };
 
+// One field an update touched. Both values absent means the backend withheld
+// them, which is its default: free text, secrets and internal ids are never
+// kept in an append-only trail every member of a group can read. One value
+// absent means the field was empty on that side of the change.
+export type AuditFieldChange = {
+  field?: string;
+  from?: string | null;
+  to?: string | null;
+};
+
 export type AuditEntity = {
   type?: string;
   // Null when the thing the entry is about is gone: the trail outlives what it
@@ -31,6 +41,9 @@ export type AuditEntry = {
   // it cannot be localized, and it is not a contract to parse.
   actionMessage?: string;
   entity?: AuditEntity;
+  // Absent on anything but a tracked update, and never empty: a save that
+  // altered nothing writes no entry at all.
+  changedFields?: AuditFieldChange[];
   // Null on entries the public auth endpoints wrote, which have no caller.
   actor?: AuditActor | null;
   // UTC with no zone marker, so it parses as local if handled naively.

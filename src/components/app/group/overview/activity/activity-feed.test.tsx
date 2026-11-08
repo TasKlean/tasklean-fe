@@ -36,11 +36,32 @@ function page(entries: AuditPage["entries"], nextCursor: string | null): AuditPa
   return { entries, nextCursor, total: 3 };
 }
 
-function renderFeed(filter: AuditFilter = { type: null, ref: "" }) {
+const UPDATED: AuditPage = {
+  entries: [
+    {
+      uid: "a9",
+      action: "UPDATE",
+      entity: { type: "TASK" },
+      actor: { uid: "u1" },
+      changedFields: [
+        { field: "name" },
+        { field: "description" },
+        { field: "priority", from: "LOW", to: "HIGH" },
+        { field: "status", from: "PENDING", to: "IN_PROGRESS" },
+        { field: "icon", to: "broom" },
+      ],
+      dateCreated: "2026-11-06T11:00:00",
+    },
+  ],
+  nextCursor: null,
+  total: 1,
+};
+
+function renderFeed(filter: AuditFilter = { type: null, ref: "" }, first: AuditPage = FIRST) {
   render(
     <ActivityFeed
       groupUid="g1"
-      first={FIRST}
+      first={first}
       viewerUid="u1"
       now={NOW}
       filter={filter}
@@ -102,6 +123,21 @@ describe("ActivityFeed", () => {
 
     expect(await screen.findByText("3 entries")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
+  });
+
+  it("sums an update up on a card, where there is no room to list it", () => {
+    renderFeed({ type: null, ref: "" }, UPDATED);
+
+    expect(screen.getByText("Changed: Name, Description, Priority and 2 more")).toBeInTheDocument();
+  });
+
+  it("says what each field moved between in the timeline a filter opens", () => {
+    renderFeed({ type: "task", ref: "t1" }, UPDATED);
+
+    expect(screen.getByText("Priority changed from Low to High")).toBeInTheDocument();
+    expect(screen.getByText("Status changed from Pending to In progress")).toBeInTheDocument();
+    expect(screen.getByText("Icon set to broom")).toBeInTheDocument();
+    expect(screen.getByText("Name changed")).toBeInTheDocument();
   });
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {

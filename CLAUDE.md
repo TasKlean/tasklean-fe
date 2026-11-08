@@ -196,8 +196,8 @@ src/
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
                        activity/ (activity-feed, activity-row, timeline-row,
-                       activity-filters (+ filter-chip), activity-subject,
-                       activity-empty)
+                       changed-fields, activity-filters (+ filter-chip),
+                       activity-subject, activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -216,6 +216,7 @@ src/
     audit/             audit.ts (one page of a group's trail), audit.types.ts,
                        entity/ (the type set, and the six a group holds),
                        labels/ (the line a row reads, from action + entity),
+                       changes/ (the line one changed field reads),
                        filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
@@ -297,8 +298,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), the three audit modules a feed in the browser reads
-(`audit/audit.types.ts`, `audit/entity`, `audit/labels`), and the two upload halves that run in the
+`groups/unavailable`, `groups/last-admin`), the four audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`), and the two upload halves that run in the
 browser
 (`uploads/uploads.types.ts`, `uploads/put-object`).
 
@@ -529,6 +530,15 @@ browser
 - **A narrowed trail is a timeline, and the chips that narrow it are links.** `TimelineRow` drops the
   entity chip, since every row under a filter carries the same word, and `ActivityFilters` needs no
   JavaScript because the server already knows which chip is current.
+- **An update names the fields it moved, and carries their values only sometimes.** The backend
+  withholds a value unless it is safe to keep forever, so `audit/changes` phrases four states: `A to
+  B`, set, cleared and a bare "changed". A card sums the names up capped at three, the timeline
+  phrases every one, and an unmapped name is humanised rather than dropped. `assignedToId` is
+  **Assignee**, since it is a membership id.
+- **A value is worded by its field's kind, and an unknown enum is still worded.** A role goes through
+  `roleLabel`, a date through `parseApiDate` in the reader's zone, a flag reads Yes or No and minutes
+  carry their unit. Anything shaped like one of the backend's constants is humanised, so a field
+  added later reads properly before we have mapped it.
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.

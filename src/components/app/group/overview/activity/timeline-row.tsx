@@ -4,6 +4,7 @@
  * the same word on all of them and is left out.
  */
 
+import { ChangedFields } from "@/components/app/group/overview/activity/changed-fields";
 import { Avatar } from "@/components/common/avatar/avatar";
 import type { AuditEntry } from "@/lib/audit/audit.types";
 import { auditSentence } from "@/lib/audit/labels/labels";
@@ -40,6 +41,8 @@ export function TimelineRow({ entry, viewerUid, now }: Readonly<TimelineRowProps
         <p className="text-body-md text-foreground break-words">
           {auditSentence(entry, viewerUid)}
         </p>
+
+        <ChangedFields changes={entry.changedFields} />
 
         {when ? (
           <time

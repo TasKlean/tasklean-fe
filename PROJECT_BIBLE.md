@@ -1931,6 +1931,20 @@ to a component still showing the old filter's rows.
 Dan did" feed to build: a member's filtered trail is that membership's own history, which is what the
 line above it says. A type with no ref narrows to a kind; a ref pins one entity.
 
+**An update names its fields, and the backend decides whether it may say what they became.** The
+trail is append-only and a group's is read by every member, so a value kept there is kept forever and
+shown to everybody: the backend withholds one by default and keeps both sides only for a safe value,
+which is an enum, a flag, a date or a duration, never a name, a description, an invite code or an
+internal id. A change therefore arrives with both values, one, or neither, and `audit/changes` reads
+for all four without branching at the call site: an unchanged field writes no entry at all, so both
+values absent means withheld and never means unchanged. A value is worded by its field's kind, with
+anything shaped like one of the backend's constants humanised by default, so a field added to the
+backend later reads properly before we have mapped it. An unmapped field name is humanised the same
+way rather than dropped, because a line saying something changed and naming nothing is worse than an
+awkward word. A task update can move a dozen fields, which is a wall inside a card, so a card sums
+the first three names up and counts the rest while the filtered timeline phrases every one: the
+summary is a reason to open the filter rather than a truncation that loses something.
+
 **A narrowed trail is drawn as a timeline, and the chips are links.** Every row under a filter is the
 same kind of thing, so the entity chip would repeat one word down the page and the connecting line
 says more. The chip row needs no client component: the filter is the URL, so the server knows which
