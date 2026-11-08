@@ -1,65 +1,73 @@
 /**
- * One entry in a group's activity. The avatar says who, the sentence says what,
- * and the chip says which kind of thing it was about. The timestamp is drawn
- * relative with the exact UTC value behind it, since a trail is read for when.
+ * One entry: when it happened on the left, who did it in the middle, what they
+ * did on the right. The row draws the thread to the next one and drops it on
+ * the last of its list, which is what cuts one day's section from the next.
  */
 
+import { ChangeCard } from "@/components/app/group/overview/activity/change-card";
 import { Avatar } from "@/components/common/avatar/avatar";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
-import { changedSummary } from "@/lib/audit/changes/changes";
-import { auditSentence, entityLabel } from "@/lib/audit/labels/labels";
-import { exactTime, isoTime, relativeTime } from "@/lib/time/relative/relative";
+import { auditLine } from "@/lib/audit/labels/labels";
+import { fullTime, shortDate, timeOfDay } from "@/lib/time/day/day";
 
 type ActivityRowProps = {
   entry: AuditEntry;
+  // Parsed by the grouping, which had to read it to place the row.
+  at: Date | null;
   // The reader's own user uid, so their own rows read "You".
   viewerUid: string | null;
-  // Measured once for the whole feed, so appended rows agree with the first
-  // page and the server's render is what the browser hydrates to.
-  now: Date;
   // Names for the entities on this page, keyed by ref.
   names: AuditNames;
+  // The reader's zone, from the server, so the browser hydrates to the same
+  // clock the server drew.
+  timeZone: string;
+  // Set where no heading above the row says which day it belongs to, so the
+  // date goes over the time instead.
+  dated: boolean;
 };
 
-const CHIP =
-  "text-label-sm bg-muted text-muted-foreground shrink-0 px-space-sm rounded-full py-0.5";
-
-/** Renders one audit entry as a card. */
-export function ActivityRow({ entry, viewerUid, now, names }: Readonly<ActivityRowProps>) {
-  const kind = entityLabel(entry.entity?.type);
-  const when = relativeTime(entry.dateCreated, now);
-  // Summed up rather than listed: a task update can move a dozen fields, and a
-  // card has room for a line. The filtered timeline is where they are all named.
-  const changed = changedSummary(entry.changedFields);
+/** Renders one audit entry as a step on the trail. */
+export function ActivityRow({
+  entry,
+  at,
+  viewerUid,
+  names,
+  timeZone,
+  dated,
+}: Readonly<ActivityRowProps>) {
+  const line = auditLine(entry, viewerUid, names, timeZone);
 
   return (
-    <li className="bg-card border-border/60 p-space-md gap-space-md flex items-start rounded-xl border">
-      <Avatar
-        photoUrl={entry.actor?.photoUrl}
-        name={entry.actor?.name}
-        lastName={entry.actor?.lastName}
-      />
+    <li className="group gap-space-sm flex">
+      <div className="pt-space-sm w-12 shrink-0 text-right">
+        {at ? (
+          <time
+            dateTime={at.toISOString()}
+            title={fullTime(at, timeZone)}
+            className="text-label-sm text-muted-foreground block"
+          >
+            {dated ? <span className="block">{shortDate(at, timeZone)}</span> : null}
+            {timeOfDay(at, timeZone)}
+          </time>
+        ) : null}
+      </div>
 
-      <div className="gap-space-md flex min-w-0 flex-1 items-start justify-between">
-        <div className="gap-space-xs flex min-w-0 flex-col">
-          <p className="text-body-md text-foreground break-words">
-            {auditSentence(entry, viewerUid, names)}
-          </p>
+      <div className="gap-space-xs flex flex-col items-center">
+        <Avatar
+          photoUrl={entry.actor?.photoUrl}
+          name={entry.actor?.name}
+          lastName={entry.actor?.lastName}
+        />
 
-          {changed ? <p className="text-label-sm text-muted-foreground">{changed}</p> : null}
+        {/* The thread between one step and the next, which the last step has
+            nothing to join it to. */}
+        <span aria-hidden className="bg-border/70 w-px flex-1 group-last:hidden" />
+      </div>
 
-          {when ? (
-            <time
-              dateTime={isoTime(entry.dateCreated) ?? undefined}
-              title={exactTime(entry.dateCreated) ?? undefined}
-              className="text-label-sm text-muted-foreground"
-            >
-              {when}
-            </time>
-          ) : null}
-        </div>
+      <div className="gap-space-xs pt-space-sm pb-space-lg flex min-w-0 flex-1 flex-col group-last:pb-0">
+        <p className="text-body-md text-foreground break-words">{line.sentence}</p>
 
-        {kind ? <span className={CHIP}>{kind}</span> : null}
+        <ChangeCard lines={line.details} />
       </div>
     </li>
   );

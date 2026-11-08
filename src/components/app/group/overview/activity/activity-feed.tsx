@@ -11,8 +11,7 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
-import { ActivityRow } from "@/components/app/group/overview/activity/activity-row";
-import { TimelineRow } from "@/components/app/group/overview/activity/timeline-row";
+import { ActivityTimeline } from "@/components/app/group/overview/activity/activity-timeline";
 import { FormNotice } from "@/components/common/form-notice";
 import type { AuditEntry, AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
@@ -30,6 +29,9 @@ type ActivityFeedProps = {
   // Read once on the server and good for every page, since it holds the whole
   // roster rather than the refs of the rows that happened to arrive first.
   names: AuditNames;
+  // The reader's own zone, read from the cookie on the server so the days and
+  // the clock are theirs and the browser hydrates to the same page.
+  timeZone: string;
   // The h2 and its line, rendered on the server and placed here because the
   // count beside them counts what this component holds.
   heading: ReactNode;
@@ -48,6 +50,7 @@ export function ActivityFeed({
   now,
   filter,
   names,
+  timeZone,
   heading,
   children,
 }: Readonly<ActivityFeedProps>) {
@@ -95,19 +98,13 @@ export function ActivityFeed({
 
       {children}
 
-      <ol className={filter.type ? "flex flex-col" : "gap-space-sm flex flex-col"}>
-        {entries.map((entry, index) => {
-          // The backend mints a uid for every entry; an index stands in safely
-          // where one is missing, because the feed only ever grows at its end.
-          const key = entry.uid ?? index;
-
-          return filter.type ? (
-            <TimelineRow key={key} entry={entry} viewerUid={viewerUid} now={now} names={names} />
-          ) : (
-            <ActivityRow key={key} entry={entry} viewerUid={viewerUid} now={now} names={names} />
-          );
-        })}
-      </ol>
+      <ActivityTimeline
+        entries={entries}
+        viewerUid={viewerUid}
+        now={now}
+        names={names}
+        timeZone={timeZone}
+      />
 
       {error ? <FormNotice tone="error">{error}</FormNotice> : null}
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuditEntry } from "@/lib/audit/audit.types";
-import { auditSentence, entityLabel, feedCountLabel } from "@/lib/audit/labels/labels";
+import { auditLine, auditSentence, feedCountLabel } from "@/lib/audit/labels/labels";
 
 function entry(fields: Partial<AuditEntry> = {}): AuditEntry {
   return {
@@ -97,14 +97,69 @@ describe("auditSentence with a name", () => {
   });
 });
 
-describe("entityLabel", () => {
-  it("leaves the chip out rather than printing an enum at a reader", () => {
-    expect(entityLabel("SOMETHING_NEW")).toBeNull();
-    expect(entityLabel(undefined)).toBeNull();
+describe("auditLine", () => {
+  it("ends the sentence with the values where the line already names the field", () => {
+    const roleChanged = entry({
+      action: "ROLE_CHANGED",
+      entity: { type: "GROUP_MEMBER", ref: "m2" },
+      changedFields: [{ field: "role", from: "GROUP_MEMBER", to: "GROUP_ADMIN" }],
+    });
+
+    const line = auditLine(roleChanged, null, { m2: { name: "Dan Novak" } }, "UTC");
+
+    expect(line.sentence).toBe("Alice Johnson changed Dan Novak's role from Member to Admin");
+    expect(line.details).toEqual([]);
   });
 
-  it("words the types a group's trail holds", () => {
-    expect(entityLabel("GROUP_MEMBER")).toBe("Member");
+  it("names the fields underneath where the line cannot carry them", () => {
+    const updated = entry({
+      changedFields: [{ field: "name" }, { field: "priority", from: "LOW", to: "HIGH" }],
+    });
+
+    const line = auditLine(updated, null, {}, "UTC");
+
+    expect(line.sentence).toBe("Alice Johnson updated a task");
+    expect(line.details).toEqual(["Name changed", "Priority changed from Low to High"]);
+  });
+
+  it("keeps the detail when the field it names moved to nothing", () => {
+    const roleChanged = entry({
+      action: "ROLE_CHANGED",
+      entity: { type: "GROUP_MEMBER", ref: "m2" },
+      changedFields: [{ field: "role", from: "GROUP_ADMIN" }],
+    });
+
+    const line = auditLine(roleChanged, null, {}, "UTC");
+
+    expect(line.sentence).toBe("Alice Johnson changed a member's role");
+    expect(line.details).toEqual(["Role cleared, was Admin"]);
+  });
+
+  it("keeps the details when more than one field moved", () => {
+    const roleChanged = entry({
+      action: "ROLE_CHANGED",
+      entity: { type: "GROUP_MEMBER", ref: "m2" },
+      changedFields: [
+        { field: "role", from: "GROUP_MEMBER", to: "GROUP_ADMIN" },
+        { field: "name" },
+      ],
+    });
+
+    expect(auditLine(roleChanged, null, {}, "UTC").details).toHaveLength(2);
+  });
+
+  it("says nothing extra for an entry that changed no fields", () => {
+    expect(auditLine(entry({ action: "CREATE" }), null, {}, "UTC").details).toEqual([]);
+  });
+
+  it("draws a date among the values in the reader's zone", () => {
+    const due = entry({
+      changedFields: [{ field: "nextDueDate", to: "2026-03-14T23:30:00" }],
+    });
+
+    expect(auditLine(due, null, {}, "Pacific/Auckland").details).toEqual([
+      "Due date set to 15 Mar 2026",
+    ]);
   });
 });
 

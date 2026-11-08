@@ -24,7 +24,8 @@ which carries only a notice.
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
   trail, newest first, a page of 20 at a time behind a Load more press, narrowed by `?type=&ref=`
-  in the URL. A narrowed feed is drawn as a timeline instead of cards.
+  in the URL. It is one timeline cut into days, in the reader's own zone, with what an update moved
+  behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -183,6 +184,7 @@ src/
                        submit-button, or-divider, greeting, copy-button,
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
+                       zone-probe (the browser's own zone, into a cookie),
                        invite-code/ (invite-code-field, share-invite)
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
@@ -195,9 +197,9 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (activity-feed, activity-row, timeline-row,
-                       changed-fields, activity-filters (+ filter-chip),
-                       activity-subject, activity-empty)
+                       activity/ (activity-feed, activity-timeline, activity-row,
+                       change-card, day-sections-toggle, activity-filters
+                       (+ filter-chip), activity-subject, activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -217,6 +219,7 @@ src/
                        entity/ (the type set, and the six a group holds),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
+                       days/ (a feed cut into the days it happened on),
                        filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
@@ -246,8 +249,9 @@ src/
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
-    time/              api-date/ (API timestamps <-> Date), relative/ (how long
-                       ago, in words, drawn in UTC)
+    time/              api-date/ (API timestamps <-> Date), day/ (a day's name,
+                       its key and the clock, in one zone), zone/ (the zone
+                       cookie's name and shape, and zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
@@ -520,10 +524,12 @@ browser
 - **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
   and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
   the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
-- **A trail's timestamp is relative, with the exact UTC value in the `title`.** `time/relative` pins
-  the zone because the row renders on the server, and gives a date past a month. **The whole feed is
-  measured against one instant**, passed down from the page, so appended rows agree with the first
-  and the browser hydrates to what the server drew.
+- **A trail is cut into days, and a row shows only the clock.** The headings are Today, Yesterday and
+  then a date, and the switch that takes them away is component state: it dates each row instead and
+  leaves the line unbroken. **The whole feed is measured against one instant**, passed down from the
+  page, so appended rows agree with the first and the browser hydrates to what the server drew.
+- **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
+  groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
   the pages and asks for the next through an action that revalidates nothing, since a re-render would
   throw away what is on screen. A refused cursor is reported, never retried from the first page.
@@ -534,14 +540,16 @@ browser
   or React keeps the pages the last one loaded.
 - **Filtering is by the thing, never by the person.** The endpoint takes no actor, so a member's
   filtered feed is that membership's own history and not everything they did.
-- **A narrowed trail is a timeline, and the chips that narrow it are links.** `TimelineRow` drops the
-  entity chip, since every row under a filter carries the same word, and `ActivityFilters` needs no
-  JavaScript because the server already knows which chip is current.
+- **One timeline, whatever the filter says, and the chips that narrow it are links.** A row carries no
+  entity chip, since its own sentence names the kind, and `ActivityFilters` needs no JavaScript
+  because the server already knows which chip is current.
 - **An update names the fields it moved, and carries their values only sometimes.** The backend
   withholds a value unless it is safe to keep forever, so `audit/changes` phrases four states: `A to
-  B`, set, cleared and a bare "changed". A card sums the names up capped at three, the timeline
-  phrases every one, and an unmapped name is humanised rather than dropped. `assignedToId` is
-  **Assignee**, since it is a membership id.
+  B`, set, cleared and a bare "changed", and an unmapped name is humanised rather than dropped.
+  `assignedToId` is **Assignee**, since it is a membership id.
+- **What an update moved sits behind a press, counted in the label.** "Show 5 changes" opens the card
+  under the line. **One change to a field the line already names ends the sentence instead**, which
+  `INLINE_FIELDS` is the one place for, so a role change reads whole and shows nothing to press.
 - **A value is worded by its field's kind, and an unknown enum is still worded.** A role goes through
   `roleLabel`, a date through `parseApiDate` in the reader's zone, a flag reads Yes or No and minutes
   carry their unit. Anything shaped like one of the backend's constants is humanised, so a field
@@ -729,6 +737,12 @@ layout.
   one was tried and it swallowed the case the cache exists for. An RSC payload is skipped because it
   cannot repaint `<html>`, told apart by `sec-fetch-dest` since Next's own `RSC` header never reaches
   Proxy. A failed read keeps the cached colour.
+- **The reader's zone is a cookie the browser writes, `tasklean_tz`.** Nothing on the server knows a
+  zone: no API field holds one and no request header carries one. `ZoneProbe` sits in the signed-in
+  layout, writes the cookie when it differs from the one there and refreshes once, so a first document
+  is drawn in UTC and redrawn. It compares against the cookie, not against what was rendered, and
+  refreshes only if the write landed, or a browser blocking cookies would reload forever.
+  `readTimeZone()` validates through `Intl` before the value reaches a formatter.
 
 ### Devices and the client IP
 

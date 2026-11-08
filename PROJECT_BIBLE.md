@@ -1941,9 +1941,7 @@ values absent means withheld and never means unchanged. A value is worded by its
 anything shaped like one of the backend's constants humanised by default, so a field added to the
 backend later reads properly before we have mapped it. An unmapped field name is humanised the same
 way rather than dropped, because a line saying something changed and naming nothing is worse than an
-awkward word. A task update can move a dozen fields, which is a wall inside a card, so a card sums
-the first three names up and counts the rest while the filtered timeline phrases every one: the
-summary is a reason to open the filter rather than a truncation that loses something.
+awkward word.
 
 **A row borrows its subject's name from the roster, and the roster is read once.** The trail hands
 out a ref and no label, so a name has to come from a screen that holds one, and for a group that is
@@ -1964,10 +1962,12 @@ is wrong rather than merely blunt, so the map carries the membership's user uid 
 happened and not only how it is worded. The group's own name is deliberately not used in a row: the
 rail carries it beside every line already.
 
-**A narrowed trail is drawn as a timeline, and the chips are links.** Every row under a filter is the
-same kind of thing, so the entity chip would repeat one word down the page and the connecting line
-says more. The chip row needs no client component: the filter is the URL, so the server knows which
-chip is current, and `aria-current` comes from the path.
+**One timeline, in every state of the filter.** Rows were cards unfiltered and a line under a filter,
+which made one feed two components and two ways of reading the same thing. A row's own sentence names
+the kind it is about, so the entity chip repeated a word that was already there, and a connecting
+line says more than a box drawn around each row. The chips that narrow it stay plain links and need
+no client component: the filter is the URL, so the server knows which chip is current, and
+`aria-current` comes from the path.
 
 **The name above a pinned feed costs one roster read, and falls back to the kind.** A ref is an
 identifier, not a label. Passing a name through the URL would render caller-chosen text, and the
@@ -1999,10 +1999,39 @@ differently per entity, which is why `CREATE` alone is not the key. The sentence
 rather than as subject plus phrase, because an accessible name built from two elements loses the space
 between them.
 
-**A timestamp is relative, with the exact value behind it in UTC.** The row renders on the server,
-where the zone is the container's and not the reader's, so `time/relative` pins it. Past a month the
-phrase says less than a date does, so it gives a date. A timestamp a few seconds ahead of us is "just
-now", because clock skew between two machines is ordinary and "in 3 seconds" reads as a bug.
+**A trail is cut into days, so the reader's own zone had to become something the server knows.** A day
+section and a bare clock time mean nothing in the container's zone, and nothing reaching the server
+carries the reader's: no API field holds a zone, and no request header does either. So the browser
+writes `tasklean_tz` itself and the server renders from it. That makes it the one cookie of ours
+written outside Proxy, a Route Handler or an action, which is sound here and nowhere else: the value
+is the browser's own observation, not a credential, and the browser is the only party that has it. A
+first document is drawn in UTC and asked for again once the cookie is there, which is a cost paid once
+per browser. Two guards stop that looping: the probe compares against the cookie rather than against
+what was rendered, and it refreshes only once it can read back what it wrote, so a browser blocking
+cookies stays on UTC instead of reloading forever. Every zone-aware function takes the zone as an
+argument and none of them reads it, so the server's render and the browser's hydration cannot form
+different opinions, and the cookie is validated through `Intl` before it reaches a formatter, because
+it is caller-controlled input. Relative time went with the change: "2 hours ago" under a heading that
+already says Today is the same fact twice, and the module had no other caller.
+
+**Today and yesterday are compared, not calculated.** A local day is 23 or 25 hours twice a year, so
+yesterday is found by taking the day key of 24 hours ago and comparing keys: the clocks never move by
+more than an hour, so any instant on the previous local day still keys to it. One instant decides what
+today means for the whole feed, passed down from the page, so an appended page cannot disagree with
+the first about where the sections fall.
+
+**The sections are the reader's to turn off, and nothing records that they did.** The switch is
+component state. It changes nothing the server holds and nothing another device would want, so a
+cookie or a settings field would buy a round trip for a view preference; the cost is that it does not
+survive a reload.
+
+**What an update moved sits behind a press, with the count in the label.** A task update can move a
+dozen fields, and a feed is read for what happened rather than for every value that moved, so the
+detail is collapsed and the label says how many there are, which is what tells a reader whether to
+open it at all. One change to a field the line already names ends the sentence instead, because
+"changed Dan's role from Member to Admin" is the whole event and a card under it would repeat the
+field's name to say the same thing. That fold is keyed on the action and entity pair, since only a
+pair whose own copy names a field can carry its values.
 
 **An empty feed says something different to a member.** Their rows are narrowed, so "nothing has
 happened" would be a lie in a busy household; they are told what they will see instead.

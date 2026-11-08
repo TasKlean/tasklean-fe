@@ -18,6 +18,7 @@ import { auditFilter, auditFilterQuery } from "@/lib/audit/filter/filter";
 import { getSession } from "@/lib/auth/session/session";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 import { GROUP_UNAVAILABLE_PATH, isGroupUnavailable } from "@/lib/groups/unavailable/unavailable";
+import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 
 export const metadata: Metadata = {
   title: "Activity",
@@ -68,6 +69,7 @@ export default async function ActivityPage({
   }
 
   const session = await getSession();
+  const timeZone = await readTimeZone();
   const heading = (
     <div className="gap-space-xs flex min-w-0 flex-col">
       <h2 className="text-headline-sm text-foreground">Activity</h2>
@@ -120,6 +122,7 @@ export default async function ActivityPage({
         now={new Date()}
         filter={filter}
         names={names}
+        timeZone={timeZone}
         heading={heading}
       >
         {controls}

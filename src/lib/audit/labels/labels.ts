@@ -7,7 +7,16 @@
  */
 
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
+import { changePhrases, changeTail } from "@/lib/audit/changes/changes";
 import { fullName } from "@/lib/users/name/name";
+
+/** What one row says: a line, and a detail per changed field under it. */
+export type AuditLine = {
+  sentence: string;
+  // Empty where the entry changed nothing, and where its one change finished
+  // the sentence instead.
+  details: string[];
+};
 
 // Keyed by action and entity together, because one action reads differently per
 // entity: CREATE is "added a task" on a task and "created this group" on a group.
@@ -48,15 +57,16 @@ const SELF_PHRASES: Record<string, string> = {
   "MEMBER_ADDED:GROUP_MEMBER": "joined the group",
 };
 
-const ENTITY_LABELS: Record<string, string> = {
-  TASK: "Task",
-  GROUP: "Group",
-  GROUP_MEMBER: "Member",
-  CATEGORY: "Category",
-  TAG: "Tag",
-  TASK_COMPLETION: "Completion",
-  USER: "Account",
+// A pair whose line already names the field it moved, so one change to that
+// field can finish the sentence rather than repeat its name underneath.
+const INLINE_FIELDS: Record<string, string> = {
+  "ROLE_CHANGED:GROUP_MEMBER": "role",
 };
+
+/** Keys one entry's copy, which is its action and its entity together. */
+function pairKey(entry: AuditEntry): string {
+  return `${entry.action ?? ""}:${entry.entity?.type ?? ""}`;
+}
 
 /** Names whoever acted, from the reader's side of it. */
 function subject(entry: AuditEntry, viewerUid: string | null | undefined): string {
@@ -82,7 +92,7 @@ export function auditSentence(
   viewerUid?: string | null,
   names?: AuditNames,
 ): string {
-  const key = `${entry.action ?? ""}:${entry.entity?.type ?? ""}`;
+  const key = pairKey(entry);
   const ref = entry.entity?.ref;
   const named = ref ? names?.[ref] : undefined;
   const who = subject(entry, viewerUid);
@@ -108,6 +118,36 @@ export function auditSentence(
 }
 
 /**
+ * Writes everything one row says.
+ *
+ * @param entry The entry.
+ * @param viewerUid The reader's own user uid, so their own rows say "You".
+ * @param names What the page resolved about the entities on it, keyed by ref.
+ * @param timeZone The zone a date among the values is drawn in.
+ * @returns The line, and a detail per changed field for the card under it. One
+ * change to a field the line already names ends the sentence instead, so a row
+ * reads as a sentence wherever the trail gives us enough to write one.
+ */
+export function auditLine(
+  entry: AuditEntry,
+  viewerUid: string | null | undefined,
+  names: AuditNames | undefined,
+  timeZone: string,
+): AuditLine {
+  const sentence = auditSentence(entry, viewerUid, names);
+  const changes = entry.changedFields ?? [];
+  const inline = INLINE_FIELDS[pairKey(entry)];
+  const only = changes.length === 1 ? changes[0] : undefined;
+
+  if (inline && only?.field === inline) {
+    const tail = changeTail(only, timeZone);
+    if (tail) return { sentence: `${sentence} ${tail}`, details: [] };
+  }
+
+  return { sentence, details: changePhrases(changes, timeZone) };
+}
+
+/**
  * Counts what the reader has on screen against what they can reach.
  *
  * @param shown How many rows are loaded, which grows a page at a time.
@@ -121,16 +161,4 @@ export function feedCountLabel(shown: number, total: number): string | null {
   if (shown < total) return `${shown} of ${total}`;
 
   return `${total} ${total === 1 ? "entry" : "entries"}`;
-}
-
-/**
- * Names the kind of thing an entry is about, for the chip beside the line.
- *
- * @returns The label, or null for a type we have no word for, so the chip is
- * left out rather than printing an enum at a reader.
- */
-export function entityLabel(type: string | null | undefined): string | null {
-  if (!type) return null;
-
-  return ENTITY_LABELS[type] ?? null;
 }

@@ -72,6 +72,16 @@ const ROLE_CHANGED: AuditPage = {
   total: 1,
 };
 
+const TWO_DAYS: AuditPage = {
+  entries: [
+    { uid: "a1", action: "CREATE", entity: { type: "TASK" }, dateCreated: "2026-11-06T11:00:00" },
+    { uid: "a2", action: "CREATE", entity: { type: "TAG" }, dateCreated: "2026-11-05T09:30:00" },
+    { uid: "a3", action: "CREATE", entity: { type: "TAG" }, dateCreated: "2026-11-01T08:15:00" },
+  ],
+  nextCursor: null,
+  total: 3,
+};
+
 function renderFeed(
   filter: AuditFilter = { type: null, ref: "" },
   first: AuditPage = FIRST,
@@ -85,6 +95,7 @@ function renderFeed(
       now={NOW}
       filter={filter}
       names={names}
+      timeZone="UTC"
       heading={<h2>Activity</h2>}
     >
       <p>Filters</p>
@@ -145,31 +156,74 @@ describe("ActivityFeed", () => {
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
 
-  it("sums an update up on a card, where there is no room to list it", () => {
+  it("keeps what an update moved behind a press, counted in the label", () => {
     renderFeed({ type: null, ref: "" }, UPDATED);
 
-    expect(screen.getByText("Changed: Name, Description, Priority and 2 more")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show 5 changes" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("Name changed")).toBeNull();
   });
 
-  it("says what each field moved between in the timeline a filter opens", () => {
-    renderFeed({ type: "task", ref: "t1" }, UPDATED);
+  it("says what each field an update moved went from and to, once asked", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderFeed({ type: null, ref: "" }, UPDATED);
+
+    await user.click(screen.getByRole("button", { name: "Show 5 changes" }));
 
     expect(screen.getByText("Priority changed from Low to High")).toBeInTheDocument();
     expect(screen.getByText("Status changed from Pending to In progress")).toBeInTheDocument();
     expect(screen.getByText("Icon set to broom")).toBeInTheDocument();
     expect(screen.getByText("Name changed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide changes" })).toBeInTheDocument();
   });
 
   it("names the member a row is about when the page resolved one", () => {
     renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
 
-    expect(screen.getByText("Alice Johnson changed Dan Novak's role")).toBeInTheDocument();
+    expect(
+      screen.getByText("Alice Johnson changed Dan Novak's role from Member to Admin"),
+    ).toBeInTheDocument();
   });
 
   it("names the kind instead for a member the roster could not name", () => {
     renderFeed({ type: null, ref: "" }, ROLE_CHANGED);
 
-    expect(screen.getByText("Alice Johnson changed a member's role")).toBeInTheDocument();
+    expect(
+      screen.getByText("Alice Johnson changed a member's role from Member to Admin"),
+    ).toBeInTheDocument();
+  });
+
+  it("cuts the rows into the days they happened on", () => {
+    renderFeed({ type: null, ref: "" }, TWO_DAYS);
+
+    expect(screen.getByRole("heading", { level: 3, name: "Today" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Yesterday" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "1 Nov 2026" })).toBeInTheDocument();
+  });
+
+  it("has nothing to press on a row whose line already said what changed", () => {
+    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
+
+    expect(screen.queryByRole("button", { name: /change/ })).toBeNull();
+  });
+
+  it("runs the rows together and dates each one when the switch is off", async () => {
+    const user = userEvent.setup({ delay: null });
+    renderFeed({ type: null, ref: "" }, TWO_DAYS);
+
+    await user.click(screen.getByRole("switch", { name: "Group by day" }));
+
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(screen.getByText("1 Nov")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("draws the clock in the zone the server read, not the runtime's", () => {
+    renderFeed({ type: null, ref: "" }, TWO_DAYS);
+
+    expect(screen.getByText("11:00")).toBeInTheDocument();
   });
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {

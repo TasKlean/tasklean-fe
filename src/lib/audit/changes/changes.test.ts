@@ -3,8 +3,7 @@ import {
   changeFieldLabel,
   changePhrase,
   changePhrases,
-  changedFieldLabels,
-  changedSummary,
+  changeTail,
 } from "@/lib/audit/changes/changes";
 
 describe("changePhrase", () => {
@@ -78,6 +77,20 @@ describe("changePhrase value kinds", () => {
   });
 });
 
+describe("changeTail", () => {
+  it("ends a sentence that has already named the field", () => {
+    expect(changeTail({ field: "role", from: "GROUP_MEMBER", to: "GROUP_ADMIN" })).toBe(
+      "from Member to Admin",
+    );
+    expect(changeTail({ field: "role", to: "GROUP_ADMIN" })).toBe("to Admin");
+  });
+
+  it("has no tail where there is no value to end on", () => {
+    expect(changeTail({ field: "role", from: "GROUP_ADMIN" })).toBeNull();
+    expect(changeTail({ field: "role" })).toBeNull();
+  });
+});
+
 describe("changeFieldLabel", () => {
   it("names a membership id after the person it points at", () => {
     expect(changeFieldLabel({ field: "assignedToId" })).toBe("Assignee");
@@ -97,37 +110,5 @@ describe("changePhrases", () => {
 
   it("has nothing to say for an entry that is not a tracked update", () => {
     expect(changePhrases(undefined)).toEqual([]);
-  });
-});
-
-describe("changedFieldLabels", () => {
-  it("names every field without its values", () => {
-    expect(changedFieldLabels([{ field: "photoUid" }, { field: "nextDueDate" }])).toEqual([
-      "Picture",
-      "Due date",
-    ]);
-  });
-});
-
-describe("changedSummary", () => {
-  it("counts the fields past the first few instead of listing them", () => {
-    const summary = changedSummary([
-      { field: "name" },
-      { field: "description" },
-      { field: "color" },
-      { field: "icon" },
-      { field: "photoUid" },
-    ]);
-
-    expect(summary).toBe("Changed: Name, Description, Colour and 2 more");
-  });
-
-  it("lists them all when they fit", () => {
-    expect(changedSummary([{ field: "name" }, { field: "icon" }])).toBe("Changed: Name, Icon");
-  });
-
-  it("says nothing for an entry that changed no fields", () => {
-    expect(changedSummary(undefined)).toBeNull();
-    expect(changedSummary([])).toBeNull();
   });
 });

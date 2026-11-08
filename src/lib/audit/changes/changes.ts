@@ -10,6 +10,7 @@ import type { AuditFieldChange } from "@/lib/audit/audit.types";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { roleLabel } from "@/lib/groups/labels/labels";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
+import { FALLBACK_TIME_ZONE } from "@/lib/time/zone/zone";
 
 type ValueKind = "role" | "date" | "flag" | "minutes";
 
@@ -43,14 +44,6 @@ const FIELD_LABELS: Record<string, string> = {
 
 // A backend constant: upper case, digits and underscores, nothing else.
 const ENUM_VALUE = /^[A-Z][A-Z\d]*(?:_[A-Z\d]+)*$/;
-
-// What a reader gets before their own zone is known, which is a first visit
-// with no zone cookie written yet.
-const FALLBACK_ZONE = "UTC";
-
-// Past this a summary is a wall of field names, so it counts the rest and the
-// full list is a line each elsewhere.
-const SUMMARY_LIMIT = 3;
 
 /**
  * Turns a camelCase or UPPER_SNAKE name into a sentence-cased phrase.
@@ -139,6 +132,24 @@ export function changeFieldLabel(change: AuditFieldChange): string | null {
 }
 
 /**
+ * Words both sides of a change.
+ *
+ * @returns Each side as a reader should see it, with null where the backend
+ * withheld it or the field was empty there.
+ */
+function sides(
+  change: AuditFieldChange,
+  timeZone: string,
+): { from: string | null; to: string | null } {
+  const kind = change.field ? VALUE_KINDS[change.field] : undefined;
+
+  return {
+    from: changeValue(change.from, kind, timeZone),
+    to: changeValue(change.to, kind, timeZone),
+  };
+}
+
+/**
  * Writes the line for one changed field.
  *
  * @param change The field and, where the backend kept them, its values.
@@ -148,20 +159,36 @@ export function changeFieldLabel(change: AuditFieldChange): string | null {
  */
 export function changePhrase(
   change: AuditFieldChange,
-  timeZone: string = FALLBACK_ZONE,
+  timeZone: string = FALLBACK_TIME_ZONE,
 ): string | null {
   const label = changeFieldLabel(change);
   if (!label) return null;
 
-  const kind = change.field ? VALUE_KINDS[change.field] : undefined;
-  const from = changeValue(change.from, kind, timeZone);
-  const to = changeValue(change.to, kind, timeZone);
+  const { from, to } = sides(change, timeZone);
 
   if (from && to) return `${label} changed from ${from} to ${to}`;
   if (to) return `${label} set to ${to}`;
   if (from) return `${label} cleared, was ${from}`;
 
   return `${label} changed`;
+}
+
+/**
+ * Writes the values of a change as the end of a sentence that has already
+ * named the field.
+ *
+ * @returns The tail, or null where there is no new value to end on: with
+ * nothing to show, or only a value that is gone, the sentence has to say the
+ * field's name itself and this is not the place for it.
+ */
+export function changeTail(
+  change: AuditFieldChange,
+  timeZone: string = FALLBACK_TIME_ZONE,
+): string | null {
+  const { from, to } = sides(change, timeZone);
+  if (!to) return null;
+
+  return from ? `from ${from} to ${to}` : `to ${to}`;
 }
 
 /**
@@ -172,37 +199,9 @@ export function changePhrase(
  */
 export function changePhrases(
   changes: AuditFieldChange[] | undefined,
-  timeZone: string = FALLBACK_ZONE,
+  timeZone: string = FALLBACK_TIME_ZONE,
 ): string[] {
   return (changes ?? [])
     .map((change) => changePhrase(change, timeZone))
     .filter((phrase): phrase is string => phrase !== null);
-}
-
-/**
- * Names the fields an update moved, without their values.
- *
- * @returns One label per field, for a place with room for a list of names and
- * not a line each.
- */
-export function changedFieldLabels(changes: AuditFieldChange[] | undefined): string[] {
-  return (changes ?? [])
-    .map((change) => changeFieldLabel(change))
-    .filter((label): label is string => label !== null);
-}
-
-/**
- * Sums an update up where there is room for a line and not a list.
- *
- * @returns The first few fields by name and a count of the rest, or null for an
- * entry that is not a tracked update. Names only: a value would not fit.
- */
-export function changedSummary(changes: AuditFieldChange[] | undefined): string | null {
-  const labels = changedFieldLabels(changes);
-  if (labels.length === 0) return null;
-
-  const shown = labels.slice(0, SUMMARY_LIMIT).join(", ");
-  const hidden = labels.length - SUMMARY_LIMIT;
-
-  return hidden > 0 ? `Changed: ${shown} and ${hidden} more` : `Changed: ${shown}`;
 }
