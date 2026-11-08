@@ -149,7 +149,7 @@ src/
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
                        with actions/ for the page after a cursor and
-                       page.helpers.ts for the name of a pinned entity
+                       page.helpers.ts for the names its rows read by
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -513,6 +513,13 @@ browser
 - **A trail's line is ours, keyed on the action and the entity together.** The backend's
   `actionMessage` is the fallback for a pair we have no copy for, and stands alone, being a whole
   sentence. `auditSentence` returns one string, since a name built from two elements loses the space.
+- **A row names the member it is about, from the roster and nowhere else.** The entry carries a ref
+  and no label, so the page reads the roster once and hands the feed a `ref -> name` map that covers
+  every page it appends. A ref the map has no name for reads as the kind ("a member"), which is every
+  member who has already left, since the roster is the active rows only.
+- **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
+  and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
+  the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
 - **A trail's timestamp is relative, with the exact UTC value in the `title`.** `time/relative` pins
   the zone because the row renders on the server, and gives a date past a month. **The whole feed is
   measured against one instant**, passed down from the page, so appended rows agree with the first

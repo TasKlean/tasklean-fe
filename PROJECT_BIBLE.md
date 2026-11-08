@@ -1945,6 +1945,25 @@ awkward word. A task update can move a dozen fields, which is a wall inside a ca
 the first three names up and counts the rest while the filtered timeline phrases every one: the
 summary is a reason to open the filter rather than a truncation that loses something.
 
+**A row borrows its subject's name from the roster, and the roster is read once.** The trail hands
+out a ref and no label, so a name has to come from a screen that holds one, and for a group that is
+only the roster: a task, a category or a tag has no screen to borrow from yet, so those rows name
+their kind. The roster is read for the whole view rather than per page, because it holds every active
+membership and not just the refs that happened to arrive first, which is what lets the feed append
+pages without another read and keeps the paging action unchanged. It is read alongside the feed
+rather than after it, since neither answers anything about the other. A member who has left is not in
+it and cannot be named at all: the endpoint lists active memberships, and nothing else in the API
+hands out a departed member's name. The map is keyed by the ref rather than by the entity type, so a
+later read can name a task by adding a phrase for the pair and nothing else.
+
+**A row whose actor is also its subject describes a different event.** The backend writes
+`MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
+membership when a group is made. The last two have one person on both sides, where "added a member"
+is wrong rather than merely blunt, so the map carries the membership's user uid and that case reads
+"joined the group". It is settled before a name is used, because it changes what the row says
+happened and not only how it is worded. The group's own name is deliberately not used in a row: the
+rail carries it beside every line already.
+
 **A narrowed trail is drawn as a timeline, and the chips are links.** Every row under a filter is the
 same kind of thing, so the entity chip would repeat one word down the page and the connecting line
 says more. The chip row needs no client component: the filter is the URL, so the server knows which

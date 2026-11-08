@@ -48,6 +48,55 @@ describe("auditSentence", () => {
   });
 });
 
+describe("auditSentence with a name", () => {
+  const roleChanged = entry({
+    action: "ROLE_CHANGED",
+    entity: { type: "GROUP_MEMBER", ref: "m2" },
+  });
+
+  it("names the member a row is about", () => {
+    const named = auditSentence(roleChanged, null, { m2: { name: "Dan Novak" } });
+
+    expect(named).toBe("Alice Johnson changed Dan Novak's role");
+  });
+
+  it("falls back to the kind for a ref no name was resolved for", () => {
+    expect(auditSentence(roleChanged, null, { m9: { name: "Dan Novak" } })).toBe(
+      "Alice Johnson changed a member's role",
+    );
+  });
+
+  it("ignores a name for a pair that reads the same without one", () => {
+    const left = entry({ action: "MEMBER_LEFT", entity: { type: "GROUP_MEMBER", ref: "m1" } });
+
+    expect(auditSentence(left, null, { m1: { name: "Alice Johnson" } })).toBe(
+      "Alice Johnson left the group",
+    );
+  });
+
+  it("says somebody joined rather than added themselves", () => {
+    const added = entry({
+      action: "MEMBER_ADDED",
+      entity: { type: "GROUP_MEMBER", ref: "m1" },
+    });
+    const own = { m1: { name: "Alice Johnson", userUid: "u1" } };
+
+    expect(auditSentence(added, null, own)).toBe("Alice Johnson joined the group");
+    expect(auditSentence(added, "u1", own)).toBe("You joined the group");
+  });
+
+  it("still names the member when somebody else added them", () => {
+    const added = entry({
+      action: "MEMBER_ADDED",
+      entity: { type: "GROUP_MEMBER", ref: "m2" },
+    });
+
+    expect(auditSentence(added, null, { m2: { name: "Dan Novak", userUid: "u2" } })).toBe(
+      "Alice Johnson added Dan Novak",
+    );
+  });
+});
+
 describe("entityLabel", () => {
   it("leaves the chip out rather than printing an enum at a reader", () => {
     expect(entityLabel("SOMETHING_NEW")).toBeNull();

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import { subjectName } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
+import {
+  memberNames,
+  subjectName,
+} from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import { ActivityEmpty } from "@/components/app/group/overview/activity/activity-empty";
 import { ActivityFeed } from "@/components/app/group/overview/activity/activity-feed";
 import { ActivityFilters } from "@/components/app/group/overview/activity/activity-filters";
@@ -10,7 +13,7 @@ import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
 import { getGroupActivity } from "@/lib/audit/audit";
-import type { AuditPage } from "@/lib/audit/audit.types";
+import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import { auditFilter, auditFilterQuery } from "@/lib/audit/filter/filter";
 import { getSession } from "@/lib/auth/session/session";
 import { isGroupAdmin } from "@/lib/groups/role/role";
@@ -43,10 +46,19 @@ export default async function ActivityPage({
   const admin = isGroupAdmin(group?.myRole);
 
   let page = EMPTY;
+  // One roster read per view, which names the membership rows of this page and
+  // of every page the feed goes on to append.
+  let names: AuditNames = {};
   let failure: string | null = null;
 
   try {
-    page = await getGroupActivity(uid, auditFilterQuery(filter));
+    // Read together: neither answers anything about the other, and serially the
+    // roster would add its own round trip to what the reader waits for. Only
+    // the feed read can reject, so a failure here is always the feed's.
+    [page, names] = await Promise.all([
+      getGroupActivity(uid, auditFilterQuery(filter)),
+      memberNames(uid),
+    ]);
   } catch (error) {
     if (isSessionExpiredError(error)) redirect("/login");
     if (isGroupUnavailable(error)) redirect(GROUP_UNAVAILABLE_PATH);
@@ -73,7 +85,7 @@ export default async function ActivityPage({
       {filter.type && filter.ref ? (
         <ActivitySubject
           type={filter.type}
-          name={await subjectName(uid, filter, group?.name)}
+          name={subjectName(uid, filter, group?.name, names)}
           path={path}
         />
       ) : null}
@@ -107,6 +119,7 @@ export default async function ActivityPage({
         // the server's render and the browser's.
         now={new Date()}
         filter={filter}
+        names={names}
         heading={heading}
       >
         {controls}

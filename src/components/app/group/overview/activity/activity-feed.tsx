@@ -14,7 +14,7 @@ import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/ac
 import { ActivityRow } from "@/components/app/group/overview/activity/activity-row";
 import { TimelineRow } from "@/components/app/group/overview/activity/timeline-row";
 import { FormNotice } from "@/components/common/form-notice";
-import type { AuditEntry, AuditPage } from "@/lib/audit/audit.types";
+import type { AuditEntry, AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 import { feedCountLabel } from "@/lib/audit/labels/labels";
 
@@ -27,6 +27,9 @@ type ActivityFeedProps = {
   // Rides along with every cursor, since a cursor is a position in one narrowed
   // feed and the next page has to be read under the same filter.
   filter: AuditFilter;
+  // Read once on the server and good for every page, since it holds the whole
+  // roster rather than the refs of the rows that happened to arrive first.
+  names: AuditNames;
   // The h2 and its line, rendered on the server and placed here because the
   // count beside them counts what this component holds.
   heading: ReactNode;
@@ -44,6 +47,7 @@ export function ActivityFeed({
   viewerUid,
   now,
   filter,
+  names,
   heading,
   children,
 }: Readonly<ActivityFeedProps>) {
@@ -98,9 +102,9 @@ export function ActivityFeed({
           const key = entry.uid ?? index;
 
           return filter.type ? (
-            <TimelineRow key={key} entry={entry} viewerUid={viewerUid} now={now} />
+            <TimelineRow key={key} entry={entry} viewerUid={viewerUid} now={now} names={names} />
           ) : (
-            <ActivityRow key={key} entry={entry} viewerUid={viewerUid} now={now} />
+            <ActivityRow key={key} entry={entry} viewerUid={viewerUid} now={now} names={names} />
           );
         })}
       </ol>

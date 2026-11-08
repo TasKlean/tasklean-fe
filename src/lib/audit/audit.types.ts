@@ -50,6 +50,20 @@ export type AuditEntry = {
   dateCreated?: string;
 };
 
+// What a screen could resolve about the thing one entry is about. A ref is an
+// identifier, and the backend sends no label with it, so a name is read from
+// the screen the entity belongs to or not at all.
+export type AuditNamedEntity = {
+  name: string;
+  // The person behind a membership, so a row whose actor is also its subject
+  // can say they joined rather than that they added themselves.
+  userUid?: string;
+};
+
+// Keyed by the `ref` an entry's entity carries, so a feed resolves a row's
+// name with one lookup and an unresolved ref simply has none.
+export type AuditNames = Record<string, AuditNamedEntity>;
+
 export type AuditPageResponse = {
   items?: AuditEntry[];
   nextCursor?: string | null;

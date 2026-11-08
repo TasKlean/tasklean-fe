@@ -5,7 +5,7 @@
  */
 
 import { Avatar } from "@/components/common/avatar/avatar";
-import type { AuditEntry } from "@/lib/audit/audit.types";
+import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { changedSummary } from "@/lib/audit/changes/changes";
 import { auditSentence, entityLabel } from "@/lib/audit/labels/labels";
 import { exactTime, isoTime, relativeTime } from "@/lib/time/relative/relative";
@@ -17,13 +17,15 @@ type ActivityRowProps = {
   // Measured once for the whole feed, so appended rows agree with the first
   // page and the server's render is what the browser hydrates to.
   now: Date;
+  // Names for the entities on this page, keyed by ref.
+  names: AuditNames;
 };
 
 const CHIP =
   "text-label-sm bg-muted text-muted-foreground shrink-0 px-space-sm rounded-full py-0.5";
 
 /** Renders one audit entry as a card. */
-export function ActivityRow({ entry, viewerUid, now }: Readonly<ActivityRowProps>) {
+export function ActivityRow({ entry, viewerUid, now, names }: Readonly<ActivityRowProps>) {
   const kind = entityLabel(entry.entity?.type);
   const when = relativeTime(entry.dateCreated, now);
   // Summed up rather than listed: a task update can move a dozen fields, and a
@@ -41,7 +43,7 @@ export function ActivityRow({ entry, viewerUid, now }: Readonly<ActivityRowProps
       <div className="gap-space-md flex min-w-0 flex-1 items-start justify-between">
         <div className="gap-space-xs flex min-w-0 flex-col">
           <p className="text-body-md text-foreground break-words">
-            {auditSentence(entry, viewerUid)}
+            {auditSentence(entry, viewerUid, names)}
           </p>
 
           {changed ? <p className="text-label-sm text-muted-foreground">{changed}</p> : null}

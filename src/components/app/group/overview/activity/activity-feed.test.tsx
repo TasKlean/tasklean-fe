@@ -3,7 +3,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuditPage } from "@/lib/audit/audit.types";
+import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 type Result = { ok: true; page: AuditPage } | { ok: false; message: string };
@@ -57,7 +57,26 @@ const UPDATED: AuditPage = {
   total: 1,
 };
 
-function renderFeed(filter: AuditFilter = { type: null, ref: "" }, first: AuditPage = FIRST) {
+const ROLE_CHANGED: AuditPage = {
+  entries: [
+    {
+      uid: "a8",
+      action: "ROLE_CHANGED",
+      entity: { type: "GROUP_MEMBER", ref: "m2" },
+      actor: { uid: "u2", name: "Alice", lastName: "Johnson" },
+      changedFields: [{ field: "role", from: "GROUP_MEMBER", to: "GROUP_ADMIN" }],
+      dateCreated: "2026-11-06T11:00:00",
+    },
+  ],
+  nextCursor: null,
+  total: 1,
+};
+
+function renderFeed(
+  filter: AuditFilter = { type: null, ref: "" },
+  first: AuditPage = FIRST,
+  names: AuditNames = {},
+) {
   render(
     <ActivityFeed
       groupUid="g1"
@@ -65,6 +84,7 @@ function renderFeed(filter: AuditFilter = { type: null, ref: "" }, first: AuditP
       viewerUid="u1"
       now={NOW}
       filter={filter}
+      names={names}
       heading={<h2>Activity</h2>}
     >
       <p>Filters</p>
@@ -138,6 +158,18 @@ describe("ActivityFeed", () => {
     expect(screen.getByText("Status changed from Pending to In progress")).toBeInTheDocument();
     expect(screen.getByText("Icon set to broom")).toBeInTheDocument();
     expect(screen.getByText("Name changed")).toBeInTheDocument();
+  });
+
+  it("names the member a row is about when the page resolved one", () => {
+    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
+
+    expect(screen.getByText("Alice Johnson changed Dan Novak's role")).toBeInTheDocument();
+  });
+
+  it("names the kind instead for a member the roster could not name", () => {
+    renderFeed({ type: null, ref: "" }, ROLE_CHANGED);
+
+    expect(screen.getByText("Alice Johnson changed a member's role")).toBeInTheDocument();
   });
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {

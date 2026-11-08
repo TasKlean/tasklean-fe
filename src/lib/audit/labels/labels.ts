@@ -6,7 +6,7 @@
  * copy for. No `server-only`: the feed renders this in the browser.
  */
 
-import type { AuditEntry } from "@/lib/audit/audit.types";
+import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { fullName } from "@/lib/users/name/name";
 
 // Keyed by action and entity together, because one action reads differently per
@@ -31,6 +31,21 @@ const PHRASES: Record<string, string> = {
   "DELETE:TAG": "deleted a tag",
   "CREATE:TASK_COMPLETION": "marked a task done",
   "DELETE:TASK_COMPLETION": "undid a completion",
+};
+
+// The pairs that read better for naming the member they are about, which is
+// the three an admin does to somebody else. A removal is listed even though the
+// roster can rarely name a member who has already left.
+const NAMED_PHRASES: Record<string, (name: string) => string> = {
+  "MEMBER_ADDED:GROUP_MEMBER": (name) => `added ${name}`,
+  "MEMBER_REMOVED:GROUP_MEMBER": (name) => `removed ${name}`,
+  "ROLE_CHANGED:GROUP_MEMBER": (name) => `changed ${name}'s role`,
+};
+
+// Where the actor is also the membership the entry is about, which is every
+// group creation and every join by code: nobody there added themselves.
+const SELF_PHRASES: Record<string, string> = {
+  "MEMBER_ADDED:GROUP_MEMBER": "joined the group",
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -58,11 +73,34 @@ function subject(entry: AuditEntry, viewerUid: string | null | undefined): strin
  *
  * @param entry The entry, whose action, entity and actor may all be absent.
  * @param viewerUid The reader's own user uid, so their own rows say "You".
+ * @param names What the page resolved about the entities on it, keyed by ref.
+ * A row whose own ref is missing from it reads without a name.
  * @returns One sentence, never empty.
  */
-export function auditSentence(entry: AuditEntry, viewerUid?: string | null): string {
-  const phrase = PHRASES[`${entry.action ?? ""}:${entry.entity?.type ?? ""}`];
-  if (phrase) return `${subject(entry, viewerUid)} ${phrase}`;
+export function auditSentence(
+  entry: AuditEntry,
+  viewerUid?: string | null,
+  names?: AuditNames,
+): string {
+  const key = `${entry.action ?? ""}:${entry.entity?.type ?? ""}`;
+  const ref = entry.entity?.ref;
+  const named = ref ? names?.[ref] : undefined;
+  const who = subject(entry, viewerUid);
+
+  // Checked before any name is used: the actor and the subject being one
+  // membership changes what happened, not only how it is worded.
+  if (named?.userUid && named.userUid === entry.actor?.uid) {
+    const own = SELF_PHRASES[key];
+    if (own) return `${who} ${own}`;
+  }
+
+  if (named) {
+    const write = NAMED_PHRASES[key];
+    if (write) return `${who} ${write(named.name)}`;
+  }
+
+  const phrase = PHRASES[key];
+  if (phrase) return `${who} ${phrase}`;
 
   // The backend's line is a whole sentence rather than a verb phrase, so it
   // stands alone: pinned to a subject it would read "Alice Member left group".
