@@ -1,12 +1,9 @@
 /**
- * The rows on screen, as one line down the page. Day sections are the default
- * and the switch takes them away, which is this component's own state and
- * nothing the backend or the URL knows about.
+ * The rows on screen, as one line down the page. Cut into days, or run together
+ * with each row dated instead, which the feed above decides.
  */
 
-import { useState } from "react";
 import { ActivityRow } from "@/components/app/group/overview/activity/activity-row";
-import { DaySectionsToggle } from "@/components/app/group/overview/activity/day-sections-toggle";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditDays } from "@/lib/audit/days/days";
 import type { AuditDayRow } from "@/lib/audit/days/days.types";
@@ -19,6 +16,8 @@ type ActivityTimelineProps = {
   now: Date;
   names: AuditNames;
   timeZone: string;
+  // Whether a heading above each day says which one it is.
+  grouped: boolean;
 };
 
 /** Keys a row on the uid the backend minted, or its place in a feed that only grows at its end. */
@@ -33,18 +32,19 @@ export function ActivityTimeline({
   now,
   names,
   timeZone,
+  grouped,
 }: Readonly<ActivityTimelineProps>) {
-  const [grouped, setGrouped] = useState(true);
   const days = auditDays(entries, now, timeZone);
 
   return (
     <div className="gap-space-md flex flex-col">
-      <DaySectionsToggle on={grouped} onFlip={() => setGrouped((was) => !was)} />
-
       {grouped ? (
         days.map((day) => (
           <section key={day.key} className="gap-space-sm flex flex-col">
-            <h3 className="text-label-lg text-muted-foreground">{day.label}</h3>
+            <div className="gap-space-sm flex items-center">
+              <h3 className="text-label-lg text-muted-foreground shrink-0">{day.label}</h3>
+              <span aria-hidden className="bg-border/70 h-px flex-1" />
+            </div>
 
             <ol className="flex flex-col">
               {day.rows.map((row, index) => (

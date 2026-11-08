@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
-type Result = { ok: true; page: AuditPage } | { ok: false; message: string };
+type Result = { ok: true; page: AuditPage; names: AuditNames } | { ok: false; message: string };
 
 const loadActivityPageAction = vi.fn<(fields: unknown) => Promise<Result>>();
 
@@ -103,12 +103,24 @@ function renderFeed(
   );
 }
 
+function whole(text: string, selector: string): HTMLElement {
+  return screen.getByText((_content, element) => element?.textContent === text, { selector });
+}
+
+function said(text: string): HTMLElement {
+  return whole(text, "p");
+}
+
+function detail(text: string): HTMLElement {
+  return whole(text, "li");
+}
+
 beforeEach(() => {
   loadActivityPageAction.mockReset();
 });
 
 describe("ActivityFeed", () => {
-  it("appends the next page and counts what is on screen against the total", async () => {
+  it("counts what is on screen against the total, beside the heading and at the foot", async () => {
     const user = userEvent.setup({ delay: null });
     loadActivityPageAction.mockResolvedValue({
       ok: true,
@@ -116,21 +128,26 @@ describe("ActivityFeed", () => {
         [{ uid: "a2", action: "UPDATE", entity: { type: "GROUP" }, actor: { uid: "u1" } }],
         "c2",
       ),
+      names: {},
     });
 
     renderFeed();
-    expect(screen.getByText("1 of 3")).toBeInTheDocument();
+    expect(screen.getAllByText("1 of 3")).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(await screen.findByText("2 of 3")).toBeInTheDocument();
-    expect(screen.getByText("Alice Johnson added a task")).toBeInTheDocument();
-    expect(screen.getByText("You updated the group")).toBeInTheDocument();
+    expect(await screen.findAllByText("2 of 3")).toHaveLength(2);
+    expect(said("Alice Johnson added a task")).toBeInTheDocument();
+    expect(said("You updated the group")).toBeInTheDocument();
   });
 
   it("carries the cursor the last page handed back, not the first one", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({ ok: true, page: page([{ uid: "a2" }], "c2") });
+    loadActivityPageAction.mockResolvedValue({
+      ok: true,
+      page: page([{ uid: "a2" }], "c2"),
+      names: {},
+    });
 
     renderFeed();
     await user.click(screen.getByRole("button", { name: "Load more" }));
@@ -147,12 +164,13 @@ describe("ActivityFeed", () => {
       // The last page of three, so nothing is left to ask for and the count
       // stops counting progress.
       page: page([{ uid: "a2" }, { uid: "a3" }], null),
+      names: {},
     });
 
     renderFeed();
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(await screen.findByText("3 entries")).toBeInTheDocument();
+    expect(await screen.findAllByText("3 entries")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
 
@@ -172,27 +190,37 @@ describe("ActivityFeed", () => {
 
     await user.click(screen.getByRole("button", { name: "Show 5 changes" }));
 
-    expect(screen.getByText("Priority changed from Low to High")).toBeInTheDocument();
-    expect(screen.getByText("Status changed from Pending to In progress")).toBeInTheDocument();
-    expect(screen.getByText("Icon set to broom")).toBeInTheDocument();
-    expect(screen.getByText("Name changed")).toBeInTheDocument();
+    expect(detail("Priority changed from Low to High")).toBeInTheDocument();
+    expect(detail("Status changed from Pending to In progress")).toBeInTheDocument();
+    expect(detail("Icon set to broom")).toBeInTheDocument();
+    expect(detail("Name changed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide changes" })).toBeInTheDocument();
   });
 
   it("names the member a row is about when the page resolved one", () => {
     renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
 
-    expect(
-      screen.getByText("Alice Johnson changed Dan Novak's role from Member to Admin"),
-    ).toBeInTheDocument();
+    expect(said("Alice Johnson changed Dan Novak's role from Member to Admin")).toBeInTheDocument();
+  });
+
+  it("names a member only the page it appended had a row about", async () => {
+    const user = userEvent.setup({ delay: null });
+    loadActivityPageAction.mockResolvedValue({
+      ok: true,
+      page: page(ROLE_CHANGED.entries, null),
+      names: { m2: { name: "Dan Novak" } },
+    });
+
+    renderFeed();
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(said("Alice Johnson changed Dan Novak's role from Member to Admin")).toBeVisible();
   });
 
   it("names the kind instead for a member the roster could not name", () => {
     renderFeed({ type: null, ref: "" }, ROLE_CHANGED);
 
-    expect(
-      screen.getByText("Alice Johnson changed a member's role from Member to Admin"),
-    ).toBeInTheDocument();
+    expect(said("Alice Johnson changed a member's role from Member to Admin")).toBeInTheDocument();
   });
 
   it("cuts the rows into the days they happened on", () => {
@@ -228,7 +256,11 @@ describe("ActivityFeed", () => {
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({ ok: true, page: page([{ uid: "a2" }], null) });
+    loadActivityPageAction.mockResolvedValue({
+      ok: true,
+      page: page([{ uid: "a2" }], null),
+      names: {},
+    });
 
     renderFeed({ type: "member", ref: "m1" });
     await user.click(screen.getByRole("button", { name: "Load more" }));
@@ -252,7 +284,7 @@ describe("ActivityFeed", () => {
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("We could not reach TasKlean.");
-    expect(screen.getByText("Alice Johnson added a task")).toBeInTheDocument();
+    expect(said("Alice Johnson added a task")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
   });
 });

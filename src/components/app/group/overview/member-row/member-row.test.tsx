@@ -104,14 +104,12 @@ describe("MemberRow", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("offers a member the history and none of the controls", () => {
+  it("offers a plain member nothing to press", () => {
     render(<MemberRow {...BASE} manageable={false} />);
 
-    expect(screen.getByRole("link", { name: "History: Maja Bregar" })).toHaveAttribute(
-      "href",
-      "/app/groups/g1/overview/activity?type=member&ref=m1",
-    );
+    expect(screen.getByText("Maja Bregar")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("offers nothing on a membership that arrived without a uid", () => {

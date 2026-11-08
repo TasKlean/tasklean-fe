@@ -10,10 +10,10 @@ type DaySectionsToggleProps = {
   onFlip: () => void;
 };
 
-// `self-end` rather than a full-width label: the whole row would otherwise be
-// a press target, which reads as a band across the page.
+// Sized to its own label rather than the row it sits in, or the whole width
+// beside the heading would be a press target.
 const CONTROL =
-  "text-label-md text-muted-foreground has-[:focus-visible]:ring-ring gap-space-sm flex min-h-11 cursor-pointer items-center self-end rounded-md has-[:focus-visible]:ring-2";
+  "text-label-md text-muted-foreground has-[:focus-visible]:ring-ring gap-space-sm flex min-h-11 w-fit cursor-pointer items-center rounded-md has-[:focus-visible]:ring-2";
 
 /** Renders the switch that groups the rows by day. */
 export function DaySectionsToggle({ on, onFlip }: Readonly<DaySectionsToggleProps>) {

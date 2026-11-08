@@ -7,6 +7,8 @@
  */
 
 import type { AuditFieldChange } from "@/lib/audit/audit.types";
+import type { AuditToken } from "@/lib/audit/tokens/tokens";
+import { fieldToken, plainToken, valueToken } from "@/lib/audit/tokens/tokens";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { roleLabel } from "@/lib/groups/labels/labels";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
@@ -154,54 +156,68 @@ function sides(
  *
  * @param change The field and, where the backend kept them, its values.
  * @param timeZone The zone a date value is drawn in.
- * @returns One sentence-less phrase, or null for a change naming no field. A
- * field whose values were withheld reads as having changed and nothing more.
+ * @returns The pieces of one sentence-less phrase, or null for a change naming
+ * no field. A field whose values were withheld reads as having changed and
+ * nothing more, which is a line with nothing to set apart in it.
  */
-export function changePhrase(
+export function changeLine(
   change: AuditFieldChange,
   timeZone: string = FALLBACK_TIME_ZONE,
-): string | null {
+): AuditToken[] | null {
   const label = changeFieldLabel(change);
   if (!label) return null;
 
   const { from, to } = sides(change, timeZone);
 
-  if (from && to) return `${label} changed from ${from} to ${to}`;
-  if (to) return `${label} set to ${to}`;
-  if (from) return `${label} cleared, was ${from}`;
+  if (from && to) {
+    return [
+      fieldToken(label),
+      plainToken(" changed from "),
+      valueToken(from),
+      plainToken(" to "),
+      valueToken(to),
+    ];
+  }
 
-  return `${label} changed`;
+  if (to) return [fieldToken(label), plainToken(" set to "), valueToken(to)];
+  if (from) return [fieldToken(label), plainToken(" cleared, was "), valueToken(from)];
+
+  return [fieldToken(label), plainToken(" changed")];
 }
 
 /**
  * Writes the values of a change as the end of a sentence that has already
  * named the field.
  *
- * @returns The tail, or null where there is no new value to end on: with
- * nothing to show, or only a value that is gone, the sentence has to say the
- * field's name itself and this is not the place for it.
+ * @returns The pieces of the tail, or null where there is no new value to end
+ * on: with nothing to show, or only a value that is gone, the sentence has to
+ * say the field's name itself and this is not the place for it.
  */
 export function changeTail(
   change: AuditFieldChange,
   timeZone: string = FALLBACK_TIME_ZONE,
-): string | null {
+): AuditToken[] | null {
   const { from, to } = sides(change, timeZone);
   if (!to) return null;
 
-  return from ? `from ${from} to ${to}` : `to ${to}`;
+  if (from) {
+    return [plainToken("from "), valueToken(from), plainToken(" to "), valueToken(to)];
+  }
+
+  return [plainToken("to "), valueToken(to)];
 }
 
 /**
  * Writes a line per changed field.
  *
- * @returns One phrase per field, in the order the update applied them, skipping
+ * @returns One line per field, in the order the update applied them, skipping
  * any that named no field.
  */
-export function changePhrases(
+export function changeLines(
   changes: AuditFieldChange[] | undefined,
   timeZone: string = FALLBACK_TIME_ZONE,
-): string[] {
+): AuditToken[][] {
   return (changes ?? [])
-    .map((change) => changePhrase(change, timeZone))
-    .filter((phrase): phrase is string => phrase !== null);
+    .map((change) => changeLine(change, timeZone))
+    .filter((line): line is AuditToken[] => line !== null);
 }

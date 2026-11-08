@@ -7,15 +7,17 @@
  */
 
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
-import { changePhrases, changeTail } from "@/lib/audit/changes/changes";
+import { changeLines, changeTail } from "@/lib/audit/changes/changes";
+import type { AuditToken } from "@/lib/audit/tokens/tokens";
+import { nameToken, plainToken } from "@/lib/audit/tokens/tokens";
 import { fullName } from "@/lib/users/name/name";
 
 /** What one row says: a line, and a detail per changed field under it. */
 export type AuditLine = {
-  sentence: string;
+  sentence: AuditToken[];
   // Empty where the entry changed nothing, and where its one change finished
   // the sentence instead.
-  details: string[];
+  details: AuditToken[][];
 };
 
 // Keyed by action and entity together, because one action reads differently per
@@ -45,10 +47,14 @@ const PHRASES: Record<string, string> = {
 // The pairs that read better for naming the member they are about, which is
 // the three an admin does to somebody else. A removal is listed even though the
 // roster can rarely name a member who has already left.
-const NAMED_PHRASES: Record<string, (name: string) => string> = {
-  "MEMBER_ADDED:GROUP_MEMBER": (name) => `added ${name}`,
-  "MEMBER_REMOVED:GROUP_MEMBER": (name) => `removed ${name}`,
-  "ROLE_CHANGED:GROUP_MEMBER": (name) => `changed ${name}'s role`,
+const NAMED_PHRASES: Record<string, (name: string) => AuditToken[]> = {
+  "MEMBER_ADDED:GROUP_MEMBER": (name) => [plainToken("added "), nameToken(name)],
+  "MEMBER_REMOVED:GROUP_MEMBER": (name) => [plainToken("removed "), nameToken(name)],
+  "ROLE_CHANGED:GROUP_MEMBER": (name) => [
+    plainToken("changed "),
+    nameToken(name),
+    plainToken("'s role"),
+  ],
 };
 
 // Where the actor is also the membership the entry is about, which is every
@@ -85,36 +91,37 @@ function subject(entry: AuditEntry, viewerUid: string | null | undefined): strin
  * @param viewerUid The reader's own user uid, so their own rows say "You".
  * @param names What the page resolved about the entities on it, keyed by ref.
  * A row whose own ref is missing from it reads without a name.
- * @returns One sentence, never empty.
+ * @returns The pieces of one sentence, never empty, with whoever acted and
+ * whoever it was about marked as the names they are.
  */
 export function auditSentence(
   entry: AuditEntry,
   viewerUid?: string | null,
   names?: AuditNames,
-): string {
+): AuditToken[] {
   const key = pairKey(entry);
   const ref = entry.entity?.ref;
   const named = ref ? names?.[ref] : undefined;
-  const who = subject(entry, viewerUid);
+  const who = nameToken(subject(entry, viewerUid));
 
   // Checked before any name is used: the actor and the subject being one
   // membership changes what happened, not only how it is worded.
   if (named?.userUid && named.userUid === entry.actor?.uid) {
     const own = SELF_PHRASES[key];
-    if (own) return `${who} ${own}`;
+    if (own) return [who, plainToken(` ${own}`)];
   }
 
   if (named) {
     const write = NAMED_PHRASES[key];
-    if (write) return `${who} ${write(named.name)}`;
+    if (write) return [who, plainToken(" "), ...write(named.name)];
   }
 
   const phrase = PHRASES[key];
-  if (phrase) return `${who} ${phrase}`;
+  if (phrase) return [who, plainToken(` ${phrase}`)];
 
   // The backend's line is a whole sentence rather than a verb phrase, so it
   // stands alone: pinned to a subject it would read "Alice Member left group".
-  return entry.actionMessage?.trim() || "A change was made here";
+  return [plainToken(entry.actionMessage?.trim() || "A change was made here")];
 }
 
 /**
@@ -141,10 +148,10 @@ export function auditLine(
 
   if (inline && only?.field === inline) {
     const tail = changeTail(only, timeZone);
-    if (tail) return { sentence: `${sentence} ${tail}`, details: [] };
+    if (tail) return { sentence: [...sentence, plainToken(" "), ...tail], details: [] };
   }
 
-  return { sentence, details: changePhrases(changes, timeZone) };
+  return { sentence, details: changeLines(changes, timeZone) };
 }
 
 /**

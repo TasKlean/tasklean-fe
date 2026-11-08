@@ -6,10 +6,14 @@
 
 "use server";
 
+import {
+  memberNames,
+  namesForPage,
+} from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
 import { getGroupActivity } from "@/lib/audit/audit";
-import type { AuditPage } from "@/lib/audit/audit.types";
+import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import { auditFilterQuery } from "@/lib/audit/filter/filter";
 import { parseAuditPage } from "@/lib/validation/forms/audit-page.schema/audit-page.schema";
 
@@ -21,16 +25,19 @@ const PAGE_CURSOR_INVALID = "PAGE_CURSOR_INVALID";
 // reader already has while losing where they were.
 const DEAD_CURSOR = "We could not load more activity. Reload the page to start again.";
 
-export type ActivityPageResult = { ok: true; page: AuditPage } | { ok: false; message: string };
+export type ActivityPageResult =
+  // The names come with the page, because a page the reader scrolls to can hold
+  // a membership the first read had no reason to resolve.
+  { ok: true; page: AuditPage; names: AuditNames } | { ok: false; message: string };
 
 /**
  * Loads the page that follows a cursor, in the feed the cursor was issued for.
  *
  * @param fields The group, the cursor the last page handed back, and the filter
  * that page was read under.
- * @returns The page, or the line to show above the button. A refusal is an
- * answer rather than a throw, because the list holding the pages has a failure
- * slot and no boundary of its own.
+ * @returns The page and the names its rows read by, or the line to show above
+ * the button. A refusal is an answer rather than a throw, because the list
+ * holding the pages has a failure slot and no boundary of its own.
  */
 export async function loadActivityPageAction(fields: unknown): Promise<ActivityPageResult> {
   const parsed = parseAuditPage(fields);
@@ -49,11 +56,15 @@ export async function loadActivityPageAction(fields: unknown): Promise<ActivityP
   const { groupUid, cursor, type, ref } = parsed.values;
 
   try {
-    const page = await getGroupActivity(groupUid, {
-      ...auditFilterQuery({ type: type ?? null, ref: ref ?? "" }),
-      cursor,
-    });
-    return { ok: true, page };
+    const [page, roster] = await Promise.all([
+      getGroupActivity(groupUid, {
+        ...auditFilterQuery({ type: type ?? null, ref: ref ?? "" }),
+        cursor,
+      }),
+      memberNames(groupUid),
+    ]);
+
+    return { ok: true, page, names: await namesForPage(page.entries, roster) };
   } catch (error) {
     if (isApiError(error) && error.code === PAGE_CURSOR_INVALID) {
       return { ok: false, message: DEAD_CURSOR };

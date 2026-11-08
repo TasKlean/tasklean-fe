@@ -1929,7 +1929,12 @@ to a component still showing the old filter's rows.
 
 **Filtering is by the thing, not by the person.** The endpoint takes no actor, so there is no "what
 Dan did" feed to build: a member's filtered trail is that membership's own history, which is what the
-line above it says. A type with no ref narrows to a kind; a ref pins one entity.
+line above it says. A type with no ref narrows to a kind; a ref pins one entity. That is not the
+filter an admin wants, so the roster no longer links to a pinned membership feed and the dropdown
+offers kinds only: a member-pinned feed is still reachable by URL and still names its subject, but
+nothing in the UI points at one until the backend takes an actor. Filtering the loaded rows instead
+was rejected: the feed pages 20 at a time, so it would give a partial answer under a total that
+counts everything and leave Load more looking broken.
 
 **An update names its fields, and the backend decides whether it may say what they became.** The
 trail is append-only and a group's is read by every member, so a value kept there is kept forever and
@@ -1943,16 +1948,21 @@ backend later reads properly before we have mapped it. An unmapped field name is
 way rather than dropped, because a line saying something changed and naming nothing is worse than an
 awkward word.
 
-**A row borrows its subject's name from the roster, and the roster is read once.** The trail hands
-out a ref and no label, so a name has to come from a screen that holds one, and for a group that is
-only the roster: a task, a category or a tag has no screen to borrow from yet, so those rows name
-their kind. The roster is read for the whole view rather than per page, because it holds every active
-membership and not just the refs that happened to arrive first, which is what lets the feed append
-pages without another read and keeps the paging action unchanged. It is read alongside the feed
-rather than after it, since neither answers anything about the other. A member who has left is not in
-it and cannot be named at all: the endpoint lists active memberships, and nothing else in the API
-hands out a departed member's name. The map is keyed by the ref rather than by the entity type, so a
-later read can name a task by adding a phrase for the pair and nothing else.
+**A row borrows its subject's name from the roster, and buys the rest one read at a time.** The
+trail hands out a ref and no label, so a name has to come from a screen that holds one, and for a
+group that is only the roster: a task, a category or a tag has no screen to borrow from yet, so those
+rows name their kind. The roster is read alongside the feed, since neither answers anything about the
+other, and it covers every active membership rather than the refs that happened to arrive first. It
+does not cover a member who has left, which is exactly what a removal row is about: `GET
+/api/group-members/{uid}` resolves one membership by uid with no active filter, guarded by
+`canViewMember`, so the refs the roster missed are read after the page arrives, deduped, capped at 10
+and best effort each. Capped because a name is decoration and a page full of departures is not worth
+20 round trips; best effort because a ref that will not read costs its row the name and nothing else.
+The roster read stays the gate in front of those: one list call is cheaper than a call per membership
+ref on the page. The paging action does the same work for the page it loads and hands the names back
+with it, because a page the reader scrolls to can hold a departure the first read had no row about.
+The map is keyed by the ref rather than by the entity type, so a later read can name a task by adding
+a phrase for the pair and nothing else.
 
 **A row whose actor is also its subject describes a different event.** The backend writes
 `MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
@@ -1965,14 +1975,16 @@ rail carries it beside every line already.
 **One timeline, in every state of the filter.** Rows were cards unfiltered and a line under a filter,
 which made one feed two components and two ways of reading the same thing. A row's own sentence names
 the kind it is about, so the entity chip repeated a word that was already there, and a connecting
-line says more than a box drawn around each row. The chips that narrow it stay plain links and need
-no client component: the filter is the URL, so the server knows which chip is current, and
-`aria-current` comes from the path.
+line says more than a box drawn around each row. The kinds that narrow it are a dropdown rather than
+a row of chips, because seven chips wrapped onto three lines on a phone and a closed list one of
+which is picked is what a dropdown is for. It is a disclosure, not a listbox: the panel holds links,
+so the filter stays the URL, the server knows which kind is current and `aria-current` comes from the
+path. The cost is that opening the panel needs JavaScript, where the chip row needed none.
 
-**The name above a pinned feed costs one roster read, and falls back to the kind.** A ref is an
-identifier, not a label. Passing a name through the URL would render caller-chosen text, and the
-roster is the only thing that can turn a membership uid into a person, so a departed membership and a
-kind with no screen behind it both read as "one member's history" rather than guessing.
+**The name above a pinned feed is read, never passed.** A ref is an identifier, not a label, and
+passing a name through the URL would render caller-chosen text. It comes from the same map the rows
+use, so a membership it could not name and a kind with no screen behind it both read as "one member's
+history" rather than guessing.
 
 **The press revalidates nothing, and the feed is measured against one instant.** The pages on screen
 are state the server does not hold, so a `revalidatePath` would discard them. The busy flag is plain
@@ -1995,9 +2007,14 @@ household, so there is nothing for this screen to leak and nothing for the type 
 English that cannot be localized, names nobody on a membership event and prints the raw role enum, so
 it is only the fallback for a pair we have no copy for, and it stands alone there: it is a whole
 sentence, and pinned to a subject it would read "Alice Member left group". One action reads
-differently per entity, which is why `CREATE` alone is not the key. The sentence is returned whole
-rather than as subject plus phrase, because an accessible name built from two elements loses the space
-between them.
+differently per entity, which is why `CREATE` alone is not the key.
+
+**A line is composed, not written.** `auditSentence` returns `AuditToken[]`, each piece saying
+whether it is our own copy, a name, a field or a value, so `TokenLine` is the one place that decides
+how the data stands out from the wording around it and the copy stays in one place. It was one string
+while nothing was drawn differently. Each piece carries its own spacing rather than relying on the
+space between two JSX elements, which is lost, and `tokenText` flattens a line back for a React key
+or a test assertion.
 
 **A trail is cut into days, so the reader's own zone had to become something the server knows.** A day
 section and a bare clock time mean nothing in the container's zone, and nothing reaching the server
@@ -2023,7 +2040,13 @@ the first about where the sections fall.
 **The sections are the reader's to turn off, and nothing records that they did.** The switch is
 component state. It changes nothing the server holds and nothing another device would want, so a
 cookie or a settings field would buy a round trip for a view preference; the cost is that it does not
-survive a reload.
+survive a reload. It sits in the heading row beside the count rather than above the first row, where
+it owned a line of its own and read as a band across the page.
+
+**The count is said twice, at both ends of the list.** `total` answers two questions in the same
+words: how long the trail is, which is read at the top, and whether the last row on screen is the
+last one there is, which is read at the foot beside Load more. A reader who has pressed Load more
+three times is nowhere near the heading, so repeating the label is cheaper than moving it.
 
 **What an update moved sits behind a press, with the count in the label.** A task update can move a
 dozen fields, and a feed is read for what happened rather than for every value that moved, so the
@@ -2294,9 +2317,13 @@ workaround **before** the feature depending on it gets built.
    plain member may call it on their own membership is a `@PreAuthorize` question the spec cannot
    answer. Verify against a running backend before building the control.
 8. ~~**The audit log can't be read for a group.**~~ **Closed.** `GET /api/audit-logs/groups/{groupUid}`
-   is uid-scoped and an entry names its actor and its target. The three old endpoints are gone and
-   carried no authorization at all, so nothing migrates. Still owed, neither blocking: field-level
-   diffs on an `UPDATE`, and any filter beyond `entityType` and `entityRef`.
+   is uid-scoped and an entry names its actor and its target, and `changedFields` carries the diff of
+   an `UPDATE`. The three old endpoints are gone and carried no authorization at all, so nothing
+   migrates. **Still owed, and now blocking**: a filter by actor. `AuditLogQueryRequest` takes
+   `entityType`, `entityRef`, `cursor` and `limit` only, so "what has this member been doing" cannot
+   be asked for. It is a contained change (`AuditLog` already has an `actorUser` relation and
+   `AuditLogSpecs` already declares `ACTOR_USER`), and an actor is a **user** uid, a third namespace
+   from the membership uid `entityRef` carries.
 9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
    `/api/uploads` signs one. The user's own `photoUrl` is still Google's URL and is not covered:
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.

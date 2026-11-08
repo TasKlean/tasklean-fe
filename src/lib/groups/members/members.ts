@@ -53,6 +53,19 @@ export async function listGroupMembers(groupUid: string): Promise<GroupMember[]>
 }
 
 /**
+ * Reads one membership by its own uid.
+ *
+ * @returns The membership and the user behind it, whether or not it is still
+ * active: the backend looks it up by uid alone, which is what lets a trail name
+ * somebody who has left.
+ * @throws SessionExpiredError when the session is gone. ApiError otherwise,
+ * where 403 means the membership is not in a group of the caller's.
+ */
+export async function getGroupMember(memberUid: string): Promise<GroupMember> {
+  return serverApi<GroupMember>(memberPath(memberUid));
+}
+
+/**
  * Changes a member's role in their group.
  *
  * @returns The membership as the backend now holds it.

@@ -5,10 +5,13 @@
  */
 
 import { useState } from "react";
+import { TokenLine } from "@/components/app/group/overview/activity/token-line";
+import type { AuditToken } from "@/lib/audit/tokens/tokens";
+import { tokenText } from "@/lib/audit/tokens/tokens";
 
 type ChangeCardProps = {
-  // One phrase per changed field, already worded.
-  lines: string[];
+  // One line per changed field, already worded and cut into its pieces.
+  lines: AuditToken[][];
 };
 
 // No `aria-controls`: the list is not rendered while it is closed, and a
@@ -34,10 +37,15 @@ export function ChangeCard({ lines }: Readonly<ChangeCardProps>) {
       </button>
 
       {shown ? (
-        <ul className="bg-card border-border/60 p-space-sm gap-space-xs flex flex-col rounded-lg border">
+        // `w-fit`: the lines are short, and a card stretched to the row's end
+        // reads as a panel rather than the aside it is.
+        <ul className="bg-muted/40 border-border/60 divide-border/60 w-fit max-w-full divide-y rounded-lg border">
           {lines.map((line) => (
-            <li key={line} className="text-label-md text-muted-foreground break-words">
-              {line}
+            <li
+              key={tokenText(line)}
+              className="text-label-md text-muted-foreground px-space-sm py-space-xs break-words"
+            >
+              <TokenLine tokens={line} />
             </li>
           ))}
         </ul>

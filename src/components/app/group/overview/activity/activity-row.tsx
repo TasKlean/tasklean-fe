@@ -5,6 +5,7 @@
  */
 
 import { ChangeCard } from "@/components/app/group/overview/activity/change-card";
+import { TokenLine } from "@/components/app/group/overview/activity/token-line";
 import { Avatar } from "@/components/common/avatar/avatar";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditLine } from "@/lib/audit/labels/labels";
@@ -39,7 +40,9 @@ export function ActivityRow({
 
   return (
     <li className="group gap-space-sm flex">
-      <div className="pt-space-sm w-12 shrink-0 text-right">
+      {/* Aligned left so a time starts under its day's heading, and only as
+          wide as a phone can spare: the slack falls between it and the avatar. */}
+      <div className="pt-space-sm w-12 shrink-0 text-left sm:w-16">
         {at ? (
           <time
             dateTime={at.toISOString()}
@@ -57,6 +60,7 @@ export function ActivityRow({
           photoUrl={entry.actor?.photoUrl}
           name={entry.actor?.name}
           lastName={entry.actor?.lastName}
+          size="xs"
         />
 
         {/* The thread between one step and the next, which the last step has
@@ -64,8 +68,12 @@ export function ActivityRow({
         <span aria-hidden className="bg-border/70 w-px flex-1 group-last:hidden" />
       </div>
 
-      <div className="gap-space-xs pt-space-sm pb-space-lg flex min-w-0 flex-1 flex-col group-last:pb-0">
-        <p className="text-body-md text-foreground break-words">{line.sentence}</p>
+      {/* `pt-1` rather than a token: it is half the difference between the
+          avatar and a line of body text, which centres the two. */}
+      <div className="gap-space-xs pb-space-lg flex min-w-0 flex-1 flex-col pt-1 group-last:pb-0">
+        <p className="text-body-md text-muted-foreground break-words">
+          <TokenLine tokens={line.sentence} />
+        </p>
 
         <ChangeCard lines={line.details} />
       </div>

@@ -15,6 +15,11 @@ import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/ac
 
 const BASE = "http://api.test";
 const FEED = `${BASE}/api/audit-logs/groups/:groupUid`;
+const ROSTER = `${BASE}/api/groups/:groupUid/members`;
+
+function envelope(data: unknown) {
+  return HttpResponse.json({ success: true, message: null, data });
+}
 
 beforeAll(() => {
   process.env.API_BASE_URL = BASE;
@@ -26,13 +31,10 @@ describe("loadActivityPageAction", () => {
   it("asks for the page after the cursor it was given", async () => {
     let cursor: unknown = null;
     server.use(
+      http.get(ROSTER, () => envelope([])),
       http.get(FEED, ({ request }) => {
         cursor = new URL(request.url).searchParams.get("cursor");
-        return HttpResponse.json({
-          success: true,
-          message: null,
-          data: { items: [{ uid: "a2" }], nextCursor: "c2", total: 40 },
-        });
+        return envelope({ items: [{ uid: "a2" }], nextCursor: "c2", total: 40 });
       }),
     );
 
@@ -42,6 +44,50 @@ describe("loadActivityPageAction", () => {
     expect(result).toEqual({
       ok: true,
       page: { entries: [{ uid: "a2" }], nextCursor: "c2", total: 40 },
+      names: {},
+    });
+  });
+
+  it("names the members of the page it loads, which the first read had no rows for", async () => {
+    server.use(
+      http.get(ROSTER, () =>
+        envelope([
+          {
+            uid: "m1",
+            role: "GROUP_ADMIN",
+            isActive: true,
+            user: { uid: "u1", name: "Alice", lastName: "Johnson" },
+          },
+        ]),
+      ),
+      http.get(FEED, () =>
+        envelope({
+          items: [
+            {
+              uid: "a3",
+              action: "MEMBER_REMOVED",
+              entity: { type: "GROUP_MEMBER", ref: "m9" },
+            },
+          ],
+          nextCursor: null,
+          total: 1,
+        }),
+      ),
+      http.get(`${BASE}/api/group-members/m9`, () =>
+        envelope({
+          uid: "m9",
+          role: "GROUP_MEMBER",
+          isActive: false,
+          user: { uid: "u9", name: "Dan", lastName: "Novak" },
+        }),
+      ),
+    );
+
+    const result = await loadActivityPageAction({ groupUid: "g1", cursor: "c1" });
+
+    expect(result.ok && result.names).toEqual({
+      m1: { name: "Alice Johnson", userUid: "u1" },
+      m9: { name: "Dan Novak", userUid: "u9" },
     });
   });
 

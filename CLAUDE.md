@@ -24,8 +24,8 @@ which carries only a notice.
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
   trail, newest first, a page of 20 at a time behind a Load more press, narrowed by `?type=&ref=`
-  in the URL. It is one timeline cut into days, in the reader's own zone, with what an update moved
-  behind a press.
+  in the URL and picked from a dropdown. It is one timeline cut into days, in the reader's own zone,
+  with what an update moved behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -198,8 +198,8 @@ src/
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
                        activity/ (activity-feed, activity-timeline, activity-row,
-                       change-card, day-sections-toggle, activity-filters
-                       (+ filter-chip), activity-subject, activity-empty)
+                       change-card, token-line, day-sections-toggle, type-menu,
+                       activity-subject, activity-empty)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -219,6 +219,7 @@ src/
                        entity/ (the type set, and the six a group holds),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
+                       tokens/ (the pieces a line is built from),
                        days/ (a feed cut into the days it happened on),
                        filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
@@ -302,10 +303,9 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), the four audit modules a feed in the browser reads
-(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`), and the two upload halves that run in the
-browser
-(`uploads/uploads.types.ts`, `uploads/put-object`).
+`groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
+two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`).
 
 ### Styling
 
@@ -516,33 +516,42 @@ browser
   because nothing is lost.
 - **A trail's line is ours, keyed on the action and the entity together.** The backend's
   `actionMessage` is the fallback for a pair we have no copy for, and stands alone, being a whole
-  sentence. `auditSentence` returns one string, since a name built from two elements loses the space.
-- **A row names the member it is about, from the roster and nowhere else.** The entry carries a ref
-  and no label, so the page reads the roster once and hands the feed a `ref -> name` map that covers
-  every page it appends. A ref the map has no name for reads as the kind ("a member"), which is every
-  member who has already left, since the roster is the active rows only.
+  sentence. **A line is `AuditToken[]`, not a string**, so `audit/tokens` names what each piece is
+  and `TokenLine` is the one place a name, a field and a value are painted: names and fields bold, a
+  value in a pill.
+- **A row names the member it is about, and a departure is read one at a time.** The entry carries a
+  ref and no label, so the page hands the feed a `ref -> name` map: the roster covers the active
+  members, and `namesForPage` reads `GET /api/group-members/{uid}` for the refs it does not hold,
+  capped at 10 and best effort each. A ref nothing could name still reads as the kind ("a member").
+  The paging action returns its own names with its page, so a later page can name somebody the first
+  read had no row about.
 - **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
   and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
   the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
 - **A trail is cut into days, and a row shows only the clock.** The headings are Today, Yesterday and
-  then a date, and the switch that takes them away is component state: it dates each row instead and
-  leaves the line unbroken. **The whole feed is measured against one instant**, passed down from the
-  page, so appended rows agree with the first and the browser hydrates to what the server drew.
+  then a date, and the switch that takes them away is the feed's own state, sat beside the entry
+  count: it dates each row instead and leaves the line unbroken. **The whole feed is measured against
+  one instant**, passed down from the page, so appended rows agree with the first and the browser
+  hydrates to what the server drew.
 - **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
   groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
   the pages and asks for the next through an action that revalidates nothing, since a re-render would
   throw away what is on screen. A refused cursor is reported, never retried from the first page.
-  `nextCursor` is the only thing that says more exists, and `total` is the label beside the heading.
+  `nextCursor` is the only thing that says more exists, and `total` is the label beside the heading
+  and again at the foot of the list, where Load more is.
 - **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses
   that pair with a 400 carrying no code, so `auditFilter` drops both or neither, and the cursor
   carries the filter so page two cannot resume in another feed. **The feed is keyed on the filter**,
   or React keeps the pages the last one loaded.
 - **Filtering is by the thing, never by the person.** The endpoint takes no actor, so a member's
-  filtered feed is that membership's own history and not everything they did.
-- **One timeline, whatever the filter says, and the chips that narrow it are links.** A row carries no
-  entity chip, since its own sentence names the kind, and `ActivityFilters` needs no JavaScript
-  because the server already knows which chip is current.
+  filtered feed is that membership's own history and not everything they did. Nothing in the UI
+  points at a member-pinned feed any more: the dropdown offers kinds only, and the roster's history
+  link is gone until an actor filter exists.
+- **One timeline, whatever the filter says, and the kind is picked from a dropdown of links.** A row
+  carries no entity chip, since its own sentence names the kind. `TypeMenu` is a disclosure, not a
+  listbox: the panel holds `<Link>`s, so the server decides which kind is current and JavaScript only
+  opens the panel.
 - **An update names the fields it moved, and carries their values only sometimes.** The backend
   withholds a value unless it is safe to keep forever, so `audit/changes` phrases four states: `A to
   B`, set, cleared and a bare "changed", and an unmapped name is humanised rather than dropped.
