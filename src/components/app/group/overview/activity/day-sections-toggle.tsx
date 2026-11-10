@@ -10,10 +10,11 @@ type DaySectionsToggleProps = {
   onFlip: () => void;
 };
 
-// Sized to its own label rather than the row it sits in, or the whole width
-// beside the heading would be a press target.
+// Sized to its own label, or the whole line beside it would be a press target.
+// `self-end` is for the phone, where it holds the end of the column under the
+// filter; the row it shares at `sm` aligns it itself.
 const CONTROL =
-  "text-label-md text-muted-foreground has-[:focus-visible]:ring-ring gap-space-sm flex min-h-11 w-fit cursor-pointer items-center rounded-md has-[:focus-visible]:ring-2";
+  "text-label-md text-muted-foreground has-[:focus-visible]:ring-ring gap-space-sm flex min-h-11 w-fit cursor-pointer items-center self-end rounded-md has-[:focus-visible]:ring-2 sm:self-auto";
 
 /** Renders the switch that groups the rows by day. */
 export function DaySectionsToggle({ on, onFlip }: Readonly<DaySectionsToggleProps>) {

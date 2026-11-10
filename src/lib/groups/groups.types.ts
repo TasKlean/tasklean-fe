@@ -75,3 +75,8 @@ export type JoinGroupRequest = {
 export type MemberRoleRequest = {
   role: GroupRole;
 };
+
+// Which memberships a roster read asks for. The endpoint answers with the
+// active ones unless told otherwise, so reaching the people who have left is
+// something a caller opts into.
+export type MembershipStatus = "ACTIVE" | "FORMER" | "ALL";

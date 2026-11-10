@@ -33,11 +33,14 @@ type ActivityFeedProps = {
   // The reader's own zone, read from the cookie on the server so the days and
   // the clock are theirs and the browser hydrates to the same page.
   timeZone: string;
-  // The h2 and its line, rendered on the server and placed here because the
-  // count beside them counts what this component holds.
+  // The h2 and its line, rendered on the server.
   heading: ReactNode;
-  // The filter controls, which sit under the heading and above the rows.
-  children: ReactNode;
+  // The control that narrows the feed. Its own slot rather than one set of
+  // children, so the day switch can share its row.
+  menu: ReactNode;
+  // The band naming what the feed is pinned to, which keeps a strip of its own
+  // below the controls: it is the filter's answer, not another control.
+  subject: ReactNode;
 };
 
 const MORE =
@@ -53,7 +56,8 @@ export function ActivityFeed({
   names,
   timeZone,
   heading,
-  children,
+  menu,
+  subject,
 }: Readonly<ActivityFeedProps>) {
   const [entries, setEntries] = useState<AuditEntry[]>(first.entries);
   const [held, setHeld] = useState<AuditNames>(names);
@@ -78,6 +82,7 @@ export function ActivityFeed({
       cursor,
       type: filter.type ?? undefined,
       ref: filter.ref || undefined,
+      actor: filter.actor || undefined,
     });
 
     setPending(false);
@@ -99,16 +104,17 @@ export function ActivityFeed({
 
   return (
     <>
-      <div className="gap-space-md flex flex-wrap items-start justify-between">
-        {heading}
+      {heading}
 
-        <div className="gap-space-md flex shrink-0 items-center">
-          <DaySectionsToggle on={grouped} onFlip={() => setGrouped((was) => !was)} />
-          {count ? <p className="text-label-sm text-muted-foreground">{count}</p> : null}
-        </div>
+      {/* The two controls on one row where there is room beside the filter, and
+          stacked on a phone, where the switch keeps the end of its own line. */}
+      <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        {menu}
+
+        <DaySectionsToggle on={grouped} onFlip={() => setGrouped((was) => !was)} />
       </div>
 
-      {children}
+      {subject}
 
       <ActivityTimeline
         entries={entries}
@@ -122,7 +128,8 @@ export function ActivityFeed({
       {error ? <FormNotice tone="error">{error}</FormNotice> : null}
 
       {/* The foot of the list, where the count answers the question the last
-          row asks: whether there is any more of it. */}
+          row asks: whether there is any more of it. Said once, and here rather
+          than by the heading, which a reader paging through has left behind. */}
       <div className="gap-space-sm flex flex-col items-center">
         {cursor ? (
           <button

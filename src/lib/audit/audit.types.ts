@@ -64,6 +64,25 @@ export type AuditNamedEntity = {
 // name with one lookup and an unresolved ref simply has none.
 export type AuditNames = Record<string, AuditNamedEntity>;
 
+// One member a feed can be pinned to, in the order the roster gave them.
+export type MemberChoice = {
+  // The membership uid, which is what an entry's `ref` carries for a member.
+  ref: string;
+  name: string;
+  // Whether they have left the group. The roster reaches them because the trail
+  // still names them, so a picker says which names those are.
+  former: boolean;
+};
+
+// One person a feed can be narrowed to the actions of. Shaped like a
+// `MemberChoice` and named apart from it on purpose: this ref is a user uid,
+// where that one is a membership uid, and the endpoint reads them differently.
+export type ActorChoice = {
+  ref: string;
+  name: string;
+  former: boolean;
+};
+
 export type AuditPageResponse = {
   items?: AuditEntry[];
   nextCursor?: string | null;
@@ -85,6 +104,9 @@ export type AuditQuery = {
   // The identifier the rest of the API addresses that entity by, which is the
   // uid for a task, group, membership or user and the numeric id for the rest.
   entityRef?: string;
+  // A user uid. Only a group admin may name anybody but themselves, and the
+  // refusal is a 403 carrying no code.
+  actorRef?: string;
   // Opaque, and belongs to one filter: change the filter and it must be dropped.
   cursor?: string;
   limit?: number;

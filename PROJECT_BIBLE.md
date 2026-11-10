@@ -1927,14 +1927,25 @@ carries the filter too, since a cursor is a position in one narrowed feed.
 component in the same position across a navigation, so without the key a new first page would arrive
 to a component still showing the old filter's rows.
 
-**Filtering is by the thing, not by the person.** The endpoint takes no actor, so there is no "what
-Dan did" feed to build: a member's filtered trail is that membership's own history, which is what the
-line above it says. A type with no ref narrows to a kind; a ref pins one entity. That is not the
-filter an admin wants, so the roster no longer links to a pinned membership feed and the dropdown
-offers kinds only: a member-pinned feed is still reachable by URL and still names its subject, but
-nothing in the UI points at one until the backend takes an actor. Filtering the loaded rows instead
-was rejected: the feed pages 20 at a time, so it would give a partial answer under a total that
-counts everything and leave Load more looking broken.
+**Filtering is by the thing and by the person, in two controls.** `entityType` with `entityRef`
+answers what the rows are about and `actorRef` answers whose actions they are, so the two are
+separate axes rather than one picker: "everything about Dan's membership" and "everything Dan did"
+are different questions, and the endpoint takes both at once. An actor is a **user** uid, a third
+namespace from the membership uid `entityRef` carries for a member, which is why `ActorChoice` is
+named apart from `MemberChoice` though the two are shaped alike, and why `actorRefRule` is its own
+rule: a membership uid sent as an actor reads as a user that does not exist. Filtering the loaded
+rows instead was rejected, as the feed pages 20 at a time and that would give a partial answer under
+a total counting everything. Building the actor list from the rows on screen was rejected too: it
+collapses to one name the moment the feed is filtered.
+
+**An actor a member may not ask for is dropped before the request, not handled after it.**
+`mayFilterByActor` is `unrestricted || actorRef.equals(callerUid)` and refuses before the uid is
+resolved, so a uid that does not exist and somebody else's are one answer: a 403 carrying no code.
+Every other 403 on a group route means the group is not yours, which is why `isGroupUnavailable`
+bounces to `/app?unavailable=1`, and an unguarded actor filter would throw a member out of a group
+they are in. So it is defended twice: `allowedActor` clears an actor the reader may not name, and the
+page's bounce is gated on the filter holding none. The control is an admin's for the same reason, and
+that gate is UX: Spring stays the authority and the action still reports its own refusal.
 
 **An update names its fields, and the backend decides whether it may say what they became.** The
 trail is append-only and a group's is read by every member, so a value kept there is kept forever and
@@ -1948,21 +1959,36 @@ backend later reads properly before we have mapped it. An unmapped field name is
 way rather than dropped, because a line saying something changed and naming nothing is worse than an
 awkward word.
 
-**A row borrows its subject's name from the roster, and buys the rest one read at a time.** The
-trail hands out a ref and no label, so a name has to come from a screen that holds one, and for a
-group that is only the roster: a task, a category or a tag has no screen to borrow from yet, so those
-rows name their kind. The roster is read alongside the feed, since neither answers anything about the
-other, and it covers every active membership rather than the refs that happened to arrive first. It
-does not cover a member who has left, which is exactly what a removal row is about: `GET
-/api/group-members/{uid}` resolves one membership by uid with no active filter, guarded by
-`canViewMember`, so the refs the roster missed are read after the page arrives, deduped, capped at 10
-and best effort each. Capped because a name is decoration and a page full of departures is not worth
-20 round trips; best effort because a ref that will not read costs its row the name and nothing else.
-The roster read stays the gate in front of those: one list call is cheaper than a call per membership
-ref on the page. The paging action does the same work for the page it loads and hands the names back
-with it, because a page the reader scrolls to can hold a departure the first read had no row about.
-The map is keyed by the ref rather than by the entity type, so a later read can name a task by adding
-a phrase for the pair and nothing else.
+**A row borrows its subject's name from the roster, and the roster reaches everyone who ever was a
+member.** The trail hands out a ref and no label, so a name has to come from a screen that holds one,
+and for a group that is only the roster: a task, a category or a tag has no screen to borrow from
+yet, so those rows name their kind. The read is `?status=ALL`, which is one row per person forever
+(rejoining revives the row, so nothing needs de-duplicating) and therefore names a departure as
+readily as a current member, a removal being exactly what a trail is full of. It replaced resolving
+the misses one at a time through `GET /api/group-members/{uid}`, capped at 10 per page: that bought
+up to ten round trips for names one list call now carries, and it could only ever name the refs a
+loaded page happened to mention. The roster is read alongside the feed, since neither answers
+anything about the other, and the paging action reads it again for its own page. The map is keyed by
+the ref rather than by the entity type, so a later read can name a task by adding a phrase for the
+pair and nothing else. One read serves three consumers: the names, the memberships a feed can be
+pinned to, and the people whose actions it can be narrowed to.
+
+**The people who have left are offered in both pickers, under a labelled divider.** Leaving them out
+would hide exactly the names a trail keeps mentioning. They sort last, so one `FormerDivider` heads
+the block instead of a tag on every row, which reads the same whether one person left or nine. Colour
+alone could not carry it: an unpicked row is already `text-muted-foreground`, so the only tone left
+below it would be an opacity class, which this app uses for dead controls while these rows are
+perfectly pressable. The divider is `aria-hidden` and each row says it in its own `aria-label`
+instead, so the mark is never visual-only. A panel names the edge it hangs from and each pill takes
+half the row on a phone, because a 256px panel hanging off the inner edge of the right-hand pill runs
+off a 360px screen.
+
+**An element passed to a client component as a named prop carries a `key`.** The day switch has to
+sit in the filters' row while the grouping state lives in the feed, so `ActivityFeed` takes the
+heading, the controls and the subject band as three slots rather than one `children`. React validates
+a named element prop crossing the server boundary as a list child and warns without a key, where
+`children` is exempt. The alternative was giving the switch a row of its own, which is the layout
+problem the slots exist to solve.
 
 **A row whose actor is also its subject describes a different event.** The backend writes
 `MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
@@ -2319,14 +2345,18 @@ workaround **before** the feature depending on it gets built.
 8. ~~**The audit log can't be read for a group.**~~ **Closed.** `GET /api/audit-logs/groups/{groupUid}`
    is uid-scoped and an entry names its actor and its target, and `changedFields` carries the diff of
    an `UPDATE`. The three old endpoints are gone and carried no authorization at all, so nothing
-   migrates. **Still owed, and now blocking**: a filter by actor. `AuditLogQueryRequest` takes
-   `entityType`, `entityRef`, `cursor` and `limit` only, so "what has this member been doing" cannot
-   be asked for. It is a contained change (`AuditLog` already has an `actorUser` relation and
-   `AuditLogSpecs` already declares `ACTOR_USER`), and an actor is a **user** uid, a third namespace
-   from the membership uid `entityRef` carries.
+   migrates. The filter by actor owed here has landed: `AuditLogQueryRequest` also takes `actorRef`,
+   `dateFrom` and `dateTo`, an actor being a **user** uid, a third namespace from the membership uid
+   `entityRef` carries. `dateTo` is exclusive and both dates want an offset.
 9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
    `/api/uploads` signs one. The user's own `photoUrl` is still Google's URL and is not covered:
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.
+10. **A group's tasks, categories and tags cannot be listed from its uid.** All three list endpoints
+    take `@RequestParam Long groupId`, and `GroupResponse` exposes `uid` only: the numeric id appears
+    nowhere in the API but inside those same responses, which need the number to fetch. So the trail's
+    entity picker offers Members and Group alone, and phase 5 needs either uid-scoped routes (`GET
+    /api/groups/{uid}/tasks` and friends) or the numeric id on `GroupResponse`. Completions are worse:
+    they list by `?taskId=` or `/member/{groupMemberId}` only, so a group cannot ask for its own.
 
 ---
 

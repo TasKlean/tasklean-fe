@@ -24,6 +24,10 @@ export type AuditFilter = {
   // The identifier the API addresses that one entity by: a uid for a task, a
   // group or a membership, the numeric id for a category, tag or completion.
   ref: string;
+  // Whose actions the feed is narrowed to, empty for everybody's. A **user**
+  // uid, which is a different namespace from the membership uid `ref` carries
+  // for a member, and the same uid an entry's own actor is named by.
+  actor: string;
 };
 
 // What Next hands a page as `searchParams`, which is caller-controlled: a key

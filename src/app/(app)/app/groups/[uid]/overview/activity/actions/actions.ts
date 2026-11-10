@@ -6,10 +6,7 @@
 
 "use server";
 
-import {
-  memberNames,
-  namesForPage,
-} from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
+import { memberRoster } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
 import { getGroupActivity } from "@/lib/audit/audit";
@@ -27,7 +24,7 @@ const DEAD_CURSOR = "We could not load more activity. Reload the page to start a
 
 export type ActivityPageResult =
   // The names come with the page, because a page the reader scrolls to can hold
-  // a membership the first read had no reason to resolve.
+  // a membership that arrived after the first read.
   { ok: true; page: AuditPage; names: AuditNames } | { ok: false; message: string };
 
 /**
@@ -53,18 +50,18 @@ export async function loadActivityPageAction(fields: unknown): Promise<ActivityP
     };
   }
 
-  const { groupUid, cursor, type, ref } = parsed.values;
+  const { groupUid, cursor, type, ref, actor } = parsed.values;
 
   try {
     const [page, roster] = await Promise.all([
       getGroupActivity(groupUid, {
-        ...auditFilterQuery({ type: type ?? null, ref: ref ?? "" }),
+        ...auditFilterQuery({ type: type ?? null, ref: ref ?? "", actor: actor ?? "" }),
         cursor,
       }),
-      memberNames(groupUid),
+      memberRoster(groupUid),
     ]);
 
-    return { ok: true, page, names: await namesForPage(page.entries, roster) };
+    return { ok: true, page, names: roster.names };
   } catch (error) {
     if (isApiError(error) && error.code === PAGE_CURSOR_INVALID) {
       return { ok: false, message: DEAD_CURSOR };

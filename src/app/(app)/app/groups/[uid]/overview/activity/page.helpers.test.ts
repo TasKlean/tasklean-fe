@@ -12,11 +12,10 @@ vi.mock("@/lib/auth/session/session", () => ({
 }));
 
 import {
-  memberNames,
-  namesForPage,
+  memberRoster,
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
-import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
+import type { AuditNames } from "@/lib/audit/audit.types";
 
 const BASE = "http://api.test";
 
@@ -30,10 +29,6 @@ function envelope(data: unknown) {
   return HttpResponse.json({ success: true, message: null, data });
 }
 
-function roleChanged(ref: string): AuditEntry {
-  return { uid: "a1", action: "ROLE_CHANGED", entity: { type: "GROUP_MEMBER", ref } };
-}
-
 function rosterOf(...members: unknown[]) {
   return http.get(`${BASE}/api/groups/g1/members`, () => envelope(members));
 }
@@ -45,6 +40,13 @@ const ALICE = {
   user: { uid: "u1", name: "Alice", lastName: "Johnson" },
 };
 
+const DAN = {
+  uid: "m2",
+  role: "GROUP_MEMBER",
+  isActive: true,
+  user: { uid: "u2", name: "Dan", lastName: "Novak" },
+};
+
 const NAMES: AuditNames = {
   m2: { name: "Dan Novak", userUid: "u2" },
   m1: { name: "Alice Johnson", userUid: "u1" },
@@ -52,74 +54,96 @@ const NAMES: AuditNames = {
 
 describe("subjectName", () => {
   it("names the membership the feed is pinned to", () => {
-    expect(subjectName("g1", { type: "member", ref: "m2" }, "Flat 2B", NAMES)).toBe("Dan Novak");
+    expect(subjectName("g1", { type: "member", ref: "m2", actor: "" }, "Flat 2B", NAMES)).toBe(
+      "Dan Novak",
+    );
   });
 
   it("will not label another group's ref with this group's name", () => {
-    expect(subjectName("g1", { type: "group", ref: "g1" }, "Flat 2B", NAMES)).toBe("Flat 2B");
-    expect(subjectName("g1", { type: "group", ref: "g9" }, "Flat 2B", NAMES)).toBeNull();
+    expect(subjectName("g1", { type: "group", ref: "g1", actor: "" }, "Flat 2B", NAMES)).toBe(
+      "Flat 2B",
+    );
+    expect(subjectName("g1", { type: "group", ref: "g9", actor: "" }, "Flat 2B", NAMES)).toBeNull();
   });
 
   it("names nothing for a kind no screen can resolve", () => {
-    expect(subjectName("g1", { type: "task", ref: "t1" }, "Flat 2B", NAMES)).toBeNull();
+    expect(subjectName("g1", { type: "task", ref: "t1", actor: "" }, "Flat 2B", NAMES)).toBeNull();
   });
 });
 
-describe("namesForPage", () => {
-  it("names a membership the roster no longer holds, which is everyone who has left", async () => {
+describe("memberRoster", () => {
+  it("asks for everyone who was ever in the group, so a trail can name who has left", async () => {
+    let asked = "";
     server.use(
-      rosterOf(ALICE),
-      http.get(`${BASE}/api/group-members/m9`, () =>
-        envelope({
-          uid: "m9",
-          role: "GROUP_MEMBER",
-          isActive: false,
-          user: { uid: "u9", name: "Dan", lastName: "Novak" },
-        }),
-      ),
-    );
-
-    const names = await namesForPage([roleChanged("m9")], await memberNames("g1"));
-
-    expect(names.m9).toEqual({ name: "Dan Novak", userUid: "u9" });
-    expect(names.m1?.name).toBe("Alice Johnson");
-  });
-
-  it("asks for nothing when the roster already named every row", async () => {
-    let asked = false;
-    server.use(
-      rosterOf(ALICE),
-      http.get(`${BASE}/api/group-members/:uid`, () => {
-        asked = true;
-        return envelope(ALICE);
+      http.get(`${BASE}/api/groups/g1/members`, ({ request }) => {
+        asked = new URL(request.url).searchParams.get("status") ?? "";
+        return envelope([ALICE]);
       }),
     );
 
-    const names = await namesForPage([roleChanged("m1")], await memberNames("g1"));
+    await memberRoster("g1");
 
-    expect(asked).toBe(false);
-    expect(names.m1?.name).toBe("Alice Johnson");
+    expect(asked).toBe("ALL");
   });
 
-  it("leaves a row without a name rather than failing when the membership will not read", async () => {
+  it("lists the members a feed can be pinned to, in the order the roster gave", async () => {
+    server.use(rosterOf(ALICE, DAN));
+
+    const { members } = await memberRoster("g1");
+
+    expect(members).toEqual([
+      { ref: "m1", name: "Alice Johnson", former: false },
+      { ref: "m2", name: "Dan Novak", former: false },
+    ]);
+  });
+
+  it("lists the people behind those memberships, by the uid an entry's actor carries", async () => {
+    server.use(rosterOf(ALICE, DAN));
+
+    const { actors } = await memberRoster("g1");
+
+    expect(actors).toEqual([
+      { ref: "u1", name: "Alice Johnson", former: false },
+      { ref: "u2", name: "Dan Novak", former: false },
+    ]);
+  });
+
+  it("marks a member who has left, in both pickers", async () => {
+    server.use(rosterOf(ALICE, { ...DAN, isActive: false, dateLeft: "2026-02-01T10:00:00" }));
+
+    const { members, actors } = await memberRoster("g1");
+
+    expect(members.at(-1)).toEqual({ ref: "m2", name: "Dan Novak", former: true });
+    expect(actors.at(-1)).toEqual({ ref: "u2", name: "Dan Novak", former: true });
+  });
+
+  it("leaves a membership out of the actors when no user came back with it", async () => {
     server.use(
-      rosterOf(ALICE),
-      http.get(`${BASE}/api/group-members/m9`, () =>
-        HttpResponse.json({ success: false, message: "Not yours", data: null }, { status: 403 }),
+      rosterOf(ALICE, { uid: "m4", role: "GROUP_MEMBER", isActive: true, user: { name: "Nina" } }),
+    );
+
+    const { members, actors } = await memberRoster("g1");
+
+    expect(members.map((member) => member.name)).toEqual(["Alice Johnson", "Nina"]);
+    expect(actors).toEqual([{ ref: "u1", name: "Alice Johnson", former: false }]);
+  });
+
+  it("leaves out a membership with nothing to call it, which nothing could pick", async () => {
+    server.use(rosterOf(ALICE, { uid: "m3", role: "GROUP_MEMBER", isActive: true }));
+
+    const { names, members } = await memberRoster("g1");
+
+    expect(members).toEqual([{ ref: "m1", name: "Alice Johnson", former: false }]);
+    expect(names.m3).toBeUndefined();
+  });
+
+  it("costs the picker and nothing else when the roster will not load", async () => {
+    server.use(
+      http.get(`${BASE}/api/groups/g1/members`, () =>
+        HttpResponse.json({ success: false, message: "Nope", data: null }, { status: 500 }),
       ),
     );
 
-    const names = await namesForPage([roleChanged("m9")], await memberNames("g1"));
-
-    expect(names.m9).toBeUndefined();
-  });
-
-  it("ignores a row that is not about a membership", async () => {
-    server.use(rosterOf(ALICE));
-
-    const task: AuditEntry = { uid: "a2", action: "UPDATE", entity: { type: "TASK", ref: "t1" } };
-    const names = await namesForPage([task], await memberNames("g1"));
-
-    expect(names).toEqual({ m1: { name: "Alice Johnson", userUid: "u1" } });
+    expect(await memberRoster("g1")).toEqual({ names: {}, members: [], actors: [] });
   });
 });

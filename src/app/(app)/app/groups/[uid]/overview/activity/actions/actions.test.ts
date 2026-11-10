@@ -48,7 +48,7 @@ describe("loadActivityPageAction", () => {
     });
   });
 
-  it("names the members of the page it loads, which the first read had no rows for", async () => {
+  it("names the members of the page it loads, the ones who have left included", async () => {
     server.use(
       http.get(ROSTER, () =>
         envelope([
@@ -57,6 +57,12 @@ describe("loadActivityPageAction", () => {
             role: "GROUP_ADMIN",
             isActive: true,
             user: { uid: "u1", name: "Alice", lastName: "Johnson" },
+          },
+          {
+            uid: "m9",
+            role: "GROUP_MEMBER",
+            isActive: false,
+            user: { uid: "u9", name: "Dan", lastName: "Novak" },
           },
         ]),
       ),
@@ -71,14 +77,6 @@ describe("loadActivityPageAction", () => {
           ],
           nextCursor: null,
           total: 1,
-        }),
-      ),
-      http.get(`${BASE}/api/group-members/m9`, () =>
-        envelope({
-          uid: "m9",
-          role: "GROUP_MEMBER",
-          isActive: false,
-          user: { uid: "u9", name: "Dan", lastName: "Novak" },
         }),
       ),
     );

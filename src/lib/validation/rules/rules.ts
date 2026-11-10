@@ -270,6 +270,20 @@ export const entityRefRule = z.optional(
   ),
 );
 
+/**
+ * Whose actions a trail is narrowed to, as a user uid.
+ *
+ * Its own rule rather than `entityRefRule`: the two are capped the same but
+ * name different things, and a membership uid sent here reads as a user that
+ * does not exist.
+ */
+export const actorRefRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(ENTITY_REF_MAX_LENGTH, "That filter cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
 /** The exact byte count of what will be sent, which is signed along with it. */
 export const imageSizeRule = z
   .int({ error: "That picture cannot be measured." })

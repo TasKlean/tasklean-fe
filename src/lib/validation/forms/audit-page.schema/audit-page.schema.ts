@@ -7,6 +7,7 @@
 import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
 import {
+  actorRefRule,
   auditFilterTypeRule,
   cursorRule,
   entityRefRule,
@@ -20,6 +21,7 @@ export const auditPageSchema = z.object({
   // narrowed feed, so a page asked for without it would resume in another.
   type: auditFilterTypeRule,
   ref: entityRefRule,
+  actor: actorRefRule,
 });
 
 export type AuditPageFields = z.infer<typeof auditPageSchema>;

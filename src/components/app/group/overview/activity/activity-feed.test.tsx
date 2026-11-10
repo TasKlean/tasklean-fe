@@ -83,23 +83,25 @@ const TWO_DAYS: AuditPage = {
 };
 
 function renderFeed(
-  filter: AuditFilter = { type: null, ref: "" },
+  filter: Partial<AuditFilter> = {},
   first: AuditPage = FIRST,
   names: AuditNames = {},
 ) {
+  const whole: AuditFilter = { type: null, ref: "", actor: "", ...filter };
+
   render(
     <ActivityFeed
       groupUid="g1"
       first={first}
       viewerUid="u1"
       now={NOW}
-      filter={filter}
+      filter={whole}
       names={names}
       timeZone="UTC"
       heading={<h2>Activity</h2>}
-    >
-      <p>Filters</p>
-    </ActivityFeed>,
+      menu={<p>Filters</p>}
+      subject={null}
+    />,
   );
 }
 
@@ -120,7 +122,7 @@ beforeEach(() => {
 });
 
 describe("ActivityFeed", () => {
-  it("counts what is on screen against the total, beside the heading and at the foot", async () => {
+  it("counts what is on screen against the total, at the foot of the list", async () => {
     const user = userEvent.setup({ delay: null });
     loadActivityPageAction.mockResolvedValue({
       ok: true,
@@ -132,11 +134,11 @@ describe("ActivityFeed", () => {
     });
 
     renderFeed();
-    expect(screen.getAllByText("1 of 3")).toHaveLength(2);
+    expect(screen.getByText("1 of 3")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(await screen.findAllByText("2 of 3")).toHaveLength(2);
+    expect(await screen.findByText("2 of 3")).toBeInTheDocument();
     expect(said("Alice Johnson added a task")).toBeInTheDocument();
     expect(said("You updated the group")).toBeInTheDocument();
   });
@@ -170,7 +172,7 @@ describe("ActivityFeed", () => {
     renderFeed();
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(await screen.findAllByText("3 entries")).toHaveLength(2);
+    expect(await screen.findByText("3 entries")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
 
@@ -252,6 +254,26 @@ describe("ActivityFeed", () => {
     renderFeed({ type: null, ref: "" }, TWO_DAYS);
 
     expect(screen.getByText("11:00")).toBeInTheDocument();
+  });
+
+  it("pages an actor's feed under the same actor the cursor was issued for", async () => {
+    const user = userEvent.setup({ delay: null });
+    loadActivityPageAction.mockResolvedValue({
+      ok: true,
+      page: page([{ uid: "a2" }], null),
+      names: {},
+    });
+
+    renderFeed({ actor: "u2" });
+    await user.click(screen.getByRole("button", { name: "Load more" }));
+
+    expect(loadActivityPageAction).toHaveBeenCalledWith({
+      groupUid: "g1",
+      cursor: "c1",
+      type: undefined,
+      ref: undefined,
+      actor: "u2",
+    });
   });
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {

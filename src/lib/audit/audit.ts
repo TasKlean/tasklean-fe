@@ -37,6 +37,7 @@ export async function getGroupActivity(uid: string, query: AuditQuery = {}): Pro
     query: {
       entityType: query.entityType,
       entityRef: query.entityRef,
+      actorRef: query.actorRef,
       cursor: query.cursor,
       limit: query.limit ?? AUDIT_PAGE_SIZE,
     },

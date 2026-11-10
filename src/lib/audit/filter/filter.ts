@@ -6,6 +6,7 @@
  * type as a 400 carrying no code, so that pair is kept whole in one place.
  */
 
+import type { AuditQuery } from "@/lib/audit/audit.types";
 import type { AuditEntityType } from "@/lib/audit/entity/entity";
 import {
   AUDIT_FILTER_TYPES,
@@ -54,6 +55,11 @@ function one(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
 }
 
+/** Reads one identifier out of the URL, capped where the backend caps it. */
+function refParam(value: string | string[] | undefined): string {
+  return one(value).trim().slice(0, REF_MAX_LENGTH);
+}
+
 /**
  * Narrows a URL's search params into the filter the feed runs on.
  *
@@ -63,10 +69,33 @@ function one(value: string | string[] | undefined): string {
  * pair rather than ignoring half of it.
  */
 export function auditFilter(params: AuditSearchParams): AuditFilter {
+  // Read on its own: an actor narrows a feed by who acted, which is a different
+  // question from what the rows are about, and the endpoint takes both at once.
+  const actor = refParam(params.actor);
   const type = AUDIT_FILTER_TYPES.find((known) => known === one(params.type)) ?? null;
-  if (!type) return { type: null, ref: "" };
+  if (!type) return { type: null, ref: "", actor };
 
-  return { type, ref: one(params.ref).trim().slice(0, REF_MAX_LENGTH) };
+  return { type, ref: refParam(params.ref), actor };
+}
+
+/**
+ * Drops an actor the caller is not allowed to ask for.
+ *
+ * @param admin Whether the reader is an admin of this group.
+ * @param viewerUid The reader's own user uid, the one actor anybody may name.
+ * @returns The filter, with the actor cleared for a member naming somebody
+ * else. The endpoint refuses that with a 403 carrying no code, which a group
+ * screen cannot tell from the group being gone, so a URL that would earn one is
+ * normalised before it is sent. UX only: Spring stays the authority.
+ */
+export function allowedActor(
+  filter: AuditFilter,
+  admin: boolean,
+  viewerUid: string | null | undefined,
+): AuditFilter {
+  if (!filter.actor || admin || filter.actor === viewerUid) return filter;
+
+  return { ...filter, actor: "" };
 }
 
 /**
@@ -77,10 +106,12 @@ export function auditFilter(params: AuditSearchParams): AuditFilter {
  */
 export function auditFilterParams(filter: AuditFilter): URLSearchParams {
   const params = new URLSearchParams();
-  if (!filter.type) return params;
 
-  params.set("type", filter.type);
-  if (filter.ref) params.set("ref", filter.ref);
+  if (filter.type) {
+    params.set("type", filter.type);
+    if (filter.ref) params.set("ref", filter.ref);
+  }
+  if (filter.actor) params.set("actor", filter.actor);
 
   return params;
 }
@@ -88,17 +119,19 @@ export function auditFilterParams(filter: AuditFilter): URLSearchParams {
 /**
  * Turns a filter into the parameters the trail endpoint takes.
  *
- * @returns The entity type and, where one is pinned, the entity. A ref is never
- * sent alone: `auditFilter` cannot produce one, and this would not pass it on.
+ * @returns Every parameter the filter asks for. A ref is never sent alone:
+ * `auditFilter` cannot produce one, and this would not pass it on.
  */
-export function auditFilterQuery(filter: AuditFilter): {
-  entityType?: AuditEntityType;
-  entityRef?: string;
-} {
-  if (!filter.type) return {};
+export function auditFilterQuery(filter: AuditFilter): AuditQuery {
+  const query: AuditQuery = {};
 
-  const entityType = ENTITY_FOR_TYPE[filter.type];
-  return filter.ref ? { entityType, entityRef: filter.ref } : { entityType };
+  if (filter.type) {
+    query.entityType = ENTITY_FOR_TYPE[filter.type];
+    if (filter.ref) query.entityRef = filter.ref;
+  }
+  if (filter.actor) query.actorRef = filter.actor;
+
+  return query;
 }
 
 /**

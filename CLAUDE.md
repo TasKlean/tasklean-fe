@@ -23,8 +23,8 @@ which carries only a notice.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
-  trail, newest first, a page of 20 at a time behind a Load more press, narrowed by `?type=&ref=`
-  in the URL and picked from a dropdown. It is one timeline cut into days, in the reader's own zone,
+  trail, newest first, a page of 20 at a time behind a Load more press, narrowed by
+  `?type=&ref=&actor=` in the URL and picked from two dropdowns, the second an admin's. It is one timeline cut into days, in the reader's own zone,
   with what an update moved behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
@@ -150,7 +150,8 @@ src/
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
                        with actions/ for the page after a cursor and
-                       page.helpers.ts for the names its rows read by
+                       page.helpers.ts for the roster its rows and its pickers
+                       read by
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -198,8 +199,11 @@ src/
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
                        activity/ (activity-feed, activity-timeline, activity-row,
-                       change-card, token-line, day-sections-toggle, type-menu,
-                       activity-subject, activity-empty)
+                       change-card, token-line, day-sections-toggle,
+                       activity-subject, activity-empty, former-divider,
+                       filter-menu-row (+ .helpers, .styles, shared by both
+                       menus), type-menu/ (+ kind-list, member-list, .helpers)
+                       and actor-menu/)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -519,18 +523,17 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   sentence. **A line is `AuditToken[]`, not a string**, so `audit/tokens` names what each piece is
   and `TokenLine` is the one place a name, a field and a value are painted: names and fields bold, a
   value in a pill.
-- **A row names the member it is about, and a departure is read one at a time.** The entry carries a
-  ref and no label, so the page hands the feed a `ref -> name` map: the roster covers the active
-  members, and `namesForPage` reads `GET /api/group-members/{uid}` for the refs it does not hold,
-  capped at 10 and best effort each. A ref nothing could name still reads as the kind ("a member").
-  The paging action returns its own names with its page, so a later page can name somebody the first
-  read had no row about.
+- **A row names the member it is about, and one roster read covers everyone who ever was one.** The
+  entry carries a ref and no label, so the page hands the feed a `ref -> name` map built from `GET
+  /api/groups/{uid}/members?status=ALL`, which names a departure as readily as a current member. A
+  ref nothing could name still reads as the kind ("a member"). The paging action reads the same
+  roster and returns the names with its page.
 - **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
   and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
   the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
 - **A trail is cut into days, and a row shows only the clock.** The headings are Today, Yesterday and
-  then a date, and the switch that takes them away is the feed's own state, sat beside the entry
-  count: it dates each row instead and leaves the line unbroken. **The whole feed is measured against
+  then a date, and the switch that takes them away is the feed's own state, sharing the row the
+  filters sit in: it dates each row instead and leaves the line unbroken. **The whole feed is measured against
   one instant**, passed down from the page, so appended rows agree with the first and the browser
   hydrates to what the server drew.
 - **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
@@ -538,20 +541,35 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
   the pages and asks for the next through an action that revalidates nothing, since a re-render would
   throw away what is on screen. A refused cursor is reported, never retried from the first page.
-  `nextCursor` is the only thing that says more exists, and `total` is the label beside the heading
-  and again at the foot of the list, where Load more is.
+  `nextCursor` is the only thing that says more exists, and `total` is the label at the foot of the
+  list, where Load more is, said once rather than above a list the reader has scrolled past.
 - **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses
   that pair with a 400 carrying no code, so `auditFilter` drops both or neither, and the cursor
   carries the filter so page two cannot resume in another feed. **The feed is keyed on the filter**,
   or React keeps the pages the last one loaded.
-- **Filtering is by the thing, never by the person.** The endpoint takes no actor, so a member's
-  filtered feed is that membership's own history and not everything they did. Nothing in the UI
-  points at a member-pinned feed any more: the dropdown offers kinds only, and the roster's history
-  link is gone until an actor filter exists.
-- **One timeline, whatever the filter says, and the kind is picked from a dropdown of links.** A row
-  carries no entity chip, since its own sentence names the kind. `TypeMenu` is a disclosure, not a
-  listbox: the panel holds `<Link>`s, so the server decides which kind is current and JavaScript only
-  opens the panel.
+- **A trail is filtered by the thing and by the person, in two controls.** `?type=&ref=` narrows
+  what the rows are about, `?actor=` whose actions they are, and the endpoint takes both at once. An
+  actor is a **user** uid, a third namespace from the membership uid `?ref=` carries, which is why
+  `actorRefRule` is its own rule. **Only an admin is offered the control, and a refusal is
+  normalised before it is sent**: the endpoint answers a member naming anybody but themselves with a
+  403 carrying no code, which `isGroupUnavailable` cannot tell from the group being gone, so
+  `allowedActor` clears it and the page's bounce is gated on the filter holding no actor.
+- **One timeline, whatever the filter says, and both filters are dropdowns of links.** A row carries
+  no entity chip, since its own sentence names the kind. `TypeMenu` and `ActorMenu` are disclosures,
+  not listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
+  opens them. **A kind that can be narrowed further drills down in place**, so Members carries a
+  press of its own at the row's end and the panel swaps the kinds for the roster, focus following
+  the panel that replaced the button. Both panels are painted from `filter-menu.styles` and their
+  rows are one `FilterMenuRow`, so a row in either measures the same.
+- **The people who have left are offered, and the block they sit in is labelled.** The roster sorts
+  them last, so `FormerDivider` heads the block once rather than tagging every row, and each row
+  carries the wording in its `aria-label` because the divider is hidden. **A panel names the edge it
+  hangs from** and each pill is half the row on a phone, since a 256px panel hanging off the inner
+  edge of the right-hand pill runs off a 360px screen.
+- **An element a page hands a client component as a prop carries a `key`.** The slots `ActivityFeed`
+  takes (`heading`, `menu`, `subject`) cross the server boundary as named props, where React
+  validates them as list children and warns without one. `children` is the one prop exempt, and the
+  day switch sharing the menu's row is what cost us it.
 - **An update names the fields it moved, and carries their values only sometimes.** The backend
   withholds a value unless it is safe to keep forever, so `audit/changes` phrases four states: `A to
   B`, set, cleared and a bare "changed", and an unmapped name is humanised rather than dropped.
