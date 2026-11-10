@@ -20,10 +20,11 @@ export const TRIGGER_QUIET = "border-border/60 bg-card text-foreground hover:bg-
 // row says a filter is on without a count nobody reads at a glance.
 export const TRIGGER_ON = "bg-secondary text-secondary-foreground border-transparent";
 
-// No horizontal anchor: a 256px panel hanging off the left edge of the
-// right-hand pill runs off a 360px screen, so each menu names its own side.
+// No horizontal anchor and no width: a 256px panel hanging off the left edge of
+// the right-hand pill runs off a 360px screen, so each menu names its own side,
+// and the one holding a form is wider than the ones holding rows.
 export const PANEL =
-  "bg-card border-border/60 shadow-level-3 py-space-xs absolute top-full z-30 mt-2 w-64 overflow-hidden rounded-xl border";
+  "bg-card border-border/60 shadow-level-3 py-space-xs absolute top-full z-30 mt-2 overflow-hidden rounded-xl border";
 
 export const ROW =
   "text-label-md gap-space-sm px-space-md flex min-h-11 w-full items-center transition-colors";

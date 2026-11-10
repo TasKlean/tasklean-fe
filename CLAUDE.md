@@ -24,7 +24,8 @@ which carries only a notice.
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
   trail, newest first, a page of 20 at a time behind a Load more press, narrowed by
-  `?type=&ref=&actor=` in the URL and picked from two dropdowns, the second an admin's. It is one timeline cut into days, in the reader's own zone,
+  `?type=&ref=&actor=&from=&to=` in the URL and picked from three dropdowns, the actor's an
+  admin's. It is one timeline cut into days, in the reader's own zone,
   with what an update moved behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
@@ -201,9 +202,9 @@ src/
                        activity/ (activity-feed, activity-timeline, activity-row,
                        change-card, token-line, day-sections-toggle,
                        activity-subject, activity-empty, former-divider,
-                       filter-menu-row (+ .helpers, .styles, shared by both
-                       menus), type-menu/ (+ kind-list, member-list, .helpers)
-                       and actor-menu/)
+                       filter-menu-row (+ .helpers, .styles, shared by every
+                       menu), type-menu/ (+ kind-list, member-list, .helpers),
+                       actor-menu/ and date-menu/ (+ preset-list, custom-range)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -225,6 +226,7 @@ src/
                        changes/ (the line one changed field reads),
                        tokens/ (the pieces a line is built from),
                        days/ (a feed cut into the days it happened on),
+                       dates/ (the ranges on offer and their words),
                        filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
@@ -255,8 +257,9 @@ src/
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
     time/              api-date/ (API timestamps <-> Date), day/ (a day's name,
-                       its key and the clock, in one zone), zone/ (the zone
-                       cookie's name and shape, and zone-cookie.ts, the read)
+                       its key, the clock and the instant a key starts at, in
+                       one zone), zone/ (the zone cookie's name and shape, and
+                       zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
@@ -532,10 +535,13 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
   the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
 - **A trail is cut into days, and a row shows only the clock.** The headings are Today, Yesterday and
-  then a date, and the switch that takes them away is the feed's own state, sharing the row the
-  filters sit in: it dates each row instead and leaves the line unbroken. **The whole feed is measured against
-  one instant**, passed down from the page, so appended rows agree with the first and the browser
-  hydrates to what the server drew.
+  then a date, and the press that takes them away is the feed's own state, hanging off the end of the
+  **first day's rule**, which is the line it is about: it dates each row instead and leaves the line
+  unbroken. Run together, that bare rule is drawn on its own, so the press does not move when
+  pressed. It reads like a row's "Show changes", and its label says what the press will do ("Group by
+  date", "Ungroup by date") rather than carrying a switch's state. **The whole feed is measured
+  against one instant**, passed down from the page, so appended rows agree with the first and the
+  browser hydrates to what the server drew.
 - **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
   groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
@@ -547,19 +553,33 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   that pair with a 400 carrying no code, so `auditFilter` drops both or neither, and the cursor
   carries the filter so page two cannot resume in another feed. **The feed is keyed on the filter**,
   or React keeps the pages the last one loaded.
-- **A trail is filtered by the thing and by the person, in two controls.** `?type=&ref=` narrows
-  what the rows are about, `?actor=` whose actions they are, and the endpoint takes both at once. An
+- **A trail is filtered by the thing, the person and the days, in three controls.** `?type=&ref=`
+  narrows what the rows are about, `?actor=` whose actions they are, `?from=&to=` when, and the
+  endpoint takes all of them at once. An
   actor is a **user** uid, a third namespace from the membership uid `?ref=` carries, which is why
   `actorRefRule` is its own rule. **Only an admin is offered the control, and a refusal is
   normalised before it is sent**: the endpoint answers a member naming anybody but themselves with a
   403 carrying no code, which `isGroupUnavailable` cannot tell from the group being gone, so
   `allowedActor` clears it and the page's bounce is gated on the filter holding no actor.
-- **One timeline, whatever the filter says, and both filters are dropdowns of links.** A row carries
-  no entity chip, since its own sentence names the kind. `TypeMenu` and `ActorMenu` are disclosures,
-  not listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
-  opens them. **A kind that can be narrowed further drills down in place**, so Members carries a
-  press of its own at the row's end and the panel swaps the kinds for the roster, focus following
-  the panel that replaced the button. Both panels are painted from `filter-menu.styles` and their
+- **The range is calendar days in the URL and instants on the wire.** `?from=&to=` carries
+  `YYYY-MM-DD`, which `auditFilterQuery` turns into `dateFrom` and `dateTo` using the reader's zone,
+  passed in like every other zone-aware call. **`dateTo` is exclusive**, so the ceiling is sent as
+  the start of the following day, which `time/day`'s `dayStart` and `shiftDays` work out. A backwards
+  range is a 400 with a message of the backend's own, so it is headed off three times: the two fields
+  cap each other, `auditFilter` drops both ends if a typed URL reads backwards, and the endpoint
+  stays the authority. **`auditFilterParams` takes a `Partial`**, so a link naming two axes is not
+  revisited every time the filter grows another.
+- **One timeline, whatever the filter says, and every filter is a dropdown of links.** A row carries
+  no entity chip, since its own sentence names the kind. All three menus are disclosures, not
+  listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
+  opens them. **A closed pill names the filter until something is picked** ("Entity type", "Actor",
+  "Date"), where the panel's own reset row keeps the wording of a choice ("All activity", "Anyone",
+  "Any time") and the pill's `aria-label` keeps saying which. **A choice that needs more than a link
+  drills down in place**: Members carries a
+  press of its own at the row's end and the panel swaps the kinds for the roster, and Custom range is
+  a press rather than a link, having no days of its own until they are typed. Focus follows the panel
+  that replaced the button, both ways. **The custom range is a GET form** posting the two days to the
+  same path with the rest of the filter as hidden fields, so it works with no JavaScript. Both panels are painted from `filter-menu.styles` and their
   rows are one `FilterMenuRow`, so a row in either measures the same.
 - **The people who have left are offered, and the block they sit in is labelled.** The roster sorts
   them last, so `FormerDivider` heads the block once rather than tagging every row, and each row

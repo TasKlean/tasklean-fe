@@ -4,12 +4,15 @@ import {
   auditFilter,
   auditFilterParams,
   auditFilterQuery,
+  narrowsTrail,
   subjectLabel,
 } from "@/lib/audit/filter/filter";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
+const ZONE = "Europe/Ljubljana";
+
 function filter(fields: Partial<AuditFilter> = {}): AuditFilter {
-  return { type: null, ref: "", actor: "", ...fields };
+  return { type: null, ref: "", actor: "", from: "", to: "", ...fields };
 }
 
 describe("auditFilter", () => {
@@ -42,6 +45,22 @@ describe("auditFilter", () => {
   it("caps an actor the same way, since the endpoint refuses a longer one", () => {
     expect(auditFilter({ actor: "u".repeat(140) }).actor).toHaveLength(100);
   });
+
+  it("reads a range of real days, and ignores one that is not", () => {
+    expect(auditFilter({ from: "2026-11-02", to: "2026-11-09" })).toEqual(
+      filter({ from: "2026-11-02", to: "2026-11-09" }),
+    );
+    expect(auditFilter({ from: "2026-02-31", to: "yesterday" })).toEqual(filter());
+  });
+
+  it("drops a range that reads backwards, which the endpoint refuses as a 400", () => {
+    expect(auditFilter({ from: "2026-11-09", to: "2026-11-02" })).toEqual(filter());
+  });
+
+  it("keeps one end of the range without the other", () => {
+    expect(auditFilter({ from: "2026-11-02" })).toEqual(filter({ from: "2026-11-02" }));
+    expect(auditFilter({ to: "2026-11-02" })).toEqual(filter({ to: "2026-11-02" }));
+  });
 });
 
 describe("allowedActor", () => {
@@ -72,28 +91,61 @@ describe("allowedActor", () => {
   });
 });
 
+describe("narrowsTrail", () => {
+  it("is true for any one axis, and false for the whole trail", () => {
+    expect(narrowsTrail(filter())).toBe(false);
+    expect(narrowsTrail(filter({ type: "task" }))).toBe(true);
+    expect(narrowsTrail(filter({ actor: "u2" }))).toBe(true);
+    expect(narrowsTrail(filter({ from: "2026-11-02" }))).toBe(true);
+    expect(narrowsTrail(filter({ to: "2026-11-02" }))).toBe(true);
+  });
+});
+
 describe("auditFilterQuery", () => {
   it("maps the URL's token to the endpoint's enum", () => {
-    expect(auditFilterQuery(filter({ type: "member", ref: "m1" }))).toEqual({
+    expect(auditFilterQuery(filter({ type: "member", ref: "m1" }), ZONE)).toEqual({
       entityType: "GROUP_MEMBER",
       entityRef: "m1",
     });
-    expect(auditFilterQuery(filter({ type: "completion" }))).toEqual({
+    expect(auditFilterQuery(filter({ type: "completion" }), ZONE)).toEqual({
       entityType: "TASK_COMPLETION",
     });
   });
 
   it("sends an actor as its own parameter, alongside an entity or on its own", () => {
-    expect(auditFilterQuery(filter({ actor: "u2" }))).toEqual({ actorRef: "u2" });
-    expect(auditFilterQuery(filter({ type: "task", ref: "t1", actor: "u2" }))).toEqual({
+    expect(auditFilterQuery(filter({ actor: "u2" }), ZONE)).toEqual({ actorRef: "u2" });
+    expect(auditFilterQuery(filter({ type: "task", ref: "t1", actor: "u2" }), ZONE)).toEqual({
       entityType: "TASK",
       entityRef: "t1",
       actorRef: "u2",
     });
   });
 
+  it("turns the reader's days into instants, the ceiling being the next day's start", () => {
+    expect(auditFilterQuery(filter({ from: "2026-11-02", to: "2026-11-09" }), ZONE)).toEqual({
+      dateFrom: "2026-11-01T23:00:00.000Z",
+      dateTo: "2026-11-09T23:00:00.000Z",
+    });
+  });
+
+  it("reads the same range differently for a reader in another zone", () => {
+    expect(auditFilterQuery(filter({ from: "2026-11-02", to: "2026-11-02" }), "UTC")).toEqual({
+      dateFrom: "2026-11-02T00:00:00.000Z",
+      dateTo: "2026-11-03T00:00:00.000Z",
+    });
+  });
+
+  it("sends one end of the range without the other", () => {
+    expect(auditFilterQuery(filter({ from: "2026-11-02" }), "UTC")).toEqual({
+      dateFrom: "2026-11-02T00:00:00.000Z",
+    });
+    expect(auditFilterQuery(filter({ to: "2026-11-02" }), "UTC")).toEqual({
+      dateTo: "2026-11-03T00:00:00.000Z",
+    });
+  });
+
   it("asks for nothing when nothing is filtered", () => {
-    expect(auditFilterQuery(filter())).toEqual({});
+    expect(auditFilterQuery(filter(), ZONE)).toEqual({});
   });
 });
 
@@ -104,6 +156,13 @@ describe("auditFilterParams", () => {
     expect(auditFilterParams(filter({ type: "member", ref: "m1" })).toString()).toBe(
       "type=member&ref=m1",
     );
+  });
+
+  it("writes the range it was given, and nothing for a filter that has none", () => {
+    expect(auditFilterParams(filter({ from: "2026-11-02", to: "2026-11-09" })).toString()).toBe(
+      "from=2026-11-02&to=2026-11-09",
+    );
+    expect(auditFilterParams({ type: "group", ref: "g1" }).toString()).toBe("type=group&ref=g1");
   });
 
   it("writes an actor with or without a kind beside it", () => {

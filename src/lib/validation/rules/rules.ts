@@ -284,6 +284,19 @@ export const actorRefRule = z.optional(
   ),
 );
 
+/**
+ * One end of a trail's date range, as a calendar day.
+ *
+ * Shape only: a range that reads backwards is a 400, and that is settled by
+ * `auditFilter`, which holds both ends and this rule sees one.
+ */
+export const dayRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.regex(/^\d{4}-\d{2}-\d{2}$/, "That date cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
 /** The exact byte count of what will be sent, which is signed along with it. */
 export const imageSizeRule = z
   .int({ error: "That picture cannot be measured." })

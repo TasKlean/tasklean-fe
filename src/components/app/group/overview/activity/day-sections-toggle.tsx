@@ -1,34 +1,25 @@
 /**
- * Whether the trail is cut into days. A real checkbox under the paint, so the
- * keyboard works for free and the switch moves from CSS.
+ * Whether the trail is cut into days. A quiet press rather than a switch, with
+ * its label saying what pressing it will do, like the one that opens a row's
+ * changes: it sits at the end of the first day's rule, which is the line it is
+ * about, where among the filters it read as a fourth filter.
  */
-
-import { SwitchTrack } from "@/components/common/switch-track/switch-track";
 
 type DaySectionsToggleProps = {
   on: boolean;
   onFlip: () => void;
 };
 
-// Sized to its own label, or the whole line beside it would be a press target.
-// `self-end` is for the phone, where it holds the end of the column under the
-// filter; the row it shares at `sm` aligns it itself.
+// The same underlined press a row uses for its changes, so the two read alike.
+// `shrink-0`, because the rule beside it is what gives up the space.
 const CONTROL =
-  "text-label-md text-muted-foreground has-[:focus-visible]:ring-ring gap-space-sm flex min-h-11 w-fit cursor-pointer items-center self-end rounded-md has-[:focus-visible]:ring-2 sm:self-auto";
+  "text-label-sm text-muted-foreground hover:text-foreground py-space-xs shrink-0 underline underline-offset-2 transition-colors";
 
-/** Renders the switch that groups the rows by day. */
+/** Renders the press that cuts the rows into days, or stops. */
 export function DaySectionsToggle({ on, onFlip }: Readonly<DaySectionsToggleProps>) {
   return (
-    <label className={CONTROL}>
-      <input
-        type="checkbox"
-        role="switch"
-        checked={on}
-        onChange={onFlip}
-        className="peer sr-only"
-      />
-      <SwitchTrack />
-      Group by day
-    </label>
+    <button type="button" onClick={onFlip} className={CONTROL}>
+      {on ? "Ungroup by date" : "Group by date"}
+    </button>
   );
 }

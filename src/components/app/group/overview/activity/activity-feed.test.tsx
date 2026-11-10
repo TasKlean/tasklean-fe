@@ -87,7 +87,7 @@ function renderFeed(
   first: AuditPage = FIRST,
   names: AuditNames = {},
 ) {
-  const whole: AuditFilter = { type: null, ref: "", actor: "", ...filter };
+  const whole: AuditFilter = { type: null, ref: "", actor: "", from: "", to: "", ...filter };
 
   render(
     <ActivityFeed
@@ -100,6 +100,7 @@ function renderFeed(
       timeZone="UTC"
       heading={<h2>Activity</h2>}
       menu={<p>Filters</p>}
+      dates={<p>Any time</p>}
       subject={null}
     />,
   );
@@ -239,11 +240,11 @@ describe("ActivityFeed", () => {
     expect(screen.queryByRole("button", { name: /change/ })).toBeNull();
   });
 
-  it("runs the rows together and dates each one when the switch is off", async () => {
+  it("runs the rows together and dates each one once the headings are hidden", async () => {
     const user = userEvent.setup({ delay: null });
     renderFeed({ type: null, ref: "" }, TWO_DAYS);
 
-    await user.click(screen.getByRole("switch", { name: "Group by day" }));
+    await user.click(screen.getByRole("button", { name: "Ungroup by date" }));
 
     expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
     expect(screen.getByText("1 Nov")).toBeInTheDocument();

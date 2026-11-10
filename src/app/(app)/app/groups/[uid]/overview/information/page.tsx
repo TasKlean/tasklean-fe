@@ -86,7 +86,7 @@ export default async function GroupInformationPage({
         </dl>
 
         <Link
-          href={`/app/groups/${encodeURIComponent(uid)}/overview/activity?${auditFilterParams({ type: "group", ref: uid, actor: "" })}`}
+          href={`/app/groups/${encodeURIComponent(uid)}/overview/activity?${auditFilterParams({ type: "group", ref: uid })}`}
           className={HISTORY}
         >
           <History className="size-4" aria-hidden />

@@ -18,7 +18,7 @@ function renderMenu(fields: Partial<AuditFilter> = {}, actors: ActorChoice[] = A
   render(
     <ActorMenu
       path={PATH}
-      filter={{ type: null, ref: "", actor: "", ...fields }}
+      filter={{ type: null, ref: "", actor: "", from: "", to: "", ...fields }}
       actors={actors}
     />,
   );

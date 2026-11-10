@@ -36,7 +36,11 @@ type ActorMenuProps = {
   actors: readonly ActorChoice[];
 };
 
+// The row that takes the filter off, and the value an unfiltered feed reads by
+// to anybody listening. The pill itself names the control instead.
 const ANYONE = "Anyone";
+
+const NAME = "Actor";
 
 /** Builds the link that narrows the trail to one person's actions, or to nobody's. */
 function actorHref(path: string, filter: AuditFilter, actor: string): string {
@@ -66,14 +70,17 @@ export function ActorMenu({ path, filter, actors }: Readonly<ActorMenuProps>) {
         className={`${TRIGGER} ${filter.actor ? TRIGGER_ON : TRIGGER_QUIET}`}
       >
         <UserSearch className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{label}</span>
+        <span className="truncate">{chosen ? chosen.name : NAME}</span>
         <ChevronDown className={TRIGGER_ARROW} aria-hidden />
       </button>
 
       {open ? (
         // Capped and scrollable, as the member list is: a household is small,
         // but nothing stops a roster running off the bottom of the screen.
-        <ul id={panelId} className={`${PANEL} scrollbar-slim right-0 max-h-72 overflow-y-auto`}>
+        <ul
+          id={panelId}
+          className={`${PANEL} scrollbar-slim right-0 max-h-72 w-64 overflow-y-auto`}
+        >
           <FilterMenuRow
             href={actorHref(path, filter, "")}
             here={!filter.actor}

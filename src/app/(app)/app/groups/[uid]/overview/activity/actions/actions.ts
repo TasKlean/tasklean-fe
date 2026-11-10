@@ -12,6 +12,7 @@ import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
 import { getGroupActivity } from "@/lib/audit/audit";
 import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import { auditFilterQuery } from "@/lib/audit/filter/filter";
+import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 import { parseAuditPage } from "@/lib/validation/forms/audit-page.schema/audit-page.schema";
 
 // Read here alone, so it stays here rather than in api/error-codes.
@@ -50,12 +51,24 @@ export async function loadActivityPageAction(fields: unknown): Promise<ActivityP
     };
   }
 
-  const { groupUid, cursor, type, ref, actor } = parsed.values;
+  const { groupUid, cursor, type, ref, actor, from, to } = parsed.values;
+  // The same zone the first page was read in, so page two covers the days the
+  // reader asked for and not the container's idea of them.
+  const timeZone = await readTimeZone();
 
   try {
     const [page, roster] = await Promise.all([
       getGroupActivity(groupUid, {
-        ...auditFilterQuery({ type: type ?? null, ref: ref ?? "", actor: actor ?? "" }),
+        ...auditFilterQuery(
+          {
+            type: type ?? null,
+            ref: ref ?? "",
+            actor: actor ?? "",
+            from: from ?? "",
+            to: to ?? "",
+          },
+          timeZone,
+        ),
         cursor,
       }),
       memberRoster(groupUid),

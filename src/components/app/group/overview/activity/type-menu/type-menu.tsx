@@ -36,6 +36,10 @@ type TypeMenuProps = {
 
 type View = "kinds" | "member";
 
+// What the pill reads while the feed is the whole trail. The panel's own row
+// still says "All activity", being a choice rather than a heading.
+const NAME = "Entity type";
+
 /** Renders the kind the trail is narrowed to, with the rest a press away. */
 export function TypeMenu({ path, filter, members }: Readonly<TypeMenuProps>) {
   const { open, toggle, close, root, trigger } = useDisclosure();
@@ -89,12 +93,12 @@ export function TypeMenu({ path, filter, members }: Readonly<TypeMenuProps>) {
         className={`${TRIGGER} ${filter.type ? TRIGGER_ON : TRIGGER_QUIET}`}
       >
         <ListFilter className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{chosen.label}</span>
+        <span className="truncate">{filter.type ? chosen.label : NAME}</span>
         <ChevronDown className={TRIGGER_ARROW} aria-hidden />
       </button>
 
       {open ? (
-        <div id={panelId} className={`${PANEL} left-0`}>
+        <div id={panelId} className={`${PANEL} left-0 w-64`}>
           {view === "member" && pickable ? (
             <MemberList
               path={path}

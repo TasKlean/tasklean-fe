@@ -107,6 +107,12 @@ export type AuditQuery = {
   // A user uid. Only a group admin may name anybody but themselves, and the
   // refusal is a 403 carrying no code.
   actorRef?: string;
+  // ISO-8601 with an offset, inclusive. The endpoint binds an OffsetDateTime,
+  // so a bare local time is a 400.
+  dateFrom?: string;
+  // The same format, and **exclusive**: a day's own rows need the start of the
+  // next one.
+  dateTo?: string;
   // Opaque, and belongs to one filter: change the filter and it must be dropped.
   cursor?: string;
   limit?: number;

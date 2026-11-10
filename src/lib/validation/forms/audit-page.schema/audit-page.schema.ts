@@ -10,6 +10,7 @@ import {
   actorRefRule,
   auditFilterTypeRule,
   cursorRule,
+  dayRule,
   entityRefRule,
   uidRule,
 } from "@/lib/validation/rules/rules";
@@ -22,6 +23,8 @@ export const auditPageSchema = z.object({
   type: auditFilterTypeRule,
   ref: entityRefRule,
   actor: actorRefRule,
+  from: dayRule,
+  to: dayRule,
 });
 
 export type AuditPageFields = z.infer<typeof auditPageSchema>;

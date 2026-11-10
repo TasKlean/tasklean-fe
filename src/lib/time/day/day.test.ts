@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { dayKey, dayLabel, fullTime, shortDate, timeOfDay } from "@/lib/time/day/day";
+import {
+  dayKey,
+  dayLabel,
+  dayStart,
+  fullTime,
+  isDayKey,
+  shiftDays,
+  shortDate,
+  timeOfDay,
+} from "@/lib/time/day/day";
 
 describe("dayKey", () => {
   it("puts one instant on different days in different zones", () => {
@@ -62,5 +71,57 @@ describe("shortDate and fullTime", () => {
 
   it("spells the whole thing out for a title", () => {
     expect(fullTime(new Date("2026-11-08T13:05:00Z"), "UTC")).toBe("8 Nov 2026, 13:05");
+  });
+});
+
+describe("dayStart", () => {
+  it("finds the instant a day begins where the reader is, at either offset", () => {
+    expect(dayStart("2026-01-15", "Europe/Ljubljana").toISOString()).toBe(
+      "2026-01-14T23:00:00.000Z",
+    );
+    expect(dayStart("2026-07-15", "Europe/Ljubljana").toISOString()).toBe(
+      "2026-07-14T22:00:00.000Z",
+    );
+  });
+
+  it("reads a zone behind UTC, and UTC itself", () => {
+    expect(dayStart("2026-07-15", "America/New_York").toISOString()).toBe(
+      "2026-07-15T04:00:00.000Z",
+    );
+    expect(dayStart("2026-07-15", "UTC").toISOString()).toBe("2026-07-15T00:00:00.000Z");
+  });
+
+  it("lands on the day it was asked for, on the day the clocks go forward", () => {
+    expect(dayKey(dayStart("2026-03-29", "Europe/Ljubljana"), "Europe/Ljubljana")).toBe(
+      "2026-03-29",
+    );
+    expect(dayKey(dayStart("2026-10-25", "Europe/Ljubljana"), "Europe/Ljubljana")).toBe(
+      "2026-10-25",
+    );
+  });
+
+  it("is dayKey backwards, in a zone that is neither the runtime's nor UTC", () => {
+    expect(dayKey(dayStart("2026-07-15", "Pacific/Auckland"), "Pacific/Auckland")).toBe(
+      "2026-07-15",
+    );
+  });
+});
+
+describe("shiftDays", () => {
+  it("counts over the end of a month, a leap year and a year", () => {
+    expect(shiftDays("2026-02-28", 1)).toBe("2026-03-01");
+    expect(shiftDays("2024-02-28", 1)).toBe("2024-02-29");
+    expect(shiftDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(shiftDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("isDayKey", () => {
+  it("takes a real date and refuses one that only looks like it", () => {
+    expect(isDayKey("2026-02-28")).toBe(true);
+    expect(isDayKey("2026-02-31")).toBe(false);
+    expect(isDayKey("2026-13-01")).toBe(false);
+    expect(isDayKey("26-02-01")).toBe(false);
+    expect(isDayKey("")).toBe(false);
   });
 });

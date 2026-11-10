@@ -12,7 +12,6 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
 import { ActivityTimeline } from "@/components/app/group/overview/activity/activity-timeline";
-import { DaySectionsToggle } from "@/components/app/group/overview/activity/day-sections-toggle";
 import { FormNotice } from "@/components/common/form-notice";
 import type { AuditEntry, AuditNames, AuditPage } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
@@ -35,9 +34,12 @@ type ActivityFeedProps = {
   timeZone: string;
   // The h2 and its line, rendered on the server.
   heading: ReactNode;
-  // The control that narrows the feed. Its own slot rather than one set of
-  // children, so the day switch can share its row.
+  // The controls that narrow the feed. Their own slot rather than one set of
+  // children, so the day switch can share their row.
   menu: ReactNode;
+  // The range control, which takes the second row to itself on a phone and
+  // the end of the filters' row once there is one.
+  dates: ReactNode;
   // The band naming what the feed is pinned to, which keeps a strip of its own
   // below the controls: it is the filter's answer, not another control.
   subject: ReactNode;
@@ -57,6 +59,7 @@ export function ActivityFeed({
   timeZone,
   heading,
   menu,
+  dates,
   subject,
 }: Readonly<ActivityFeedProps>) {
   const [entries, setEntries] = useState<AuditEntry[]>(first.entries);
@@ -67,8 +70,8 @@ export function ActivityFeed({
   // A plain flag rather than `useTransition`: a press the reader is waiting on
   // wants its rows at once, and a transition is deprioritised by design.
   const [pending, setPending] = useState(false);
-  // Held here rather than in the timeline, so the switch can sit in the
-  // heading row with the count instead of taking a row of its own.
+  // Held here rather than in the timeline, because an appended page must not
+  // reset it: the timeline is redrawn whenever rows arrive.
   const [grouped, setGrouped] = useState(true);
 
   const count = feedCountLabel(entries.length, total);
@@ -83,6 +86,8 @@ export function ActivityFeed({
       type: filter.type ?? undefined,
       ref: filter.ref || undefined,
       actor: filter.actor || undefined,
+      from: filter.from || undefined,
+      to: filter.to || undefined,
     });
 
     setPending(false);
@@ -106,12 +111,12 @@ export function ActivityFeed({
     <>
       {heading}
 
-      {/* The two controls on one row where there is room beside the filter, and
-          stacked on a phone, where the switch keeps the end of its own line. */}
+      {/* The kind and the actor share a row on a phone, where the range takes
+          the whole of the next one; one row from `sm` up. */}
       <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
         {menu}
 
-        <DaySectionsToggle on={grouped} onFlip={() => setGrouped((was) => !was)} />
+        {dates}
       </div>
 
       {subject}
@@ -123,6 +128,7 @@ export function ActivityFeed({
         names={held}
         timeZone={timeZone}
         grouped={grouped}
+        onFlip={() => setGrouped((was) => !was)}
       />
 
       {error ? <FormNotice tone="error">{error}</FormNotice> : null}

@@ -1983,6 +1983,42 @@ instead, so the mark is never visual-only. A panel names the edge it hangs from 
 half the row on a phone, because a 256px panel hanging off the inner edge of the right-hand pill runs
 off a 360px screen.
 
+**The range is calendar days in the URL, instants on the wire.** `dateFrom` and `dateTo` are
+`OffsetDateTime`, so an instant has to be chosen for a reader's "2 November", and the zone that
+decides it is theirs. Putting the offset in the URL instead was rejected: a pasted link would then
+cover different days for whoever opened it, where two bare dates mean the same days to everybody and
+are read in the recipient's own zone. So `auditFilterQuery` takes the zone like every other
+zone-aware call, and `dayStart` is `dayKey` backwards: it reads the offset Intl reports for the
+instant it is looking for, twice, because the offset at that clock time in UTC is the wrong one on a
+day the clocks move. **`dateTo` is exclusive**, so an inclusive `to` is sent as the start of the
+following day; getting that wrong hides the last day's rows rather than failing, which is why it is
+asserted in two zones. A backwards range is an `InvalidRequestException` worded by the backend, so it
+is headed off three times: the two fields cap each other with `min` and `max` as they are typed,
+`auditFilter` drops both ends if a hand-typed URL reads backwards, and Spring stays the authority.
+
+**The presets are links, the custom range is a GET form.** A preset is two days worked out on the
+server from one instant and the zone, so it is a link like every other filter and the pill can keep
+the preset's own name rather than spelling its dates back. A token such as `?when=7d` was rejected:
+it would need resolving to dates on every read and gives two ways to say one thing. The custom range
+posts `from` and `to` to the same path with the rest of the filter as hidden fields, which means it
+works with JavaScript off, costs a full document load that a link would not, and cannot drop another
+axis. It sits behind the Custom row rather than under the presets, because two date fields and a
+button in an open panel read as a form that the presets are decoration on.
+
+**The day press sits on the day rule, and says what it will do.** Beside the filters it read as a
+fourth filter, which is wrong: it is about how the list reads rather than what is in it. It hangs off
+the end of the **first** day's rule, so there is one press however many days are on screen, and when
+the days are run together that bare rule is drawn on its own so the press does not move when pressed.
+It stopped being a switch: its label carries the state ("Group by date", "Ungroup by date") the way a
+row's "Show changes" does, which is the pattern it now reads like. The cost is deliberate: a toggle
+button's pressed state is no longer announced, and the label is what tells a reader where they are.
+
+**A closed pill names its filter.** "All activity", "Anyone" and "Any time" are what the reset row in
+each panel says, being choices to press; on the pill they read as values when there is no value, so
+the closed control says "Entity type", "Actor" or "Date" instead and shows the picked one as soon as
+there is one. The `aria-label` keeps the old wording, so a reader hears the state the pill has no room
+for, and one test asserts both on the same element so they cannot be collapsed into one.
+
 **An element passed to a client component as a named prop carries a `key`.** The day switch has to
 sit in the filters' row while the grouping state lives in the feed, so `ActivityFeed` takes the
 heading, the controls and the subject band as three slots rather than one `children`. React validates

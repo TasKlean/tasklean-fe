@@ -85,3 +85,60 @@ export function fullTime(date: Date, timeZone: string): string {
     hourCycle: "h23",
   });
 }
+
+/**
+ * Reads the offset one zone was at, at one instant.
+ *
+ * @returns Minutes east of UTC, and 0 for a zone Intl names without an offset,
+ * which is UTC itself.
+ */
+function offsetMinutes(at: Date, timeZone: string): number {
+  const name = new Intl.DateTimeFormat("en-GB", { timeZone, timeZoneName: "longOffset" })
+    .formatToParts(at)
+    .find((part) => part.type === "timeZoneName")?.value;
+
+  const parts = /^GMT([+-])(\d{2}):(\d{2})$/.exec(name ?? "");
+  if (!parts) return 0;
+
+  return (parts[1] === "-" ? -1 : 1) * (Number(parts[2]) * 60 + Number(parts[3]));
+}
+
+/**
+ * Finds the instant a day begins in one zone, which is `dayKey` backwards.
+ *
+ * @param key A day as `YYYY-MM-DD`, which carries no zone of its own.
+ * @returns Midnight that morning where the reader is. Invalid for a key that is
+ * not a real date, which the caller checks.
+ */
+export function dayStart(key: string, timeZone: string): Date {
+  const asUtc = new Date(`${key}T00:00:00Z`);
+  // Twice, because the offset that applies is the one at the instant we are
+  // looking for, not the one at that clock time in UTC.
+  const near = new Date(asUtc.getTime() - offsetMinutes(asUtc, timeZone) * 60_000);
+
+  return new Date(asUtc.getTime() - offsetMinutes(near, timeZone) * 60_000);
+}
+
+/**
+ * Counts days off a day key, without a zone: a calendar date has none.
+ *
+ * @returns The key that many days later, or earlier for a negative count.
+ */
+export function shiftDays(key: string, days: number): string {
+  return dayKey(new Date(new Date(`${key}T00:00:00Z`).getTime() + days * DAY_MS), "UTC");
+}
+
+/**
+ * Says whether a string names a real calendar day.
+ *
+ * @returns True for `YYYY-MM-DD` that exists. Checked by round-tripping the
+ * key, because the 31st of February parses as the 3rd of March rather than
+ * failing.
+ */
+export function isDayKey(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const at = new Date(`${value}T00:00:00Z`);
+
+  return !Number.isNaN(at.getTime()) && dayKey(at, "UTC") === value;
+}

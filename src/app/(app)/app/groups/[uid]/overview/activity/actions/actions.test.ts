@@ -7,7 +7,9 @@ vi.mock("@/lib/auth/session/session", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ get: (name: string) => ({ name, value: "dev-1" }) }),
+  cookies: async () => ({
+    get: (name: string) => ({ name, value: name === "tasklean_tz" ? "Europe/Ljubljana" : "dev-1" }),
+  }),
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
@@ -87,6 +89,33 @@ describe("loadActivityPageAction", () => {
       m1: { name: "Alice Johnson", userUid: "u1" },
       m9: { name: "Dan Novak", userUid: "u9" },
     });
+  });
+
+  it("carries the whole filter with the cursor, the range as instants in the reader's zone", async () => {
+    const seen: { params?: URLSearchParams } = {};
+    server.use(
+      http.get(ROSTER, () => envelope([])),
+      http.get(FEED, ({ request }) => {
+        seen.params = new URL(request.url).searchParams;
+        return envelope({ items: [], nextCursor: null, total: 0 });
+      }),
+    );
+
+    await loadActivityPageAction({
+      groupUid: "g1",
+      cursor: "c1",
+      type: "member",
+      ref: "m1",
+      actor: "u2",
+      from: "2026-11-02",
+      to: "2026-11-09",
+    });
+
+    expect(seen.params?.get("entityType")).toBe("GROUP_MEMBER");
+    expect(seen.params?.get("entityRef")).toBe("m1");
+    expect(seen.params?.get("actorRef")).toBe("u2");
+    expect(seen.params?.get("dateFrom")).toBe("2026-11-01T23:00:00.000Z");
+    expect(seen.params?.get("dateTo")).toBe("2026-11-09T23:00:00.000Z");
   });
 
   it("tells the reader to reload rather than silently restarting a refused cursor", async () => {

@@ -16,6 +16,7 @@ import {
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import type { AuditNames } from "@/lib/audit/audit.types";
+import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 const BASE = "http://api.test";
 
@@ -47,6 +48,10 @@ const DAN = {
   user: { uid: "u2", name: "Dan", lastName: "Novak" },
 };
 
+function filter(fields: Partial<AuditFilter> = {}): AuditFilter {
+  return { type: null, ref: "", actor: "", from: "", to: "", ...fields };
+}
+
 const NAMES: AuditNames = {
   m2: { name: "Dan Novak", userUid: "u2" },
   m1: { name: "Alice Johnson", userUid: "u1" },
@@ -54,20 +59,20 @@ const NAMES: AuditNames = {
 
 describe("subjectName", () => {
   it("names the membership the feed is pinned to", () => {
-    expect(subjectName("g1", { type: "member", ref: "m2", actor: "" }, "Flat 2B", NAMES)).toBe(
+    expect(subjectName("g1", filter({ type: "member", ref: "m2" }), "Flat 2B", NAMES)).toBe(
       "Dan Novak",
     );
   });
 
   it("will not label another group's ref with this group's name", () => {
-    expect(subjectName("g1", { type: "group", ref: "g1", actor: "" }, "Flat 2B", NAMES)).toBe(
+    expect(subjectName("g1", filter({ type: "group", ref: "g1" }), "Flat 2B", NAMES)).toBe(
       "Flat 2B",
     );
-    expect(subjectName("g1", { type: "group", ref: "g9", actor: "" }, "Flat 2B", NAMES)).toBeNull();
+    expect(subjectName("g1", filter({ type: "group", ref: "g9" }), "Flat 2B", NAMES)).toBeNull();
   });
 
   it("names nothing for a kind no screen can resolve", () => {
-    expect(subjectName("g1", { type: "task", ref: "t1", actor: "" }, "Flat 2B", NAMES)).toBeNull();
+    expect(subjectName("g1", filter({ type: "task", ref: "t1" }), "Flat 2B", NAMES)).toBeNull();
   });
 });
 

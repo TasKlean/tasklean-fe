@@ -18,7 +18,7 @@ function renderMenu(filter: Partial<AuditFilter> = {}, members: MemberChoice[] =
   render(
     <TypeMenu
       path={PATH}
-      filter={{ type: null, ref: "", actor: "", ...filter }}
+      filter={{ type: null, ref: "", actor: "", from: "", to: "", ...filter }}
       members={members}
     />,
   );

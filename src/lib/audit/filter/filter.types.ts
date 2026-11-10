@@ -28,6 +28,13 @@ export type AuditFilter = {
   // uid, which is a different namespace from the membership uid `ref` carries
   // for a member, and the same uid an entry's own actor is named by.
   actor: string;
+  // The first day the feed reaches, as `YYYY-MM-DD` in the reader's own zone,
+  // empty for no floor. A calendar day rather than an instant, so a pasted link
+  // means the same days to whoever opens it.
+  from: string;
+  // The last day the feed reaches, inclusive here where the endpoint's own
+  // parameter is exclusive. Empty for no ceiling.
+  to: string;
 };
 
 // What Next hands a page as `searchParams`, which is caller-controlled: a key
