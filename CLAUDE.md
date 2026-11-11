@@ -55,7 +55,7 @@ npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
 
-Next.js 16.4.2 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
+Next.js 16.4.5 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
 Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`, `uqr`. **Node 26** (`.nvmrc` +
 `engines.node`); npm comes from Node's bundled copy, so a global npm install would silently shadow
 it.
@@ -93,9 +93,9 @@ deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.
 
 ### Known install noise
 
-- **5 "high" audit findings**: `braces` -> `micromatch` -> `fast-glob` ->
-  `@next/eslint-plugin-next`, a devDependency chain. `audit fix --force` would downgrade
-  `eslint-config-next` to 14.x. Leave it.
+- **9 "moderate" audit findings, all one advisory**: `minimatch`'s globparts DoS, reached through
+  `eslint` itself and through `typescript-eslint` inside `eslint-config-next`. Lint-time
+  devDependencies only, and `audit fix --force` would downgrade `eslint-config-next`. Leave it.
 - **`unrs-resolver` and `msw` postinstalls are denied** (`allowScripts` in `package.json`).
 - **`typescript` is pinned `~6.0.3`, not `^`**: typescript-eslint declares `<6.1.0`, and **TS 7
   throws** on a hard `versionMajor >= 7` guard, killing lint. Don't widen the pin.
