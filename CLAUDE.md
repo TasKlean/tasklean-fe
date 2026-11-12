@@ -187,7 +187,12 @@ src/
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
                        zone-probe (the browser's own zone, into a cookie),
-                       invite-code/ (invite-code-field, share-invite)
+                       invite-code/ (invite-code-field, share-invite),
+                       activity/ (a trail, whichever one: activity-feed,
+                       activity-timeline, activity-row, change-card, token-line,
+                       day-sections-toggle, activity-empty, filter-menu-row
+                       (+ .helpers, .styles), date-menu/ (+ preset-list,
+                       custom-range))
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
                        group-switcher (+ open-group-uid), add-task-button
@@ -199,12 +204,9 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (activity-feed, activity-timeline, activity-row,
-                       change-card, token-line, day-sections-toggle,
-                       activity-subject, activity-empty, former-divider,
-                       filter-menu-row (+ .helpers, .styles, shared by every
-                       menu), type-menu/ (+ kind-list, member-list, .helpers),
-                       actor-menu/ and date-menu/ (+ preset-list, custom-range)
+                       activity/ (what only a group's trail has: activity-subject,
+                       former-divider, type-menu/ (+ kind-list, member-list,
+                       .helpers) and actor-menu/)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -545,8 +547,9 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
 - **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
   groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
-  the pages and asks for the next through an action that revalidates nothing, since a re-render would
-  throw away what is on screen. A refused cursor is reported, never retried from the first page.
+  the pages and asks for the next through the action it was handed, which revalidates nothing, since
+  a re-render would throw away what is on screen. The feed names no trail of its own: the group's
+  action takes the uid bound to it, so a press cannot name a group. A refused cursor is reported, never retried from the first page.
   `nextCursor` is the only thing that says more exists, and `total` is the label at the foot of the
   list, where Load more is, said once rather than above a list the reader has scrolled past.
 - **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses

@@ -2026,6 +2026,14 @@ a named element prop crossing the server boundary as a list child and warns with
 `children` is exempt. The alternative was giving the switch a row of its own, which is the layout
 problem the slots exist to solve.
 
+**The feed belongs to no one trail.** Two trails differ only in which endpoint answers and in what may
+narrow them, so `ActivityFeed`, the timeline, the rows, the change card and the date menu sit in
+`components/common/activity/` and the feed takes a `loadMore` action rather than a group uid. Each
+screen binds its own, and the group's takes the uid as a bound first argument that overwrites whatever
+arrives under that name: a press can then only ask for the trail of the page it sits on, where a
+posted uid was the browser's to choose. What only a group has stays with the group: the entity and
+actor menus, the subject band, and the divider for the people who have left.
+
 **A row whose actor is also its subject describes a different event.** The backend writes
 `MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
 membership when a group is made. The last two have one person on both sides, where "added a member"

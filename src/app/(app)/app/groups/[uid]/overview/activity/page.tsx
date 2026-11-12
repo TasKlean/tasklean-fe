@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
+import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
 import {
   loadTrail,
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
-import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/actor-menu";
-import { ActivityEmpty } from "@/components/app/group/overview/activity/activity-empty";
-import { ActivityFeed } from "@/components/app/group/overview/activity/activity-feed";
 import { ActivitySubject } from "@/components/app/group/overview/activity/activity-subject";
-import { DateMenu } from "@/components/app/group/overview/activity/date-menu/date-menu";
+import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/actor-menu";
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
+import { ActivityEmpty } from "@/components/common/activity/activity-empty";
+import { ActivityFeed } from "@/components/common/activity/activity-feed";
+import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { LoadError } from "@/components/common/load-error";
 import { dateChoices } from "@/lib/audit/dates/dates";
 import { allowedActor, auditFilter, narrowsTrail } from "@/lib/audit/filter/filter";
@@ -20,6 +21,13 @@ import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 export const metadata: Metadata = {
   title: "Activity",
 };
+
+// A member's rows are narrowed by the backend, so an empty feed is correct for
+// them in a busy household and may never read as "nothing happened".
+const QUIET_ADMIN = "Nothing has happened in this group yet.";
+
+const QUIET_MEMBER =
+  "Nothing here you can see yet. You will see what you do in this group, and what happens to the things you make.";
 
 /**
  * Renders what has happened in this group, newest first.
@@ -100,7 +108,10 @@ export default async function ActivityPage({
         {failure ? (
           <LoadError title="We could not load the activity." message={failure} />
         ) : (
-          <ActivityEmpty admin={admin} filtered={narrowsTrail(filter)} />
+          <ActivityEmpty
+            quiet={admin ? QUIET_ADMIN : QUIET_MEMBER}
+            filtered={narrowsTrail(filter)}
+          />
         )}
       </section>
     );
@@ -112,7 +123,9 @@ export default async function ActivityPage({
         // Keyed on the filter, so changing it mounts a feed holding the new
         // first page: React would otherwise keep the pages the old one had.
         key={`${filter.type ?? "all"}:${filter.ref}:${filter.actor}:${filter.from}:${filter.to}`}
-        groupUid={uid}
+        // Bound here, so the feed asks for more of this group's trail without
+        // holding the group, which is the one thing about it that is not shared.
+        loadMore={loadActivityPageAction.bind(null, uid)}
         first={page}
         viewerUid={session?.userUid ?? null}
         now={now}

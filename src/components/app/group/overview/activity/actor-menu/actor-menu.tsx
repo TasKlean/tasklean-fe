@@ -12,16 +12,16 @@
 
 import { ChevronDown, UserSearch } from "lucide-react";
 import { Fragment, useId } from "react";
-import { FilterMenuRow } from "@/components/app/group/overview/activity/filter-menu-row";
-import { opensFormerBlock } from "@/components/app/group/overview/activity/filter-menu-row.helpers";
+import { FormerDivider } from "@/components/app/group/overview/activity/former-divider";
+import { FilterMenuRow } from "@/components/common/activity/filter-menu-row";
+import { opensFormerBlock } from "@/components/common/activity/filter-menu-row.helpers";
 import {
   PANEL,
   TRIGGER,
   TRIGGER_ARROW,
   TRIGGER_ON,
   TRIGGER_QUIET,
-} from "@/components/app/group/overview/activity/filter-menu.styles";
-import { FormerDivider } from "@/components/app/group/overview/activity/former-divider";
+} from "@/components/common/activity/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { ActorChoice } from "@/lib/audit/audit.types";
 import { auditFilterParams } from "@/lib/audit/filter/filter";

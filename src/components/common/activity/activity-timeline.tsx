@@ -3,8 +3,8 @@
  * with each row dated instead, which the feed above decides.
  */
 
-import { ActivityRow } from "@/components/app/group/overview/activity/activity-row";
-import { DaySectionsToggle } from "@/components/app/group/overview/activity/day-sections-toggle";
+import { ActivityRow } from "@/components/common/activity/activity-row";
+import { DaySectionsToggle } from "@/components/common/activity/day-sections-toggle";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditDays } from "@/lib/audit/days/days";
 import type { AuditDayRow } from "@/lib/audit/days/days.types";

@@ -7,6 +7,7 @@
  */
 
 import type { AuditEntityType } from "@/lib/audit/entity/entity";
+import type { AuditFilterType } from "@/lib/audit/filter/filter.types";
 
 export type AuditActor = {
   uid?: string;
@@ -98,6 +99,29 @@ export type AuditPage = {
   // A count label only, never a page count.
   total: number;
 };
+
+// What the feed asks the next page for: the cursor it holds, and the filter
+// that cursor was issued under. Which trail is being read is not in here: that
+// is the action's own, bound to it before it reaches the browser.
+export type AuditPageRequest = {
+  cursor: string | null;
+  type?: AuditFilterType;
+  ref?: string;
+  actor?: string;
+  from?: string;
+  to?: string;
+};
+
+// What a Load more press answers with. A refusal is an answer rather than a
+// throw, because the list holding the pages has a failure slot and no boundary
+// of its own.
+export type AuditPageResult =
+  // The names come with the page, because a page the reader scrolls to can hold
+  // a membership that arrived after the first read.
+  { ok: true; page: AuditPage; names: AuditNames } | { ok: false; message: string };
+
+// One scope's Load more, with everything but the request already bound to it.
+export type AuditPageLoader = (fields: AuditPageRequest) => Promise<AuditPageResult>;
 
 export type AuditQuery = {
   entityType?: AuditEntityType;

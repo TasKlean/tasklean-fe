@@ -1,8 +1,8 @@
 /**
- * The pages of a group's trail that are on screen. The first arrives rendered
- * from the server; every later one is appended here, so the cursor lives in
- * this component's memory and never in the URL, where a shared link would carry
- * a position the recipient has no rows for.
+ * The pages of a trail that are on screen, whichever trail it is. The first
+ * arrives rendered from the server; every later one is appended here, so the
+ * cursor lives in this component's memory and never in the URL, where a shared
+ * link would carry a position the recipient has no rows for.
  */
 
 "use client";
@@ -10,15 +10,16 @@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
-import { ActivityTimeline } from "@/components/app/group/overview/activity/activity-timeline";
+import { ActivityTimeline } from "@/components/common/activity/activity-timeline";
 import { FormNotice } from "@/components/common/form-notice";
-import type { AuditEntry, AuditNames, AuditPage } from "@/lib/audit/audit.types";
+import type { AuditEntry, AuditNames, AuditPage, AuditPageLoader } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 import { feedCountLabel } from "@/lib/audit/labels/labels";
 
 type ActivityFeedProps = {
-  groupUid: string;
+  // The press that reads the page after the cursor, in the trail this feed is
+  // showing. Bound on the server, so nothing here knows which trail that is.
+  loadMore: AuditPageLoader;
   // The page the server already rendered, which is where the cursor starts.
   first: AuditPage;
   viewerUid: string | null;
@@ -50,7 +51,7 @@ const MORE =
 
 /** Renders the trail, a page at a time. */
 export function ActivityFeed({
-  groupUid,
+  loadMore,
   first,
   viewerUid,
   now,
@@ -77,11 +78,10 @@ export function ActivityFeed({
   const count = feedCountLabel(entries.length, total);
 
   /** Asks for the page after the cursor and appends it. */
-  async function loadMore(): Promise<void> {
+  async function readMore(): Promise<void> {
     setPending(true);
 
-    const result = await loadActivityPageAction({
-      groupUid,
+    const result = await loadMore({
       cursor,
       type: filter.type ?? undefined,
       ref: filter.ref || undefined,
@@ -141,7 +141,7 @@ export function ActivityFeed({
           <button
             type="button"
             onClick={() => {
-              void loadMore();
+              void readMore();
             }}
             disabled={pending}
             className={MORE}

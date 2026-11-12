@@ -3,7 +3,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { DateMenu } from "@/components/app/group/overview/activity/date-menu/date-menu";
+import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { dateChoices } from "@/lib/audit/dates/dates";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 

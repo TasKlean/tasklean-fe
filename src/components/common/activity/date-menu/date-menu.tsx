@@ -8,15 +8,15 @@
 
 import { CalendarRange, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { CustomRange } from "@/components/app/group/overview/activity/date-menu/custom-range";
-import { PresetList } from "@/components/app/group/overview/activity/date-menu/preset-list";
+import { CustomRange } from "@/components/common/activity/date-menu/custom-range";
+import { PresetList } from "@/components/common/activity/date-menu/preset-list";
 import {
   PANEL,
   TRIGGER,
   TRIGGER_ARROW,
   TRIGGER_ON,
   TRIGGER_QUIET,
-} from "@/components/app/group/overview/activity/filter-menu.styles";
+} from "@/components/common/activity/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import { type DateChoice, rangeLabel } from "@/lib/audit/dates/dates";
 import { auditFilterParams } from "@/lib/audit/filter/filter";
