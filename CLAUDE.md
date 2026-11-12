@@ -631,6 +631,13 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   `calc(100svh - var(--spacing-header))` tall, with its own `lg:overflow-y-auto`, in a shell that is
   `lg:items-start`. `--spacing-header` is the one place the header's height is written, and the
   `<header>` wears it with its bottom border inside.
+- **The settings shell does it the other way: nothing scrolls but the section.** At `lg` the shell is
+  `calc(100svh - var(--spacing-header))` tall, so the `h1` and the rail stay put without sticking,
+  and the columns carry `lg:overflow-y-auto` over a `lg:min-h-0` grid, whose floor would otherwise be
+  its own content and grow the page instead.
+- **The settings panes scroll with no scrollbar at all**, through a `scrollbar-none` `@utility`
+  beside the slim one: `display: none` on WebKit's pseudo-element and `scrollbar-width: none` for
+  everyone else. The wheel, the keyboard and a trackpad all still scroll them.
 - **The rail's scrollbar is `scrollbar-slim`**, a `@utility` whose `scrollbar-width` is scoped to
   `@supports not selector(::-webkit-scrollbar)`, because Blink ignores the 6px if it can see it.
 - **A collapsed rail is an `lg:` class, never a second tree.** A collapsed label is `lg:hidden`,
