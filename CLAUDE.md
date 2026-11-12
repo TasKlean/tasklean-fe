@@ -190,9 +190,9 @@ src/
                        invite-code/ (invite-code-field, share-invite),
                        activity/ (a trail, whichever one: activity-feed,
                        activity-timeline, activity-row, change-card, token-line,
-                       day-sections-toggle, activity-empty, filter-menu-row
-                       (+ .helpers, .styles), date-menu/ (+ preset-list,
-                       custom-range))
+                       day-sections-toggle, activity-empty, clear-filters,
+                       filter-menu-row (+ .helpers, .styles), date-menu/
+                       (+ preset-list, custom-range))
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
                        group-switcher (+ open-group-uid), add-task-button
@@ -204,9 +204,9 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (what only a group's trail has: activity-subject,
-                       former-divider, type-menu/ (+ kind-list, member-list,
-                       .helpers) and actor-menu/)
+                       activity/ (what only a group's trail has: former-divider,
+                       type-menu/ (+ kind-list, member-list, .helpers) and
+                       actor-menu/)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -577,7 +577,10 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
   opens them. **A closed pill names the filter until something is picked** ("Entity type", "Actor",
   "Date"), where the panel's own reset row keeps the wording of a choice ("All activity", "Anyone",
-  "Any time") and the pill's `aria-label` keeps saying which. **A choice that needs more than a link
+  "Any time") and the pill's `aria-label` keeps saying which. **A pill that holds one thing names it**
+  ("Member: Dan Novak", "Actor: Alice Johnson", and "One member" for a ref nothing can name), and
+  `ClearFilters` is the one way back to the whole trail, on a line of its own at the right-hand end of
+  the controls, drawn only while something narrows the feed. **A choice that needs more than a link
   drills down in place**: Members carries a
   press of its own at the row's end and the panel swaps the kinds for the roster, and Custom range is
   a press rather than a link, having no days of its own until they are typed. Focus follows the panel
@@ -590,7 +593,7 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   hangs from** and each pill is half the row on a phone, since a 256px panel hanging off the inner
   edge of the right-hand pill runs off a 360px screen.
 - **An element a page hands a client component as a prop carries a `key`.** The slots `ActivityFeed`
-  takes (`heading`, `menu`, `subject`) cross the server boundary as named props, where React
+  takes (`heading`, `menu`, `dates`, `clear`) cross the server boundary as named props, where React
   validates them as list children and warns without one. `children` is the one prop exempt, and the
   day switch sharing the menu's row is what cost us it.
 - **An update names the fields it moved, and carries their values only sometimes.** The backend

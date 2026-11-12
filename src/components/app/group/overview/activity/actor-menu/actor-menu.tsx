@@ -70,7 +70,7 @@ export function ActorMenu({ path, filter, actors }: Readonly<ActorMenuProps>) {
         className={`${TRIGGER} ${filter.actor ? TRIGGER_ON : TRIGGER_QUIET}`}
       >
         <UserSearch className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{chosen ? chosen.name : NAME}</span>
+        <span className="truncate">{chosen ? `${NAME}: ${chosen.name}` : NAME}</span>
         <ChevronDown className={TRIGGER_ARROW} aria-hidden />
       </button>
 

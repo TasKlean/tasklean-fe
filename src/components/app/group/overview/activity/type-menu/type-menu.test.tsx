@@ -14,12 +14,17 @@ const MEMBERS: MemberChoice[] = [
   { ref: "m2", name: "Dan Novak", former: false },
 ];
 
-function renderMenu(filter: Partial<AuditFilter> = {}, members: MemberChoice[] = MEMBERS) {
+function renderMenu(
+  filter: Partial<AuditFilter> = {},
+  members: MemberChoice[] = MEMBERS,
+  pinned: string | null = null,
+) {
   render(
     <TypeMenu
       path={PATH}
       filter={{ type: null, ref: "", actor: "", from: "", to: "", ...filter }}
       members={members}
+      pinned={pinned}
     />,
   );
 }
@@ -39,6 +44,20 @@ describe("TypeMenu", () => {
     renderMenu({ type: "task", ref: "" });
 
     expect(screen.getByRole("button", { name: "Filter activity, showing Tasks" })).toBeVisible();
+  });
+
+  it("names the one thing the feed is pinned to, since nothing else says which", () => {
+    renderMenu({ type: "member", ref: "m2" }, MEMBERS, "Dan Novak");
+
+    expect(screen.getByRole("button", { name: /Member: Dan Novak/ })).toHaveTextContent(
+      "Member: Dan Novak",
+    );
+  });
+
+  it("names the kind alone for a pinned thing nothing could name", () => {
+    renderMenu({ type: "member", ref: "m9" }, MEMBERS, null);
+
+    expect(screen.getByRole("button")).toHaveTextContent("One member");
   });
 
   it("reads as the whole trail, and goes back to it, when nothing narrows it", async () => {

@@ -5,11 +5,11 @@ import {
   loadTrail,
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
-import { ActivitySubject } from "@/components/app/group/overview/activity/activity-subject";
 import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/actor-menu";
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
 import { ActivityEmpty } from "@/components/common/activity/activity-empty";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
+import { ClearFilters } from "@/components/common/activity/clear-filters";
 import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { LoadError } from "@/components/common/load-error";
 import { dateChoices } from "@/lib/audit/dates/dates";
@@ -81,30 +81,30 @@ export default async function ActivityPage({
   const actors = admin ? roster.actors : [];
   const menu = (
     <div key="menu" className="gap-space-sm flex items-center">
-      <TypeMenu path={path} filter={filter} members={roster.members} />
+      <TypeMenu
+        path={path}
+        filter={filter}
+        members={roster.members}
+        pinned={subjectName(uid, filter, group?.name, names)}
+      />
       {actors.length > 0 ? <ActorMenu path={path} filter={filter} actors={actors} /> : null}
     </div>
   );
   const dates = <DateMenu key="dates" path={path} filter={filter} choices={ranges} />;
-  const subject =
-    filter.type && filter.ref ? (
-      <ActivitySubject
-        key="subject"
-        type={filter.type}
-        name={subjectName(uid, filter, group?.name, names)}
-        path={path}
-      />
-    ) : null;
+  // Keyed like the other slots, since it reaches the feed as a named prop.
+  const clear = <ClearFilters key="clear" path={path} filter={filter} />;
 
   if (failure || page.entries.length === 0) {
     return (
       <section className="gap-space-md flex flex-col">
         {heading}
-        <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          {menu}
-          {dates}
+        <div className="gap-space-xs flex flex-col">
+          <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            {menu}
+            {dates}
+          </div>
+          {clear}
         </div>
-        {subject}
         {failure ? (
           <LoadError title="We could not load the activity." message={failure} />
         ) : (
@@ -135,7 +135,7 @@ export default async function ActivityPage({
         heading={heading}
         menu={menu}
         dates={dates}
-        subject={subject}
+        clear={clear}
       />
     </section>
   );

@@ -42,14 +42,15 @@ export const FILTER_OPTIONS: readonly { value: AuditFilterType; label: string }[
   { value: "group", label: "Group" },
 ];
 
-// Singular, for the line naming the one thing a ref pins the feed to.
+// Singular, for the pill naming the one thing a ref pins the feed to, where
+// the plural above names the kind the whole feed is narrowed to.
 const SUBJECTS: Record<AuditFilterType, string> = {
-  task: "task",
-  member: "member",
-  category: "category",
-  tag: "tag",
-  completion: "completion",
-  group: "group",
+  task: "Task",
+  member: "Member",
+  category: "Category",
+  tag: "Tag",
+  completion: "Completion",
+  group: "Group",
 };
 
 /** Takes the first value of a search param that may have arrived repeated. */
@@ -178,13 +179,13 @@ export function narrowsTrail(filter: AuditFilter): boolean {
 }
 
 /**
- * Names the one thing a feed is pinned to, for the line above it.
+ * Names the one thing a feed is pinned to, for the pill that pinned it.
  *
  * @param type The kind of thing the ref addresses.
  * @param name What it is called, where the screen could resolve it.
- * @returns The phrase after "Showing", which falls back to the kind alone
+ * @returns The kind and the name together, falling back to the kind alone
  * rather than guessing at a name the roster no longer holds.
  */
-export function subjectLabel(type: AuditFilterType, name: string | null): string {
-  return name ? `${name}'s history` : `one ${SUBJECTS[type]}'s history`;
+export function pinnedLabel(type: AuditFilterType, name: string | null): string {
+  return name ? `${SUBJECTS[type]}: ${name}` : `One ${SUBJECTS[type].toLowerCase()}`;
 }

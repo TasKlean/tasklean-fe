@@ -5,7 +5,7 @@ import {
   auditFilterParams,
   auditFilterQuery,
   narrowsTrail,
-  subjectLabel,
+  pinnedLabel,
 } from "@/lib/audit/filter/filter";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
@@ -173,9 +173,9 @@ describe("auditFilterParams", () => {
   });
 });
 
-describe("subjectLabel", () => {
+describe("pinnedLabel", () => {
   it("names the thing where the screen knew it, and the kind where it did not", () => {
-    expect(subjectLabel("member", "Dan Petric")).toBe("Dan Petric's history");
-    expect(subjectLabel("member", null)).toBe("one member's history");
+    expect(pinnedLabel("member", "Dan Petric")).toBe("Member: Dan Petric");
+    expect(pinnedLabel("member", null)).toBe("One member");
   });
 });

@@ -94,7 +94,7 @@ function renderFeed(
       heading={<h2>Activity</h2>}
       menu={<p>Filters</p>}
       dates={<p>Any time</p>}
-      subject={null}
+      clear={null}
     />,
   );
 }

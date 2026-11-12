@@ -2021,7 +2021,7 @@ for, and one test asserts both on the same element so they cannot be collapsed i
 
 **An element passed to a client component as a named prop carries a `key`.** The day switch has to
 sit in the filters' row while the grouping state lives in the feed, so `ActivityFeed` takes the
-heading, the controls and the subject band as three slots rather than one `children`. React validates
+heading, the controls, the range and the clear press as four slots rather than one `children`. React validates
 a named element prop crossing the server boundary as a list child and warns without a key, where
 `children` is exempt. The alternative was giving the switch a row of its own, which is the layout
 problem the slots exist to solve.
@@ -2032,7 +2032,17 @@ narrow them, so `ActivityFeed`, the timeline, the rows, the change card and the 
 screen binds its own, and the group's takes the uid as a bound first argument that overwrites whatever
 arrives under that name: a press can then only ask for the trail of the page it sits on, where a
 posted uid was the browser's to choose. What only a group has stays with the group: the entity and
-actor menus, the subject band, and the divider for the people who have left.
+actor menus and the divider for the people who have left.
+
+**The filter says what it is on the pills, and one press takes it off.** A band above the feed naming
+what it was pinned to said it a second time, and only ever for a ref: a kind, an actor or a range on
+its own got nothing. So the band is gone and the pill carries the specific thing instead ("Member:
+Dan Novak", "Actor: Alice Johnson"), where the kind alone ("Members") still means the whole kind, and
+a ref the roster can no longer name reads "One member" rather than a guess. `ClearFilters` is the one
+way back to the whole trail: a line of its own under the controls and pushed to their right-hand end,
+where it tucks under the range pill and the pills above it do not move when it appears or goes. It
+draws nothing at all while nothing narrows the feed. The date pill keeps its value
+unprefixed, a range already reading as one.
 
 **A row whose actor is also its subject describes a different event.** The backend writes
 `MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
