@@ -1,14 +1,21 @@
 /**
- * Naming what a group's trail is about. A ref is an identifier and the backend
- * sends no label with it, so the roster is read once per view, for everyone who
- * was ever in the group: it names the membership rows of every page the reader
- * goes on to load, and it is the only screen a group's trail can borrow a name
- * from.
+ * Reading a group's trail, and naming what it is about. A ref is an identifier
+ * and the backend sends no label with it, so the roster is read once per view,
+ * for everyone who was ever in the group: it names the membership rows of every
+ * page the reader goes on to load, and it is the only screen a group's trail can
+ * borrow a name from. The refusals the feed can answer with are routed here too,
+ * since two of the three end the render.
  */
 
-import type { ActorChoice, AuditNames, MemberChoice } from "@/lib/audit/audit.types";
+import { redirect } from "next/navigation";
+import { isApiError } from "@/lib/api/errors";
+import { isSessionExpiredError } from "@/lib/api/server/server";
+import { getGroupActivity } from "@/lib/audit/audit";
+import type { ActorChoice, AuditNames, AuditPage, MemberChoice } from "@/lib/audit/audit.types";
+import { auditFilterQuery } from "@/lib/audit/filter/filter";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 import { listGroupMembers } from "@/lib/groups/members/members";
+import { GROUP_UNAVAILABLE_PATH, isGroupUnavailable } from "@/lib/groups/unavailable/unavailable";
 import { fullName } from "@/lib/users/name/name";
 
 /** What one roster read tells a trail: who its rows are about, and who can be picked. */
@@ -23,6 +30,18 @@ export type MemberRoster = {
   // without the user behind it.
   actors: ActorChoice[];
 };
+
+/** The first page of a trail, what its rows read by, and why it is not there. */
+export type TrailView = {
+  page: AuditPage;
+  roster: MemberRoster;
+  // The line shown in the feed's place, null where it loaded.
+  failure: string | null;
+};
+
+const EMPTY_PAGE: AuditPage = { entries: [], nextCursor: null, total: 0 };
+
+const EMPTY_ROSTER: MemberRoster = { names: {}, members: [], actors: [] };
 
 /**
  * Reads what the roster can tell a trail, in one call.
@@ -85,4 +104,43 @@ export function subjectName(
   if (filter.type !== "member" || !filter.ref) return null;
 
   return names[filter.ref]?.name ?? null;
+}
+
+/**
+ * Reads the first page of a trail, with the roster its rows read by.
+ *
+ * @param groupUid The group in the route.
+ * @param filter The filter the URL carried, with an actor the reader may not
+ * ask for already cleared.
+ * @param timeZone The reader's zone, which the range is read in.
+ * @returns The page, the roster, and the line to show instead where the feed
+ * was refused.
+ * @throws A redirect for a dead session or a group that is not the reader's,
+ * and anything that is not an `ApiError`.
+ */
+export async function loadTrail(
+  groupUid: string,
+  filter: AuditFilter,
+  timeZone: string,
+): Promise<TrailView> {
+  try {
+    // Read together: neither answers anything about the other, and serially the
+    // roster would add its own round trip to what the reader waits for. Only
+    // the feed read can reject, so a failure here is always the feed's.
+    const [page, roster] = await Promise.all([
+      getGroupActivity(groupUid, auditFilterQuery(filter, timeZone)),
+      memberRoster(groupUid),
+    ]);
+
+    return { page, roster, failure: null };
+  } catch (error) {
+    if (isSessionExpiredError(error)) redirect("/login");
+    // An actor filter is refused with a 403 carrying no code, so a feed that
+    // asked for one must not read that as the group being gone and bounce.
+    if (!filter.actor && isGroupUnavailable(error)) redirect(GROUP_UNAVAILABLE_PATH);
+
+    if (!isApiError(error)) throw error;
+
+    return { page: EMPTY_PAGE, roster: EMPTY_ROSTER, failure: error.message };
+  }
 }

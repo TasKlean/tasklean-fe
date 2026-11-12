@@ -19,6 +19,11 @@ type ChangeCardProps = {
 const TOGGLE =
   "text-label-sm text-muted-foreground hover:text-foreground self-start underline underline-offset-2 transition-colors";
 
+/** Names the press by what it opens, so the count is read before the press. */
+function showLabel(count: number): string {
+  return `Show ${count} change${count === 1 ? "" : "s"}`;
+}
+
 /** Renders the fields an update moved, once the reader asks for them. */
 export function ChangeCard({ lines }: Readonly<ChangeCardProps>) {
   const [shown, setShown] = useState(false);
@@ -33,7 +38,7 @@ export function ChangeCard({ lines }: Readonly<ChangeCardProps>) {
         aria-expanded={shown}
         className={TOGGLE}
       >
-        {shown ? "Hide changes" : `Show ${lines.length} change${lines.length === 1 ? "" : "s"}`}
+        {shown ? "Hide changes" : showLabel(lines.length)}
       </button>
 
       {shown ? (

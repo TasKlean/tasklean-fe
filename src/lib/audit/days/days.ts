@@ -30,7 +30,7 @@ export function auditDays(entries: AuditEntry[], now: Date, timeZone: string): A
     const open = days.at(-1);
     const key = at ? dayKey(at, timeZone) : (open?.key ?? UNDATED.key);
 
-    if (open && open.key === key) {
+    if (open?.key === key) {
       open.rows.push({ entry, at });
       continue;
     }

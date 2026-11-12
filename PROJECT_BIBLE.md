@@ -1944,7 +1944,7 @@ resolved, so a uid that does not exist and somebody else's are one answer: a 403
 Every other 403 on a group route means the group is not yours, which is why `isGroupUnavailable`
 bounces to `/app?unavailable=1`, and an unguarded actor filter would throw a member out of a group
 they are in. So it is defended twice: `allowedActor` clears an actor the reader may not name, and the
-page's bounce is gated on the filter holding none. The control is an admin's for the same reason, and
+read's own bounce is gated on the filter holding none. The control is an admin's for the same reason, and
 that gate is UX: Spring stays the authority and the action still reports its own refusal.
 
 **An update names its fields, and the backend decides whether it may say what they became.** The

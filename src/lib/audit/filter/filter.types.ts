@@ -37,6 +37,9 @@ export type AuditFilter = {
   to: string;
 };
 
-// What Next hands a page as `searchParams`, which is caller-controlled: a key
-// repeated in the URL arrives as a list, and anything may be missing.
-export type AuditSearchParams = Record<string, string | string[] | undefined>;
+// One value out of the URL, which is caller-controlled: a key repeated in the
+// URL arrives as a list, and anything may be missing.
+export type AuditParam = string | string[] | undefined;
+
+// What Next hands a page as `searchParams`.
+export type AuditSearchParams = Record<string, AuditParam>;

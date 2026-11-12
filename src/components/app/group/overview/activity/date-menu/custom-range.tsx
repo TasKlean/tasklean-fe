@@ -62,7 +62,7 @@ export function CustomRange({ path, filter, onBack, back }: Readonly<CustomRange
         {filter.actor ? <input type="hidden" name="actor" value={filter.actor} /> : null}
 
         <label className={FIELD_LABEL}>
-          From
+          <span>From</span>
           {/* Capped at the other end, so the pair the endpoint refuses with a
               400 cannot be submitted. */}
           <input
@@ -76,7 +76,7 @@ export function CustomRange({ path, filter, onBack, back }: Readonly<CustomRange
         </label>
 
         <label className={FIELD_LABEL}>
-          To
+          <span>To</span>
           <input
             type="date"
             name="to"

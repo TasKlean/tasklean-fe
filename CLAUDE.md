@@ -151,8 +151,8 @@ src/
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
                        with actions/ for the page after a cursor and
-                       page.helpers.ts for the roster its rows and its pickers
-                       read by
+                       page.helpers.ts for the read: the first page, the roster
+                       its rows and its pickers read by, and the refusals
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -560,7 +560,7 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   `actorRefRule` is its own rule. **Only an admin is offered the control, and a refusal is
   normalised before it is sent**: the endpoint answers a member naming anybody but themselves with a
   403 carrying no code, which `isGroupUnavailable` cannot tell from the group being gone, so
-  `allowedActor` clears it and the page's bounce is gated on the filter holding no actor.
+  `allowedActor` clears it and `loadTrail`'s bounce is gated on the filter holding no actor.
 - **The range is calendar days in the URL and instants on the wire.** `?from=&to=` carries
   `YYYY-MM-DD`, which `auditFilterQuery` turns into `dateFrom` and `dateTo` using the reader's zone,
   passed in like every other zone-aware call. **`dateTo` is exclusive**, so the ceiling is sent as

@@ -11,7 +11,14 @@ vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({ accessToken: "at-1", refreshToken: "rt-1", userUid: "u1" }),
 }));
 
+vi.mock("next/navigation", () => ({
+  redirect: (to: string) => {
+    throw new Error(`REDIRECT:${to}`);
+  },
+}));
+
 import {
+  loadTrail,
   memberRoster,
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
@@ -150,5 +157,48 @@ describe("memberRoster", () => {
     );
 
     expect(await memberRoster("g1")).toEqual({ names: {}, members: [], actors: [] });
+  });
+});
+
+describe("loadTrail", () => {
+  function trail(status: number, message: string) {
+    return http.get(`${BASE}/api/audit-logs/groups/g1`, () =>
+      HttpResponse.json({ success: false, message, data: null }, { status }),
+    );
+  }
+
+  it("reads the feed and the roster together", async () => {
+    server.use(
+      rosterOf(ALICE, DAN),
+      http.get(`${BASE}/api/audit-logs/groups/g1`, () =>
+        envelope({ items: [], nextCursor: null, total: 0 }),
+      ),
+    );
+
+    const view = await loadTrail("g1", filter(), "UTC");
+
+    expect(view.failure).toBeNull();
+    expect(view.roster.names.m2?.name).toBe("Dan Novak");
+  });
+
+  it("sends a reader whose session has gone back to the login screen", async () => {
+    server.use(rosterOf(ALICE), trail(401, "Unauthorized"));
+
+    await expect(loadTrail("g1", filter(), "UTC")).rejects.toThrow("REDIRECT:/login");
+  });
+
+  it("bounces a reader out of a group that is not theirs", async () => {
+    server.use(rosterOf(ALICE), trail(403, "Forbidden"));
+
+    await expect(loadTrail("g1", filter(), "UTC")).rejects.toThrow("REDIRECT:/app?unavailable=1");
+  });
+
+  it("reports the refusal of an actor filter rather than bouncing on it", async () => {
+    server.use(rosterOf(ALICE), trail(403, "Forbidden"));
+
+    const view = await loadTrail("g1", filter({ actor: "u2" }), "UTC");
+
+    expect(view.failure).toBe("Forbidden");
+    expect(view.page.entries).toEqual([]);
   });
 });

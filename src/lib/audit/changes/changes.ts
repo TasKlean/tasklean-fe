@@ -9,8 +9,8 @@
 import type { AuditFieldChange } from "@/lib/audit/audit.types";
 import type { AuditToken } from "@/lib/audit/tokens/tokens";
 import { fieldToken, plainToken, valueToken } from "@/lib/audit/tokens/tokens";
-import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { roleLabel } from "@/lib/groups/labels/labels";
+import { isGroupRole } from "@/lib/groups/role/role";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 import { FALLBACK_TIME_ZONE } from "@/lib/time/zone/zone";
 
@@ -93,7 +93,7 @@ function changeValue(
   if (kind === "role") {
     // Only a known role goes through `roleLabel`, which reads anything else as
     // a member rather than admitting it does not know the value.
-    return GROUP_ROLES.some((known) => known === text) ? roleLabel(text) : plainValue(text);
+    return isGroupRole(text) ? roleLabel(text) : plainValue(text);
   }
 
   if (kind === "flag") return text === "true" ? "Yes" : "No";

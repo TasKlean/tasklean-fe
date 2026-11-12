@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import type { MemberRoster } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import {
-  memberRoster,
+  loadTrail,
   subjectName,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/actor-menu";
@@ -13,27 +11,15 @@ import { ActivitySubject } from "@/components/app/group/overview/activity/activi
 import { DateMenu } from "@/components/app/group/overview/activity/date-menu/date-menu";
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
 import { LoadError } from "@/components/common/load-error";
-import { isApiError } from "@/lib/api/errors";
-import { isSessionExpiredError } from "@/lib/api/server/server";
-import { getGroupActivity } from "@/lib/audit/audit";
-import type { AuditPage } from "@/lib/audit/audit.types";
 import { dateChoices } from "@/lib/audit/dates/dates";
-import {
-  allowedActor,
-  auditFilter,
-  auditFilterQuery,
-  narrowsTrail,
-} from "@/lib/audit/filter/filter";
+import { allowedActor, auditFilter, narrowsTrail } from "@/lib/audit/filter/filter";
 import { getSession } from "@/lib/auth/session/session";
 import { isGroupAdmin } from "@/lib/groups/role/role";
-import { GROUP_UNAVAILABLE_PATH, isGroupUnavailable } from "@/lib/groups/unavailable/unavailable";
 import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 
 export const metadata: Metadata = {
   title: "Activity",
 };
-
-const EMPTY: AuditPage = { entries: [], nextCursor: null, total: 0 };
 
 /**
  * Renders what has happened in this group, newest first.
@@ -64,29 +50,9 @@ export default async function ActivityPage({
   // every "2 hours ago" agree, and the browser hydrates to what was drawn.
   const now = new Date();
 
-  let page = EMPTY;
-  // What the roster can give, which is everyone the group ever had.
-  let roster: MemberRoster = { names: {}, members: [], actors: [] };
-  let failure: string | null = null;
-
-  try {
-    // Read together: neither answers anything about the other, and serially the
-    // roster would add its own round trip to what the reader waits for. Only
-    // the feed read can reject, so a failure here is always the feed's.
-    [page, roster] = await Promise.all([
-      getGroupActivity(uid, auditFilterQuery(filter, timeZone)),
-      memberRoster(uid),
-    ]);
-  } catch (error) {
-    if (isSessionExpiredError(error)) redirect("/login");
-    // An actor filter is refused with a 403 carrying no code, so a feed that
-    // asked for one must not read that as the group being gone and bounce.
-    if (!filter.actor && isGroupUnavailable(error)) redirect(GROUP_UNAVAILABLE_PATH);
-
-    if (!isApiError(error)) throw error;
-    failure = error.message;
-  }
-
+  // The feed and the roster the names come from, with a dead session and a
+  // group that is not the reader's already turned into a redirect.
+  const { page, roster, failure } = await loadTrail(uid, filter, timeZone);
   const names = roster.names;
   const ranges = dateChoices(now, timeZone);
   // The three slots below are keyed because they reach a client component as

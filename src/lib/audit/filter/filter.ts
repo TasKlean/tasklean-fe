@@ -11,6 +11,7 @@ import type { AuditEntityType } from "@/lib/audit/entity/entity";
 import {
   AUDIT_FILTER_TYPES,
   type AuditFilter,
+  type AuditParam,
   type AuditFilterType,
   type AuditSearchParams,
 } from "@/lib/audit/filter/filter.types";
@@ -52,17 +53,17 @@ const SUBJECTS: Record<AuditFilterType, string> = {
 };
 
 /** Takes the first value of a search param that may have arrived repeated. */
-function one(value: string | string[] | undefined): string {
+function one(value: AuditParam): string {
   return (Array.isArray(value) ? value[0] : value) ?? "";
 }
 
 /** Reads one identifier out of the URL, capped where the backend caps it. */
-function refParam(value: string | string[] | undefined): string {
+function refParam(value: AuditParam): string {
   return one(value).trim().slice(0, REF_MAX_LENGTH);
 }
 
 /** Reads one end of the range, keeping only a day that exists. */
-function dayParam(value: string | string[] | undefined): string {
+function dayParam(value: AuditParam): string {
   const day = one(value).trim();
 
   return isDayKey(day) ? day : "";
