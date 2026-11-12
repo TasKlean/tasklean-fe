@@ -80,7 +80,7 @@ export default async function ActivityPage({
   // offered no control rather than one that earns a refusal.
   const actors = admin ? roster.actors : [];
   const menu = (
-    <div key="menu" className="gap-space-sm flex items-center">
+    <div key="menu" className="gap-space-sm flex items-center sm:mr-auto">
       <TypeMenu
         path={path}
         filter={filter}
@@ -99,7 +99,7 @@ export default async function ActivityPage({
       <section className="gap-space-md flex flex-col">
         {heading}
         <div className="gap-space-xs flex flex-col">
-          <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-end">
             {menu}
             {dates}
           </div>

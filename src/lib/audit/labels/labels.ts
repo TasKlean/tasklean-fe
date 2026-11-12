@@ -42,6 +42,27 @@ const PHRASES: Record<string, string> = {
   "DELETE:TAG": "deleted a tag",
   "CREATE:TASK_COMPLETION": "marked a task done",
   "DELETE:TASK_COMPLETION": "undid a completion",
+  // An account's own history, where the subject is always the reader and so
+  // "your" always means theirs. Five actions are missing on purpose: the ones
+  // whose only copy of the device name, the count or the reason is the
+  // backend's sentence, which the fallback prints whole rather than losing.
+  "REGISTER:USER": "created this account",
+  "LOGIN:USER": "signed in",
+  "LOGOUT:USER": "signed out",
+  "EMAIL_VERIFIED:USER": "verified your email address",
+  "PASSWORD_CHANGED:USER": "changed your password",
+  "PASSWORD_SET:USER": "set a password",
+  "PASSWORD_RESET:USER": "reset your password",
+  "GOOGLE_LINKED:USER": "linked a Google account",
+  "GOOGLE_UNLINKED:USER": "unlinked your Google account",
+  "TWO_FACTOR_ENABLED:USER": "turned on two-factor authentication",
+  "TWO_FACTOR_DISABLED:USER": "turned off two-factor authentication",
+  "TWO_FACTOR_RECOVERY_USED:USER": "used a recovery code",
+  "RECOVERY_CODES_REGENERATED:USER": "replaced your recovery codes",
+  "ALL_SESSIONS_REVOKED:USER": "signed out everywhere",
+  "ACCOUNT_DELETED:USER": "deactivated this account",
+  "UPDATE:USER": "updated your profile",
+  "ROLE_CHANGED:USER": "changed your role",
 };
 
 // The pairs that read better for naming the member they are about, which is

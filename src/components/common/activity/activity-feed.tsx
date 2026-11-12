@@ -114,7 +114,7 @@ export function ActivityFeed({
       {/* The kind and the actor share a row on a phone, where the range takes the
           whole of the next one; one row from `sm` up, the clear press under it. */}
       <div className="gap-space-xs flex flex-col">
-        <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-end">
           {menu}
 
           {dates}

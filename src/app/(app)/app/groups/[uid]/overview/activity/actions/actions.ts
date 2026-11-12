@@ -7,21 +7,13 @@
 "use server";
 
 import { memberRoster } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
-import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
-import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
+import { GENERIC_FAILURE } from "@/lib/api/errors";
 import { getGroupActivity } from "@/lib/audit/audit";
 import type { AuditPageResult } from "@/lib/audit/audit.types";
 import { auditFilterQuery } from "@/lib/audit/filter/filter";
+import { pageFailureMessage } from "@/lib/audit/paging/paging";
 import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 import { parseAuditPage } from "@/lib/validation/forms/audit-page.schema/audit-page.schema";
-
-// Read here alone, so it stays here rather than in api/error-codes.
-const PAGE_CURSOR_INVALID = "PAGE_CURSOR_INVALID";
-
-// Never retried from the first page: a cursor is ours to hand back unchanged,
-// so a refused one is our own bug, and a silent restart would re-show rows the
-// reader already has while losing where they were.
-const DEAD_CURSOR = "We could not load more activity. Reload the page to start again.";
 
 /** Reads an action's payload as the bag of fields it should be, whatever arrived. */
 function asFields(input: unknown): Record<string, unknown> {
@@ -82,10 +74,6 @@ export async function loadActivityPageAction(
 
     return { ok: true, page, names: roster.names };
   } catch (error) {
-    if (isApiError(error) && error.code === PAGE_CURSOR_INVALID) {
-      return { ok: false, message: DEAD_CURSOR };
-    }
-
-    return { ok: false, message: actionFailureMessage(error) };
+    return { ok: false, message: pageFailureMessage(error) };
   }
 }

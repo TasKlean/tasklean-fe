@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountFilter,
   allowedActor,
   auditFilter,
   auditFilterParams,
@@ -170,6 +171,22 @@ describe("auditFilterParams", () => {
     expect(auditFilterParams(filter({ type: "task", actor: "u2" })).toString()).toBe(
       "type=task&actor=u2",
     );
+  });
+});
+
+describe("accountFilter", () => {
+  it("reads the range and nothing else, since nothing else narrows an account", () => {
+    expect(accountFilter({ from: "2026-11-02", to: "2026-11-09" })).toEqual(
+      filter({ from: "2026-11-02", to: "2026-11-09" }),
+    );
+  });
+
+  it("ignores a kind, a ref and an actor a typed URL carries", () => {
+    expect(accountFilter({ type: "member", ref: "m1", actor: "u2" })).toEqual(filter());
+  });
+
+  it("drops a range that reads backwards, which the endpoint refuses", () => {
+    expect(accountFilter({ from: "2026-11-09", to: "2026-11-02" })).toEqual(filter());
   });
 });
 

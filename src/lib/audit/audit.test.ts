@@ -15,11 +15,12 @@ vi.mock("@/lib/auth/session/session", () => ({
   }),
 }));
 
-import { getGroupActivity } from "@/lib/audit/audit";
+import { getAccountActivity, getGroupActivity } from "@/lib/audit/audit";
 import { isApiError } from "@/lib/api/errors";
 
 const BASE = "http://api.test";
 const TRAIL = `${BASE}/api/audit-logs/groups/:groupUid`;
+const ACCOUNT = `${BASE}/api/audit-logs/account`;
 
 beforeAll(() => {
   process.env.API_BASE_URL = BASE;
@@ -133,5 +134,58 @@ describe("getGroupActivity", () => {
     await expect(getGroupActivity("g1")).rejects.toSatisfy(
       (error: unknown) => isApiError(error) && error.status === 403,
     );
+  });
+});
+
+describe("getAccountActivity", () => {
+  it("reads the caller's own history, which the path names nobody for", async () => {
+    const seen: Seen = {};
+    server.use(
+      http.get(ACCOUNT, ({ request }) => {
+        seen.url = request.url;
+        return envelope({ items: [], nextCursor: null, total: 0 });
+      }),
+    );
+
+    await getAccountActivity();
+
+    expect(new URL(seen.url ?? "").pathname).toBe("/api/audit-logs/account");
+    expect(sent(seen).get("limit")).toBe("20");
+  });
+
+  it("sends the range and the cursor it was given", async () => {
+    const seen: Seen = {};
+    server.use(
+      http.get(ACCOUNT, ({ request }) => {
+        seen.url = request.url;
+        return envelope({ items: [], nextCursor: null, total: 0 });
+      }),
+    );
+
+    await getAccountActivity({
+      dateFrom: "2026-11-02T00:00:00.000Z",
+      dateTo: "2026-11-10T00:00:00.000Z",
+      cursor: "c1",
+    });
+
+    expect(sent(seen).get("dateFrom")).toBe("2026-11-02T00:00:00.000Z");
+    expect(sent(seen).get("dateTo")).toBe("2026-11-10T00:00:00.000Z");
+    expect(sent(seen).get("cursor")).toBe("c1");
+  });
+
+  it("keeps the IP address a row of your own carries", async () => {
+    server.use(
+      http.get(ACCOUNT, () =>
+        envelope({
+          items: [{ uid: "a1", action: "LOGIN", ipAddress: "86.61.14.22" }],
+          nextCursor: null,
+          total: 1,
+        }),
+      ),
+    );
+
+    const page = await getAccountActivity();
+
+    expect(page.entries[0]?.ipAddress).toBe("86.61.14.22");
   });
 });

@@ -31,6 +31,11 @@ which carries only a notice.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
 
+**`/app/settings/activity` is the account's own trail**, last under Security: sign-ins, credential
+changes, two-factor and device events, newest first, a page of 20 behind a Load more press. The same
+feed the group screens draw, with the range as its only filter and the IP address on the rows the
+reader acted on.
+
 **Two-factor is complete for the one provider the backend has**: a gated sign-in, the methods list,
 enrolling, turning it off and reissuing recovery codes. Every `/api/account/2fa` endpoint has a
 caller.
@@ -162,7 +167,9 @@ src/
                        Account) and sections.types.ts, then one directory per
                        page: appearance/, language/, notifications/,
                        two-factor/, devices/ (+ page.helpers.ts), password/,
-                       connected-accounts/, deactivate/
+                       connected-accounts/, deactivate/, activity/ (the
+                       account's own trail: page.helpers.ts for the read,
+                       actions/ for the page after a cursor)
       uploads/actions/ the presign every picker shares, in a segment with no
                        page.tsx, so it is an action rather than a route
     (auth)/            brand panel + form shell, robots noindex. actions.ts is
@@ -222,14 +229,16 @@ src/
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (own password, connections, deactivation),
                        two-factor.ts
-    audit/             audit.ts (one page of a group's trail), audit.types.ts,
+    audit/             audit.ts (one page of a trail, a group's or the caller's
+                       own account), audit.types.ts,
                        entity/ (the type set, and the six a group holds),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
                        tokens/ (the pieces a line is built from),
                        days/ (a feed cut into the days it happened on),
                        dates/ (the ranges on offer and their words),
-                       filter/ (URL <-> query <-> endpoint params)
+                       filter/ (URL <-> query <-> endpoint params, for both
+                       scopes), paging/ (the line a refused cursor shows)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -266,8 +275,8 @@ src/
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
-                       <form>.schema.ts each, plus upload-request and
-                       audit-page, which no form posts),
+                       <form>.schema.ts each, plus upload-request, audit-page
+                       and account-page, which no form posts),
                        password/ (policy.ts, strength.ts), code-length.ts
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)

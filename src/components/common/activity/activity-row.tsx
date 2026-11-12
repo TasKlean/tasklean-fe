@@ -75,6 +75,14 @@ export function ActivityRow({
           <TokenLine tokens={line.sentence} />
         </p>
 
+        {/* Only an account's own rows carry one, and only where the reader is
+            the person who acted: a group's trail never sends an address. */}
+        {entry.ipAddress ? (
+          <p className="text-label-sm text-muted-foreground break-all">
+            from <span className="text-foreground font-bold">{entry.ipAddress}</span>
+          </p>
+        ) : null}
+
         <ChangeCard lines={line.details} />
       </div>
     </li>

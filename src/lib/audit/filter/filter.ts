@@ -90,6 +90,23 @@ export function auditFilter(params: AuditSearchParams): AuditFilter {
 }
 
 /**
+ * Narrows a URL's search params into the filter an account's trail runs on.
+ *
+ * @param params What Next handed the page, where every value is caller-chosen.
+ * @returns The range, and nothing else. Every row of an account's history is
+ * about that one account and names its own actor, so the kind and the actor
+ * have nothing left to narrow and are not read at all.
+ */
+export function accountFilter(params: AuditSearchParams): AuditFilter {
+  return {
+    type: null,
+    ref: "",
+    actor: "",
+    ...dayRange(dayParam(params.from), dayParam(params.to)),
+  };
+}
+
+/**
  * Keeps a range the endpoint will accept.
  *
  * @returns Both days, or neither: a floor above the ceiling is a 400 with a

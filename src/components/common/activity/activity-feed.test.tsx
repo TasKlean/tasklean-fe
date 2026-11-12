@@ -116,6 +116,35 @@ beforeEach(() => {
 });
 
 describe("ActivityFeed", () => {
+  it("shows the address a row was recorded from, and nothing where there is none", () => {
+    const signIn: AuditPage = {
+      entries: [
+        {
+          uid: "a1",
+          action: "LOGIN",
+          entity: { type: "USER" },
+          actor: { uid: "u1" },
+          ipAddress: "86.61.14.22",
+          dateCreated: "2026-11-06T11:00:00",
+        },
+        {
+          uid: "a2",
+          action: "LOGOUT",
+          entity: { type: "USER" },
+          actor: { uid: "u1" },
+          dateCreated: "2026-11-06T10:00:00",
+        },
+      ],
+      nextCursor: null,
+      total: 2,
+    };
+
+    renderFeed({}, signIn);
+
+    expect(screen.getByText("86.61.14.22")).toBeInTheDocument();
+    expect(screen.getAllByText(/^from/)).toHaveLength(1);
+  });
+
   it("counts what is on screen against the total, at the foot of the list", async () => {
     const user = userEvent.setup({ delay: null });
     loadMore.mockResolvedValue({

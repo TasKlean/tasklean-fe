@@ -2139,6 +2139,19 @@ pair whose own copy names a field can carry its values.
 **An empty feed says something different to a member.** Their rows are narrowed, so "nothing has
 happened" would be a lie in a busy household; they are told what they will see instead.
 
+**The second scope is the reader's own account, and it narrows to less than it looks.** `GET
+/api/audit-logs/account` takes a group trail's parameters, but every row is already about the one
+account the token names, so `entityType` and `entityRef` match what is there anyway and `actorRef` is
+the reader on all but the rows somebody else caused. Only the range is worth offering, which is all
+`accountFilter` reads. Two things are the account's alone: a row carries an `ipAddress` where the
+reader is the one who acted, which a group's rows never do, and five actions keep the backend's own
+sentence as their line (`LOGIN_FAILED`, `NEW_DEVICE_LOGIN`, `SESSION_REVOKED`, `DEVICE_REMOVED`,
+`ALL_DEVICES_REMOVED`), because the device name, the count or the reason is in that sentence and
+nowhere else on the entry. Phrasing those ourselves would throw the detail away, at the price of
+five lines that cannot be localized. `LOGIN` is phrased, which does lose whether a sign-in was by
+password, by Google or behind a second factor: the backend writes all three as one action with a
+different sentence, and no field tells them apart.
+
 ### A group's picture is an uploaded file, and every piece of that is forced
 
 `GroupRequest` carries a `photoUid` naming an upload rather than the pasted `photoUrl` this section
@@ -2607,6 +2620,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   active session never ends. A cap needs a limit *and* a decision on where the clock lives: one the
   cookie reports is one the cookie can lie about, so it must be sealed at first login and carried
   through every rotation.
+- **Telling one sign-in from another**: the backend writes a password sign-in, a Google one and one
+  behind a second factor as the same `LOGIN` action, differing only in an English sentence no field
+  carries. Our line is phrased, so an account's trail cannot say how somebody signed in. The fix is
+  the backend's: either an action per method or a field on the entry. The same holds for `REGISTER`,
+  which is written for a password sign-up and a Google one alike.
 - **Error tracking**: nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into error
   reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.

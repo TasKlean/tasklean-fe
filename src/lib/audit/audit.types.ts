@@ -33,8 +33,6 @@ export type AuditEntity = {
   ref?: string | null;
 };
 
-// Deliberately no `ipAddress`: a group entry never carries one, and an account
-// entry carries only the reader's own, so a group's feed cannot show one.
 export type AuditEntry = {
   uid?: string;
   action?: string;
@@ -47,6 +45,9 @@ export type AuditEntry = {
   changedFields?: AuditFieldChange[];
   // Null on entries the public auth endpoints wrote, which have no caller.
   actor?: AuditActor | null;
+  // Absent on every row of a group's trail, and on an account row somebody else
+  // acted on: the backend sends an address only to the person it belongs to.
+  ipAddress?: string;
   // UTC with no zone marker, so it parses as local if handled naively.
   dateCreated?: string;
 };
