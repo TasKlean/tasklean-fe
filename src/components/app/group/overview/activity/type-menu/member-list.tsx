@@ -7,11 +7,11 @@
 import { ChevronLeft } from "lucide-react";
 import { Fragment } from "react";
 import type { RefObject } from "react";
-import { FilterMenuRow } from "@/components/app/group/overview/activity/filter-menu-row";
-import { opensFormerBlock } from "@/components/app/group/overview/activity/filter-menu-row.helpers";
-import { DIVIDER, ROW, ROW_OFF } from "@/components/app/group/overview/activity/filter-menu.styles";
 import { FormerDivider } from "@/components/app/group/overview/activity/former-divider";
 import { choiceHref } from "@/components/app/group/overview/activity/type-menu/type-menu.helpers";
+import { FilterMenuRow } from "@/components/common/activity/filter-menu-row";
+import { opensFormerBlock } from "@/components/common/activity/filter-menu-row.helpers";
+import { DIVIDER, ROW, ROW_OFF } from "@/components/common/activity/filter-menu.styles";
 import type { MemberChoice } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 

@@ -2021,10 +2021,28 @@ for, and one test asserts both on the same element so they cannot be collapsed i
 
 **An element passed to a client component as a named prop carries a `key`.** The day switch has to
 sit in the filters' row while the grouping state lives in the feed, so `ActivityFeed` takes the
-heading, the controls and the subject band as three slots rather than one `children`. React validates
+heading, the controls, the range and the clear press as four slots rather than one `children`. React validates
 a named element prop crossing the server boundary as a list child and warns without a key, where
 `children` is exempt. The alternative was giving the switch a row of its own, which is the layout
 problem the slots exist to solve.
+
+**The feed belongs to no one trail.** Two trails differ only in which endpoint answers and in what may
+narrow them, so `ActivityFeed`, the timeline, the rows, the change card and the date menu sit in
+`components/common/activity/` and the feed takes a `loadMore` action rather than a group uid. Each
+screen binds its own, and the group's takes the uid as a bound first argument that overwrites whatever
+arrives under that name: a press can then only ask for the trail of the page it sits on, where a
+posted uid was the browser's to choose. What only a group has stays with the group: the entity and
+actor menus and the divider for the people who have left.
+
+**The filter says what it is on the pills, and one press takes it off.** A band above the feed naming
+what it was pinned to said it a second time, and only ever for a ref: a kind, an actor or a range on
+its own got nothing. So the band is gone and the pill carries the specific thing instead ("Member:
+Dan Novak", "Actor: Alice Johnson"), where the kind alone ("Members") still means the whole kind, and
+a ref the roster can no longer name reads "One member" rather than a guess. `ClearFilters` is the one
+way back to the whole trail: a line of its own under the controls and pushed to their right-hand end,
+where it tucks under the range pill and the pills above it do not move when it appears or goes. It
+draws nothing at all while nothing narrows the feed. The date pill keeps its value
+unprefixed, a range already reading as one.
 
 **A row whose actor is also its subject describes a different event.** The backend writes
 `MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
@@ -2120,6 +2138,19 @@ pair whose own copy names a field can carry its values.
 
 **An empty feed says something different to a member.** Their rows are narrowed, so "nothing has
 happened" would be a lie in a busy household; they are told what they will see instead.
+
+**The second scope is the reader's own account, and it narrows to less than it looks.** `GET
+/api/audit-logs/account` takes a group trail's parameters, but every row is already about the one
+account the token names, so `entityType` and `entityRef` match what is there anyway and `actorRef` is
+the reader on all but the rows somebody else caused. Only the range is worth offering, which is all
+`accountFilter` reads. Two things are the account's alone: a row carries an `ipAddress` where the
+reader is the one who acted, which a group's rows never do, and five actions keep the backend's own
+sentence as their line (`LOGIN_FAILED`, `NEW_DEVICE_LOGIN`, `SESSION_REVOKED`, `DEVICE_REMOVED`,
+`ALL_DEVICES_REMOVED`), because the device name, the count or the reason is in that sentence and
+nowhere else on the entry. Phrasing those ourselves would throw the detail away, at the price of
+five lines that cannot be localized. `LOGIN` is phrased, which does lose whether a sign-in was by
+password, by Google or behind a second factor: the backend writes all three as one action with a
+different sentence, and no field tells them apart.
 
 ### A group's picture is an uploaded file, and every piece of that is forced
 
@@ -2589,6 +2620,11 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   active session never ends. A cap needs a limit *and* a decision on where the clock lives: one the
   cookie reports is one the cookie can lie about, so it must be sealed at first login and carried
   through every rotation.
+- **Telling one sign-in from another**: the backend writes a password sign-in, a Google one and one
+  behind a second factor as the same `LOGIN` action, differing only in an English sentence no field
+  carries. Our line is phrased, so an account's trail cannot say how somebody signed in. The fix is
+  the backend's: either an action per method or a field on the entry. The same holds for `REGISTER`,
+  which is written for a password sign-up and a Google one alike.
 - **Error tracking**: nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into error
   reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.

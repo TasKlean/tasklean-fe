@@ -86,8 +86,8 @@ export async function memberRoster(groupUid: string): Promise<MemberRoster> {
  * @param groupName The open group's name, which the shell has already read.
  * @param names The names read for this view.
  * @returns The name, or null for a kind we have no screen to resolve from and
- * for a membership the roster holds no name for, where the line names the kind
- * instead.
+ * for a membership the roster holds no name for, where the pill that pinned it
+ * names the kind instead.
  */
 export function subjectName(
   groupUid: string,

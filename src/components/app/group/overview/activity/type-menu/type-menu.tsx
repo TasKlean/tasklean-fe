@@ -20,9 +20,10 @@ import {
   TRIGGER_ARROW,
   TRIGGER_ON,
   TRIGGER_QUIET,
-} from "@/components/app/group/overview/activity/filter-menu.styles";
+} from "@/components/common/activity/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { MemberChoice } from "@/lib/audit/audit.types";
+import { pinnedLabel } from "@/lib/audit/filter/filter";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 type TypeMenuProps = {
@@ -32,6 +33,9 @@ type TypeMenuProps = {
   // The roster, which is the one kind a screen can list. Empty where it would
   // not load, which costs the member list and nothing else.
   members: readonly MemberChoice[];
+  // What the one thing the feed is pinned to is called, where the screen could
+  // resolve it. Null for a kind no screen resolves, and for a name that is gone.
+  pinned: string | null;
 };
 
 type View = "kinds" | "member";
@@ -40,8 +44,16 @@ type View = "kinds" | "member";
 // still says "All activity", being a choice rather than a heading.
 const NAME = "Entity type";
 
+/** Names what the pill says the feed is narrowed to. */
+function triggerLabel(filter: AuditFilter, kind: string, pinned: string | null): string {
+  if (!filter.type) return NAME;
+  if (!filter.ref) return kind;
+
+  return pinnedLabel(filter.type, pinned);
+}
+
 /** Renders the kind the trail is narrowed to, with the rest a press away. */
-export function TypeMenu({ path, filter, members }: Readonly<TypeMenuProps>) {
+export function TypeMenu({ path, filter, members, pinned }: Readonly<TypeMenuProps>) {
   const { open, toggle, close, root, trigger } = useDisclosure();
   const panelId = useId();
   // Opens on the member list when the feed is already pinned to one, so moving
@@ -55,6 +67,7 @@ export function TypeMenu({ path, filter, members }: Readonly<TypeMenuProps>) {
   const stepped = useRef(false);
 
   const chosen = chosenChoice(filter.type);
+  const label = triggerLabel(filter, chosen.label, pinned);
   const pickable = members.length > 0;
 
   useEffect(() => {
@@ -88,12 +101,12 @@ export function TypeMenu({ path, filter, members }: Readonly<TypeMenuProps>) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label={`Filter activity, showing ${chosen.label}`}
+        aria-label={`Filter activity, showing ${filter.ref ? label : chosen.label}`}
         onClick={flip}
         className={`${TRIGGER} ${filter.type ? TRIGGER_ON : TRIGGER_QUIET}`}
       >
         <ListFilter className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{filter.type ? chosen.label : NAME}</span>
+        <span className="truncate">{label}</span>
         <ChevronDown className={TRIGGER_ARROW} aria-hidden />
       </button>
 

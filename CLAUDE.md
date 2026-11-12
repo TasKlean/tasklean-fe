@@ -31,6 +31,11 @@ which carries only a notice.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
 
+**`/app/settings/activity` is the account's own trail**, last under Security: sign-ins, credential
+changes, two-factor and device events, newest first, a page of 20 behind a Load more press. The same
+feed the group screens draw, with the range as its only filter and the IP address on the rows the
+reader acted on.
+
 **Two-factor is complete for the one provider the backend has**: a gated sign-in, the methods list,
 enrolling, turning it off and reissuing recovery codes. Every `/api/account/2fa` endpoint has a
 caller.
@@ -162,7 +167,9 @@ src/
                        Account) and sections.types.ts, then one directory per
                        page: appearance/, language/, notifications/,
                        two-factor/, devices/ (+ page.helpers.ts), password/,
-                       connected-accounts/, deactivate/
+                       connected-accounts/, deactivate/, activity/ (the
+                       account's own trail: page.helpers.ts for the read,
+                       actions/ for the page after a cursor)
       uploads/actions/ the presign every picker shares, in a segment with no
                        page.tsx, so it is an action rather than a route
     (auth)/            brand panel + form shell, robots noindex. actions.ts is
@@ -187,7 +194,12 @@ src/
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
                        zone-probe (the browser's own zone, into a cookie),
-                       invite-code/ (invite-code-field, share-invite)
+                       invite-code/ (invite-code-field, share-invite),
+                       activity/ (a trail, whichever one: activity-feed,
+                       activity-timeline, activity-row, change-card, token-line,
+                       day-sections-toggle, activity-empty, clear-filters,
+                       filter-menu-row (+ .helpers, .styles), date-menu/
+                       (+ preset-list, custom-range))
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
                        group-switcher (+ open-group-uid), add-task-button
@@ -199,12 +211,9 @@ src/
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
-                       activity/ (activity-feed, activity-timeline, activity-row,
-                       change-card, token-line, day-sections-toggle,
-                       activity-subject, activity-empty, former-divider,
-                       filter-menu-row (+ .helpers, .styles, shared by every
-                       menu), type-menu/ (+ kind-list, member-list, .helpers),
-                       actor-menu/ and date-menu/ (+ preset-list, custom-range)
+                       activity/ (what only a group's trail has: former-divider,
+                       type-menu/ (+ kind-list, member-list, .helpers) and
+                       actor-menu/)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -220,14 +229,16 @@ src/
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (own password, connections, deactivation),
                        two-factor.ts
-    audit/             audit.ts (one page of a group's trail), audit.types.ts,
+    audit/             audit.ts (one page of a trail, a group's or the caller's
+                       own account), audit.types.ts,
                        entity/ (the type set, and the six a group holds),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
                        tokens/ (the pieces a line is built from),
                        days/ (a feed cut into the days it happened on),
                        dates/ (the ranges on offer and their words),
-                       filter/ (URL <-> query <-> endpoint params)
+                       filter/ (URL <-> query <-> endpoint params, for both
+                       scopes), paging/ (the line a refused cursor shows)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -264,8 +275,8 @@ src/
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
-                       <form>.schema.ts each, plus upload-request and
-                       audit-page, which no form posts),
+                       <form>.schema.ts each, plus upload-request, audit-page
+                       and account-page, which no form posts),
                        password/ (policy.ts, strength.ts), code-length.ts
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)
@@ -545,8 +556,9 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
 - **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
   groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
 - **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
-  the pages and asks for the next through an action that revalidates nothing, since a re-render would
-  throw away what is on screen. A refused cursor is reported, never retried from the first page.
+  the pages and asks for the next through the action it was handed, which revalidates nothing, since
+  a re-render would throw away what is on screen. The feed names no trail of its own: the group's
+  action takes the uid bound to it, so a press cannot name a group. A refused cursor is reported, never retried from the first page.
   `nextCursor` is the only thing that says more exists, and `total` is the label at the foot of the
   list, where Load more is, said once rather than above a list the reader has scrolled past.
 - **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses
@@ -574,7 +586,10 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
   opens them. **A closed pill names the filter until something is picked** ("Entity type", "Actor",
   "Date"), where the panel's own reset row keeps the wording of a choice ("All activity", "Anyone",
-  "Any time") and the pill's `aria-label` keeps saying which. **A choice that needs more than a link
+  "Any time") and the pill's `aria-label` keeps saying which. **A pill that holds one thing names it**
+  ("Member: Dan Novak", "Actor: Alice Johnson", and "One member" for a ref nothing can name), and
+  `ClearFilters` is the one way back to the whole trail, on a line of its own at the right-hand end of
+  the controls, drawn only while something narrows the feed. **A choice that needs more than a link
   drills down in place**: Members carries a
   press of its own at the row's end and the panel swaps the kinds for the roster, and Custom range is
   a press rather than a link, having no days of its own until they are typed. Focus follows the panel
@@ -587,7 +602,7 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   hangs from** and each pill is half the row on a phone, since a 256px panel hanging off the inner
   edge of the right-hand pill runs off a 360px screen.
 - **An element a page hands a client component as a prop carries a `key`.** The slots `ActivityFeed`
-  takes (`heading`, `menu`, `subject`) cross the server boundary as named props, where React
+  takes (`heading`, `menu`, `dates`, `clear`) cross the server boundary as named props, where React
   validates them as list children and warns without one. `children` is the one prop exempt, and the
   day switch sharing the menu's row is what cost us it.
 - **An update names the fields it moved, and carries their values only sometimes.** The backend
@@ -616,6 +631,13 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   `calc(100svh - var(--spacing-header))` tall, with its own `lg:overflow-y-auto`, in a shell that is
   `lg:items-start`. `--spacing-header` is the one place the header's height is written, and the
   `<header>` wears it with its bottom border inside.
+- **The settings shell does it the other way: nothing scrolls but the section.** At `lg` the shell is
+  `calc(100svh - var(--spacing-header))` tall, so the `h1` and the rail stay put without sticking,
+  and the columns carry `lg:overflow-y-auto` over a `lg:min-h-0` grid, whose floor would otherwise be
+  its own content and grow the page instead.
+- **The settings panes scroll with no scrollbar at all**, through a `scrollbar-none` `@utility`
+  beside the slim one: `display: none` on WebKit's pseudo-element and `scrollbar-width: none` for
+  everyone else. The wheel, the keyboard and a trackpad all still scroll them.
 - **The rail's scrollbar is `scrollbar-slim`**, a `@utility` whose `scrollbar-width` is scoped to
   `@supports not selector(::-webkit-scrollbar)`, because Blink ignores the 6px if it can see it.
 - **A collapsed rail is an `lg:` class, never a second tree.** A collapsed label is `lg:hidden`,

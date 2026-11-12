@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { TokenLine } from "@/components/app/group/overview/activity/token-line";
+import { TokenLine } from "@/components/common/activity/token-line";
 import type { AuditToken } from "@/lib/audit/tokens/tokens";
 import { tokenText } from "@/lib/audit/tokens/tokens";
 

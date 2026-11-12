@@ -3,18 +3,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AuditNames, AuditPage } from "@/lib/audit/audit.types";
+import { ActivityFeed } from "@/components/common/activity/activity-feed";
+import type { AuditNames, AuditPage, AuditPageLoader } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
-type Result = { ok: true; page: AuditPage; names: AuditNames } | { ok: false; message: string };
-
-const loadActivityPageAction = vi.fn<(fields: unknown) => Promise<Result>>();
-
-vi.mock("@/app/(app)/app/groups/[uid]/overview/activity/actions/actions", () => ({
-  loadActivityPageAction: (fields: unknown) => loadActivityPageAction(fields),
-}));
-
-import { ActivityFeed } from "@/components/app/group/overview/activity/activity-feed";
+const loadMore = vi.fn<AuditPageLoader>();
 
 const NOW = new Date("2026-11-06T12:00:00Z");
 
@@ -91,7 +84,7 @@ function renderFeed(
 
   render(
     <ActivityFeed
-      groupUid="g1"
+      loadMore={loadMore}
       first={first}
       viewerUid="u1"
       now={NOW}
@@ -101,7 +94,7 @@ function renderFeed(
       heading={<h2>Activity</h2>}
       menu={<p>Filters</p>}
       dates={<p>Any time</p>}
-      subject={null}
+      clear={null}
     />,
   );
 }
@@ -119,13 +112,42 @@ function detail(text: string): HTMLElement {
 }
 
 beforeEach(() => {
-  loadActivityPageAction.mockReset();
+  loadMore.mockReset();
 });
 
 describe("ActivityFeed", () => {
+  it("shows the address a row was recorded from, and nothing where there is none", () => {
+    const signIn: AuditPage = {
+      entries: [
+        {
+          uid: "a1",
+          action: "LOGIN",
+          entity: { type: "USER" },
+          actor: { uid: "u1" },
+          ipAddress: "86.61.14.22",
+          dateCreated: "2026-11-06T11:00:00",
+        },
+        {
+          uid: "a2",
+          action: "LOGOUT",
+          entity: { type: "USER" },
+          actor: { uid: "u1" },
+          dateCreated: "2026-11-06T10:00:00",
+        },
+      ],
+      nextCursor: null,
+      total: 2,
+    };
+
+    renderFeed({}, signIn);
+
+    expect(screen.getByText("86.61.14.22")).toBeInTheDocument();
+    expect(screen.getAllByText(/^from/)).toHaveLength(1);
+  });
+
   it("counts what is on screen against the total, at the foot of the list", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       page: page(
         [{ uid: "a2", action: "UPDATE", entity: { type: "GROUP" }, actor: { uid: "u1" } }],
@@ -146,7 +168,7 @@ describe("ActivityFeed", () => {
 
   it("carries the cursor the last page handed back, not the first one", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       page: page([{ uid: "a2" }], "c2"),
       names: {},
@@ -156,13 +178,13 @@ describe("ActivityFeed", () => {
     await user.click(screen.getByRole("button", { name: "Load more" }));
     await user.click(await screen.findByRole("button", { name: "Load more" }));
 
-    expect(loadActivityPageAction).toHaveBeenNthCalledWith(1, { groupUid: "g1", cursor: "c1" });
-    expect(loadActivityPageAction).toHaveBeenNthCalledWith(2, { groupUid: "g1", cursor: "c2" });
+    expect(loadMore).toHaveBeenNthCalledWith(1, { cursor: "c1" });
+    expect(loadMore).toHaveBeenNthCalledWith(2, { cursor: "c2" });
   });
 
   it("drops the button once the backend hands back no cursor", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       // The last page of three, so nothing is left to ask for and the count
       // stops counting progress.
@@ -208,7 +230,7 @@ describe("ActivityFeed", () => {
 
   it("names a member only the page it appended had a row about", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       page: page(ROLE_CHANGED.entries, null),
       names: { m2: { name: "Dan Novak" } },
@@ -259,7 +281,7 @@ describe("ActivityFeed", () => {
 
   it("pages an actor's feed under the same actor the cursor was issued for", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       page: page([{ uid: "a2" }], null),
       names: {},
@@ -268,8 +290,7 @@ describe("ActivityFeed", () => {
     renderFeed({ actor: "u2" });
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(loadActivityPageAction).toHaveBeenCalledWith({
-      groupUid: "g1",
+    expect(loadMore).toHaveBeenCalledWith({
       cursor: "c1",
       type: undefined,
       ref: undefined,
@@ -279,7 +300,7 @@ describe("ActivityFeed", () => {
 
   it("pages a filtered feed under the same filter the cursor was issued for", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: true,
       page: page([{ uid: "a2" }], null),
       names: {},
@@ -288,8 +309,7 @@ describe("ActivityFeed", () => {
     renderFeed({ type: "member", ref: "m1" });
     await user.click(screen.getByRole("button", { name: "Load more" }));
 
-    expect(loadActivityPageAction).toHaveBeenCalledWith({
-      groupUid: "g1",
+    expect(loadMore).toHaveBeenCalledWith({
       cursor: "c1",
       type: "member",
       ref: "m1",
@@ -298,7 +318,7 @@ describe("ActivityFeed", () => {
 
   it("keeps the rows it has when a page is refused, and says so", async () => {
     const user = userEvent.setup({ delay: null });
-    loadActivityPageAction.mockResolvedValue({
+    loadMore.mockResolvedValue({
       ok: false,
       message: "We could not reach TasKlean.",
     });

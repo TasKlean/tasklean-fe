@@ -7,7 +7,7 @@
 
 import { ChevronLeft } from "lucide-react";
 import { type RefObject, useState } from "react";
-import { DIVIDER, ROW, ROW_OFF } from "@/components/app/group/overview/activity/filter-menu.styles";
+import { DIVIDER, ROW, ROW_OFF } from "@/components/common/activity/filter-menu.styles";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 type CustomRangeProps = {

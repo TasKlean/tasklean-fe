@@ -46,6 +46,12 @@ describe("ActorMenu", () => {
     ).toBeVisible();
   });
 
+  it("says on the closed pill that the name on it is whose actions these are", () => {
+    renderMenu({ actor: "u2" });
+
+    expect(screen.getByRole("button")).toHaveTextContent("Actor: Dan Novak");
+  });
+
   it("falls back to anybody for an actor the roster cannot name", () => {
     renderMenu({ actor: "u9" });
 

@@ -1,8 +1,8 @@
 /**
- * The pages of a group's trail that are on screen. The first arrives rendered
- * from the server; every later one is appended here, so the cursor lives in
- * this component's memory and never in the URL, where a shared link would carry
- * a position the recipient has no rows for.
+ * The pages of a trail that are on screen, whichever trail it is. The first
+ * arrives rendered from the server; every later one is appended here, so the
+ * cursor lives in this component's memory and never in the URL, where a shared
+ * link would carry a position the recipient has no rows for.
  */
 
 "use client";
@@ -10,15 +10,16 @@
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
-import { ActivityTimeline } from "@/components/app/group/overview/activity/activity-timeline";
+import { ActivityTimeline } from "@/components/common/activity/activity-timeline";
 import { FormNotice } from "@/components/common/form-notice";
-import type { AuditEntry, AuditNames, AuditPage } from "@/lib/audit/audit.types";
+import type { AuditEntry, AuditNames, AuditPage, AuditPageLoader } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 import { feedCountLabel } from "@/lib/audit/labels/labels";
 
 type ActivityFeedProps = {
-  groupUid: string;
+  // The press that reads the page after the cursor, in the trail this feed is
+  // showing. Bound on the server, so nothing here knows which trail that is.
+  loadMore: AuditPageLoader;
   // The page the server already rendered, which is where the cursor starts.
   first: AuditPage;
   viewerUid: string | null;
@@ -40,9 +41,9 @@ type ActivityFeedProps = {
   // The range control, which takes the second row to itself on a phone and
   // the end of the filters' row once there is one.
   dates: ReactNode;
-  // The band naming what the feed is pinned to, which keeps a strip of its own
-  // below the controls: it is the filter's answer, not another control.
-  subject: ReactNode;
+  // The press that takes every filter off, on a line of its own below the
+  // controls, which is empty while nothing is narrowing the feed.
+  clear: ReactNode;
 };
 
 const MORE =
@@ -50,7 +51,7 @@ const MORE =
 
 /** Renders the trail, a page at a time. */
 export function ActivityFeed({
-  groupUid,
+  loadMore,
   first,
   viewerUid,
   now,
@@ -60,7 +61,7 @@ export function ActivityFeed({
   heading,
   menu,
   dates,
-  subject,
+  clear,
 }: Readonly<ActivityFeedProps>) {
   const [entries, setEntries] = useState<AuditEntry[]>(first.entries);
   const [held, setHeld] = useState<AuditNames>(names);
@@ -77,11 +78,10 @@ export function ActivityFeed({
   const count = feedCountLabel(entries.length, total);
 
   /** Asks for the page after the cursor and appends it. */
-  async function loadMore(): Promise<void> {
+  async function readMore(): Promise<void> {
     setPending(true);
 
-    const result = await loadActivityPageAction({
-      groupUid,
+    const result = await loadMore({
       cursor,
       type: filter.type ?? undefined,
       ref: filter.ref || undefined,
@@ -111,15 +111,17 @@ export function ActivityFeed({
     <>
       {heading}
 
-      {/* The kind and the actor share a row on a phone, where the range takes
-          the whole of the next one; one row from `sm` up. */}
-      <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        {menu}
+      {/* The kind and the actor share a row on a phone, where the range takes the
+          whole of the next one; one row from `sm` up, the clear press under it. */}
+      <div className="gap-space-xs flex flex-col">
+        <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-end">
+          {menu}
 
-        {dates}
+          {dates}
+        </div>
+
+        {clear}
       </div>
-
-      {subject}
 
       <ActivityTimeline
         entries={entries}
@@ -141,7 +143,7 @@ export function ActivityFeed({
           <button
             type="button"
             onClick={() => {
-              void loadMore();
+              void readMore();
             }}
             disabled={pending}
             className={MORE}

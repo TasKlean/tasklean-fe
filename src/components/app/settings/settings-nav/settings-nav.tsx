@@ -11,6 +11,10 @@ import { usePathname } from "next/navigation";
 import { SETTINGS_GROUPS } from "@/app/(app)/app/settings/sections/sections";
 import { linkTone } from "@/components/app/settings/settings-nav/link-tone";
 
+// Nothing to stick to: the shell is one viewport tall, so the rail stays put on
+// its own and scrolls only if the list ever outgrows the window.
+const RAIL = "gap-space-md scrollbar-none hidden flex-col lg:flex lg:overflow-y-auto";
+
 const LINK =
   "text-label-lg gap-space-sm px-space-md flex min-h-11 items-center rounded-xl transition-colors";
 
@@ -19,7 +23,7 @@ export function SettingsNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Settings sections" className="gap-space-md hidden flex-col lg:flex">
+    <nav aria-label="Settings sections" className={RAIL}>
       {SETTINGS_GROUPS.map((group) => (
         <div key={group.label} className="gap-space-xs flex flex-col">
           <h2

@@ -4,8 +4,8 @@
  * the last of its list, which is what cuts one day's section from the next.
  */
 
-import { ChangeCard } from "@/components/app/group/overview/activity/change-card";
-import { TokenLine } from "@/components/app/group/overview/activity/token-line";
+import { ChangeCard } from "@/components/common/activity/change-card";
+import { TokenLine } from "@/components/common/activity/token-line";
 import { Avatar } from "@/components/common/avatar/avatar";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditLine } from "@/lib/audit/labels/labels";
@@ -74,6 +74,14 @@ export function ActivityRow({
         <p className="text-body-md text-muted-foreground break-words">
           <TokenLine tokens={line.sentence} />
         </p>
+
+        {/* Only an account's own rows carry one, and only where the reader is
+            the person who acted: a group's trail never sends an address. */}
+        {entry.ipAddress ? (
+          <p className="text-label-sm text-muted-foreground break-all">
+            from <span className="text-foreground font-bold">{entry.ipAddress}</span>
+          </p>
+        ) : null}
 
         <ChangeCard lines={line.details} />
       </div>

@@ -1,8 +1,7 @@
 /**
- * The paint every filter menu on this screen shares: the pill that opens one,
- * the panel it drops and the rows inside it. One file, because the panels are
- * the same box swapped for each other, so a row in any of them has to measure
- * the same.
+ * The paint a trail's filter menus share: the pill that opens one, the panel it
+ * drops and the rows inside it. One file, because the panels are the same box
+ * swapped for each other, so a row in any of them has to measure the same.
  */
 
 // Full width on a phone, where the two menus split the row between them, so a

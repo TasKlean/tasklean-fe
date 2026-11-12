@@ -9,6 +9,7 @@
 
 import {
   Bell,
+  History,
   KeyRound,
   Languages,
   Link2,
@@ -69,6 +70,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
         label: "Devices and sessions",
         description: "Where you are signed in, and how to sign out",
         icon: MonitorSmartphone,
+      },
+      {
+        href: "/app/settings/activity",
+        label: "Account activity",
+        description: "Sign-ins, and every change made to your account",
+        icon: History,
       },
     ],
   },

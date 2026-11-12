@@ -393,3 +393,13 @@ button:not(:disabled),
     }
   }
 }
+
+/* A pane that scrolls without saying so. Both rules, because the pseudo-element
+   is WebKit's and the property is everyone else's. */
+@utility scrollbar-none {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scrollbar-width: none;
+}

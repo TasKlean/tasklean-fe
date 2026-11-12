@@ -6,7 +6,7 @@
 
 import { Check } from "lucide-react";
 import Link from "next/link";
-import { ROW, ROW_OFF, ROW_ON } from "@/components/app/group/overview/activity/filter-menu.styles";
+import { ROW, ROW_OFF, ROW_ON } from "@/components/common/activity/filter-menu.styles";
 
 type FilterMenuRowProps = {
   href: string;

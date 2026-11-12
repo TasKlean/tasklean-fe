@@ -40,7 +40,7 @@ describe("loadActivityPageAction", () => {
       }),
     );
 
-    const result = await loadActivityPageAction({ groupUid: "g1", cursor: "c1" });
+    const result = await loadActivityPageAction("g1", { cursor: "c1" });
 
     expect(cursor).toBe("c1");
     expect(result).toEqual({
@@ -83,7 +83,7 @@ describe("loadActivityPageAction", () => {
       ),
     );
 
-    const result = await loadActivityPageAction({ groupUid: "g1", cursor: "c1" });
+    const result = await loadActivityPageAction("g1", { cursor: "c1" });
 
     expect(result.ok && result.names).toEqual({
       m1: { name: "Alice Johnson", userUid: "u1" },
@@ -101,8 +101,7 @@ describe("loadActivityPageAction", () => {
       }),
     );
 
-    await loadActivityPageAction({
-      groupUid: "g1",
+    await loadActivityPageAction("g1", {
       cursor: "c1",
       type: "member",
       ref: "m1",
@@ -133,14 +132,23 @@ describe("loadActivityPageAction", () => {
       ),
     );
 
-    const result = await loadActivityPageAction({ groupUid: "g1", cursor: "bad" });
+    const result = await loadActivityPageAction("g1", { cursor: "bad" });
 
     expect(result).toEqual({ ok: false, message: expect.stringContaining("Reload the page") });
   });
 
-  it("refuses a press carrying no group, since an action never sees the route", async () => {
-    const result = await loadActivityPageAction({ cursor: "c1" });
+  it("reads the group it was bound to, never one the press names", async () => {
+    let asked = "";
+    server.use(
+      http.get(ROSTER, () => envelope([])),
+      http.get(FEED, ({ params }) => {
+        asked = String(params.groupUid);
+        return envelope({ items: [], nextCursor: null, total: 0 });
+      }),
+    );
 
-    expect(result.ok).toBe(false);
+    await loadActivityPageAction("g1", { cursor: "c1", groupUid: "g9" });
+
+    expect(asked).toBe("g1");
   });
 });

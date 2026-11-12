@@ -11,12 +11,7 @@ import {
   CHOICES,
   choiceHref,
 } from "@/components/app/group/overview/activity/type-menu/type-menu.helpers";
-import {
-  DRILL,
-  ROW,
-  ROW_OFF,
-  ROW_ON,
-} from "@/components/app/group/overview/activity/filter-menu.styles";
+import { DRILL, ROW, ROW_OFF, ROW_ON } from "@/components/common/activity/filter-menu.styles";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 type KindListProps = {

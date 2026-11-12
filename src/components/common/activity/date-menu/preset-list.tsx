@@ -6,13 +6,8 @@
 
 import { Check, ChevronRight } from "lucide-react";
 import type { RefObject } from "react";
-import { FilterMenuRow } from "@/components/app/group/overview/activity/filter-menu-row";
-import {
-  DIVIDER,
-  ROW,
-  ROW_OFF,
-  ROW_ON,
-} from "@/components/app/group/overview/activity/filter-menu.styles";
+import { FilterMenuRow } from "@/components/common/activity/filter-menu-row";
+import { DIVIDER, ROW, ROW_OFF, ROW_ON } from "@/components/common/activity/filter-menu.styles";
 import type { DateChoice } from "@/lib/audit/dates/dates";
 
 type PresetListProps = {

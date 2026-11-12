@@ -122,6 +122,36 @@ describe("auditSentence pieces", () => {
   });
 });
 
+describe("auditSentence, on an account's own history", () => {
+  function account(fields: Partial<AuditEntry> = {}): AuditEntry {
+    return entry({ entity: { type: "USER", ref: "u1" }, ...fields });
+  }
+
+  it("reads as something the reader did to their own account", () => {
+    expect(tokenText(auditSentence(account({ action: "PASSWORD_CHANGED" }), "u1"))).toBe(
+      "You changed your password",
+    );
+  });
+
+  it("names whoever else acted on the account, since it is still your history", () => {
+    const line = auditSentence(
+      account({ action: "ROLE_CHANGED", actor: { uid: "u9", name: "Mara", lastName: "Kos" } }),
+      "u1",
+    );
+
+    expect(tokenText(line)).toBe("Mara Kos changed your role");
+  });
+
+  it("keeps the backend's own sentence where it is the only copy of the detail", () => {
+    const removed = account({
+      action: "DEVICE_REMOVED",
+      actionMessage: "Device removed: Chrome on Windows",
+    });
+
+    expect(tokenText(auditSentence(removed, "u1"))).toBe("Device removed: Chrome on Windows");
+  });
+});
+
 describe("auditLine", () => {
   it("ends the sentence with the values where the line already names the field", () => {
     const roleChanged = entry({
