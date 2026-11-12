@@ -77,13 +77,6 @@ describe("buildCrumbs", () => {
     ]);
   });
 
-  it("links no section that is not built yet", () => {
-    const crumbs = buildCrumbs("/app/groups/g1/overview/members", GROUPS);
-    const audit = crumbs.at(-1)?.items.find((item) => item.label === "Audit trail");
-
-    expect(audit?.href).toBeUndefined();
-  });
-
   it("drops the fourth crumb on an area that has not redirected yet", () => {
     expect(labels("/app/groups/g1/overview")).toEqual(["My Groups", "Flat 12", "Overview"]);
   });

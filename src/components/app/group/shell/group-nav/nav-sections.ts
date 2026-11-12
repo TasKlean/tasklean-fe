@@ -7,6 +7,7 @@
  */
 
 import {
+  Activity,
   ArrowLeft,
   Bell,
   CircleCheckBig,
@@ -15,7 +16,6 @@ import {
   KeyRound,
   LogOut,
   Pencil,
-  ScrollText,
   SlidersHorizontal,
   Tags,
   Trash2,
@@ -46,9 +46,7 @@ function overviewItems(group: string): GroupNavItem[] {
     backToTasks(group),
     { href: `${group}/overview/information`, label: "Information", icon: Info },
     { href: `${group}/overview/members`, label: "Members", icon: Users },
-    // Blocked rather than unwritten: the audit endpoint takes a numeric group
-    // id the API never hands out, and its entries name nobody.
-    { label: "Audit trail", icon: ScrollText, soon: true },
+    { href: `${group}/overview/activity`, label: "Activity", icon: Activity },
   ];
 }
 

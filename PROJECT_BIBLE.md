@@ -1458,7 +1458,7 @@ other way first, and a test asserting `Join a group` was absent from the group c
 **The sections a crumb drops come from `navSections`, not a table of its own.** The rail already
 decides what a section is called, in what order, which three an admin gets and which is not built, so
 a second list would be a second place to forget. The trail filters out the way back, which is the
-rail's own affordance, and inherits the dead `Audit trail` row.
+rail's own affordance, and links no section the rail marks unbuilt.
 
 **A crumb is keyed by its level.** A group's own page is both the group and its tasks, so those two
 crumbs carry the same href, and React reported duplicate keys on every group landing page. The href
@@ -1781,7 +1781,7 @@ header that is already sticky. Sticky gets the same picture for four classes. On
 rail is 400px tall and scrolls itself, which is the safety valve the overflow is for.
 
 **The band where Workspace sits is the open area's own sections.** Inside the overview it is
-Information, Members and Audit trail; inside settings it is the five an admin has and the two
+Information, Members and Activity; inside settings it is the five an admin has and the two
 everybody has, under the heading "Group settings", since "Settings" in a group's rail reads as the
 account's. Administration stays put underneath. Each contextual band is headed by **"Back to
 tasks"**, because with Workspace replaced the rail would otherwise hold no way back to the screen a
@@ -1893,6 +1893,233 @@ gets somebody to a working control.
 **The forms are bounded at `max-w-2xl`.** A group's column is the window less the rail, which is
 977px at 1280, and a name field and a primary pill that wide read as a page rather than as one
 section's control.
+
+### The audit trail is read per caller
+
+**Two members of one household get different rows from the same URL.** Membership gets a 200; what
+is in it is decided per row in the backend's query. An admin reads the whole trail, a member their
+own actions plus the history of what they created, and `total` counts only what they reach. So the
+rule cannot be mirrored on the client, a short feed is correct rather than broken, and the feed is
+never cached per URL, which is why `getGroupActivity` is not `cache()`d.
+
+**403 and 404 are one answer, as on every group route.** The handoff says they tell a former member
+from a stranger; for an ordinary caller they do not, since `isMember` answers false for an unknown
+uid before the service runs. `isGroupUnavailable` already covered both.
+
+**A page is normalised, not refused.** Nothing in the envelope is required, so a page without
+`items` is an empty page: absence is plausible here where a missing token pair is not.
+
+**The cursor stays in memory, the filter goes in the URL.** A shared link would carry a cursor from a
+filter the recipient is not on, and a reload would re-send one the backend may refuse. `nextCursor`
+is the only thing that says more exists; `total` is a label.
+
+**A refused cursor is reported, not retried from the first page.** The backend's decoder refuses an
+unparseable cursor precisely so a client cannot loop over page one, and the cursor is plain base64 of
+a timestamp and a row id, so one we handed back unchanged can only fail through a bug of ours. A
+silent restart would re-show rows already read and lose the reader's place to hide it, so they are
+told to reload instead.
+
+**A ref is read with its type or not at all.** `entityRef` without `entityType` is a 400 carrying no
+code, so `auditFilter` returns both or neither and an unknown type drops the ref with it. The cursor
+carries the filter too, since a cursor is a position in one narrowed feed.
+
+**The feed component is keyed on the filter.** It holds its pages in state, and React reuses a
+component in the same position across a navigation, so without the key a new first page would arrive
+to a component still showing the old filter's rows.
+
+**Filtering is by the thing and by the person, in two controls.** `entityType` with `entityRef`
+answers what the rows are about and `actorRef` answers whose actions they are, so the two are
+separate axes rather than one picker: "everything about Dan's membership" and "everything Dan did"
+are different questions, and the endpoint takes both at once. An actor is a **user** uid, a third
+namespace from the membership uid `entityRef` carries for a member, which is why `ActorChoice` is
+named apart from `MemberChoice` though the two are shaped alike, and why `actorRefRule` is its own
+rule: a membership uid sent as an actor reads as a user that does not exist. Filtering the loaded
+rows instead was rejected, as the feed pages 20 at a time and that would give a partial answer under
+a total counting everything. Building the actor list from the rows on screen was rejected too: it
+collapses to one name the moment the feed is filtered.
+
+**An actor a member may not ask for is dropped before the request, not handled after it.**
+`mayFilterByActor` is `unrestricted || actorRef.equals(callerUid)` and refuses before the uid is
+resolved, so a uid that does not exist and somebody else's are one answer: a 403 carrying no code.
+Every other 403 on a group route means the group is not yours, which is why `isGroupUnavailable`
+bounces to `/app?unavailable=1`, and an unguarded actor filter would throw a member out of a group
+they are in. So it is defended twice: `allowedActor` clears an actor the reader may not name, and the
+read's own bounce is gated on the filter holding none. The control is an admin's for the same reason, and
+that gate is UX: Spring stays the authority and the action still reports its own refusal.
+
+**An update names its fields, and the backend decides whether it may say what they became.** The
+trail is append-only and a group's is read by every member, so a value kept there is kept forever and
+shown to everybody: the backend withholds one by default and keeps both sides only for a safe value,
+which is an enum, a flag, a date or a duration, never a name, a description, an invite code or an
+internal id. A change therefore arrives with both values, one, or neither, and `audit/changes` reads
+for all four without branching at the call site: an unchanged field writes no entry at all, so both
+values absent means withheld and never means unchanged. A value is worded by its field's kind, with
+anything shaped like one of the backend's constants humanised by default, so a field added to the
+backend later reads properly before we have mapped it. An unmapped field name is humanised the same
+way rather than dropped, because a line saying something changed and naming nothing is worse than an
+awkward word.
+
+**A row borrows its subject's name from the roster, and the roster reaches everyone who ever was a
+member.** The trail hands out a ref and no label, so a name has to come from a screen that holds one,
+and for a group that is only the roster: a task, a category or a tag has no screen to borrow from
+yet, so those rows name their kind. The read is `?status=ALL`, which is one row per person forever
+(rejoining revives the row, so nothing needs de-duplicating) and therefore names a departure as
+readily as a current member, a removal being exactly what a trail is full of. It replaced resolving
+the misses one at a time through `GET /api/group-members/{uid}`, capped at 10 per page: that bought
+up to ten round trips for names one list call now carries, and it could only ever name the refs a
+loaded page happened to mention. The roster is read alongside the feed, since neither answers
+anything about the other, and the paging action reads it again for its own page. The map is keyed by
+the ref rather than by the entity type, so a later read can name a task by adding a phrase for the
+pair and nothing else. One read serves three consumers: the names, the memberships a feed can be
+pinned to, and the people whose actions it can be narrowed to.
+
+**The people who have left are offered in both pickers, under a labelled divider.** Leaving them out
+would hide exactly the names a trail keeps mentioning. They sort last, so one `FormerDivider` heads
+the block instead of a tag on every row, which reads the same whether one person left or nine. Colour
+alone could not carry it: an unpicked row is already `text-muted-foreground`, so the only tone left
+below it would be an opacity class, which this app uses for dead controls while these rows are
+perfectly pressable. The divider is `aria-hidden` and each row says it in its own `aria-label`
+instead, so the mark is never visual-only. A panel names the edge it hangs from and each pill takes
+half the row on a phone, because a 256px panel hanging off the inner edge of the right-hand pill runs
+off a 360px screen.
+
+**The range is calendar days in the URL, instants on the wire.** `dateFrom` and `dateTo` are
+`OffsetDateTime`, so an instant has to be chosen for a reader's "2 November", and the zone that
+decides it is theirs. Putting the offset in the URL instead was rejected: a pasted link would then
+cover different days for whoever opened it, where two bare dates mean the same days to everybody and
+are read in the recipient's own zone. So `auditFilterQuery` takes the zone like every other
+zone-aware call, and `dayStart` is `dayKey` backwards: it reads the offset Intl reports for the
+instant it is looking for, twice, because the offset at that clock time in UTC is the wrong one on a
+day the clocks move. **`dateTo` is exclusive**, so an inclusive `to` is sent as the start of the
+following day; getting that wrong hides the last day's rows rather than failing, which is why it is
+asserted in two zones. A backwards range is an `InvalidRequestException` worded by the backend, so it
+is headed off three times: the two fields cap each other with `min` and `max` as they are typed,
+`auditFilter` drops both ends if a hand-typed URL reads backwards, and Spring stays the authority.
+
+**The presets are links, the custom range is a GET form.** A preset is two days worked out on the
+server from one instant and the zone, so it is a link like every other filter and the pill can keep
+the preset's own name rather than spelling its dates back. A token such as `?when=7d` was rejected:
+it would need resolving to dates on every read and gives two ways to say one thing. The custom range
+posts `from` and `to` to the same path with the rest of the filter as hidden fields, which means it
+works with JavaScript off, costs a full document load that a link would not, and cannot drop another
+axis. It sits behind the Custom row rather than under the presets, because two date fields and a
+button in an open panel read as a form that the presets are decoration on.
+
+**The day press sits on the day rule, and says what it will do.** Beside the filters it read as a
+fourth filter, which is wrong: it is about how the list reads rather than what is in it. It hangs off
+the end of the **first** day's rule, so there is one press however many days are on screen, and when
+the days are run together that bare rule is drawn on its own so the press does not move when pressed.
+It stopped being a switch: its label carries the state ("Group by date", "Ungroup by date") the way a
+row's "Show changes" does, which is the pattern it now reads like. The cost is deliberate: a toggle
+button's pressed state is no longer announced, and the label is what tells a reader where they are.
+
+**A closed pill names its filter.** "All activity", "Anyone" and "Any time" are what the reset row in
+each panel says, being choices to press; on the pill they read as values when there is no value, so
+the closed control says "Entity type", "Actor" or "Date" instead and shows the picked one as soon as
+there is one. The `aria-label` keeps the old wording, so a reader hears the state the pill has no room
+for, and one test asserts both on the same element so they cannot be collapsed into one.
+
+**An element passed to a client component as a named prop carries a `key`.** The day switch has to
+sit in the filters' row while the grouping state lives in the feed, so `ActivityFeed` takes the
+heading, the controls and the subject band as three slots rather than one `children`. React validates
+a named element prop crossing the server boundary as a list child and warns without a key, where
+`children` is exempt. The alternative was giving the switch a row of its own, which is the layout
+problem the slots exist to solve.
+
+**A row whose actor is also its subject describes a different event.** The backend writes
+`MEMBER_ADDED` three times: an admin adding somebody, a join by invite code, and the creator's own
+membership when a group is made. The last two have one person on both sides, where "added a member"
+is wrong rather than merely blunt, so the map carries the membership's user uid and that case reads
+"joined the group". It is settled before a name is used, because it changes what the row says
+happened and not only how it is worded. The group's own name is deliberately not used in a row: the
+rail carries it beside every line already.
+
+**One timeline, in every state of the filter.** Rows were cards unfiltered and a line under a filter,
+which made one feed two components and two ways of reading the same thing. A row's own sentence names
+the kind it is about, so the entity chip repeated a word that was already there, and a connecting
+line says more than a box drawn around each row. The kinds that narrow it are a dropdown rather than
+a row of chips, because seven chips wrapped onto three lines on a phone and a closed list one of
+which is picked is what a dropdown is for. It is a disclosure, not a listbox: the panel holds links,
+so the filter stays the URL, the server knows which kind is current and `aria-current` comes from the
+path. The cost is that opening the panel needs JavaScript, where the chip row needed none.
+
+**The name above a pinned feed is read, never passed.** A ref is an identifier, not a label, and
+passing a name through the URL would render caller-chosen text. It comes from the same map the rows
+use, so a membership it could not name and a kind with no screen behind it both read as "one member's
+history" rather than guessing.
+
+**The press revalidates nothing, and the feed is measured against one instant.** The pages on screen
+are state the server does not hold, so a `revalidatePath` would discard them. The busy flag is plain
+state rather than `useTransition`, because a transition is deprioritised by design and a reader who
+pressed the button is waiting on exactly those rows: under load the append arrived late enough to
+fail a one-second assertion. The page passes its
+`now` down, since a row drawn on the server and re-measured in the browser can straddle a minute and
+report a hydration mismatch for a difference nobody can see.
+
+**Types are hand-written, against the handoff's advice**, which is what found its three errors: the
+failure field is `message` not `error`, `total` reflects the filter as well as the narrowing, and
+there are 28 actions not 27.
+
+**`ipAddress` is absent from the type, because a group entry no longer carries one.** The backend
+passes no viewer to the mapper for a group feed, and on an account feed it fills the field per entry
+and only for the reader's own actions. An address belongs to the person who acted, not to the
+household, so there is nothing for this screen to leak and nothing for the type to hold.
+
+**The line a row reads is ours, keyed on the action and the entity together.** `actionMessage` is
+English that cannot be localized, names nobody on a membership event and prints the raw role enum, so
+it is only the fallback for a pair we have no copy for, and it stands alone there: it is a whole
+sentence, and pinned to a subject it would read "Alice Member left group". One action reads
+differently per entity, which is why `CREATE` alone is not the key.
+
+**A line is composed, not written.** `auditSentence` returns `AuditToken[]`, each piece saying
+whether it is our own copy, a name, a field or a value, so `TokenLine` is the one place that decides
+how the data stands out from the wording around it and the copy stays in one place. It was one string
+while nothing was drawn differently. Each piece carries its own spacing rather than relying on the
+space between two JSX elements, which is lost, and `tokenText` flattens a line back for a React key
+or a test assertion.
+
+**A trail is cut into days, so the reader's own zone had to become something the server knows.** A day
+section and a bare clock time mean nothing in the container's zone, and nothing reaching the server
+carries the reader's: no API field holds a zone, and no request header does either. So the browser
+writes `tasklean_tz` itself and the server renders from it. That makes it the one cookie of ours
+written outside Proxy, a Route Handler or an action, which is sound here and nowhere else: the value
+is the browser's own observation, not a credential, and the browser is the only party that has it. A
+first document is drawn in UTC and asked for again once the cookie is there, which is a cost paid once
+per browser. Two guards stop that looping: the probe compares against the cookie rather than against
+what was rendered, and it refreshes only once it can read back what it wrote, so a browser blocking
+cookies stays on UTC instead of reloading forever. Every zone-aware function takes the zone as an
+argument and none of them reads it, so the server's render and the browser's hydration cannot form
+different opinions, and the cookie is validated through `Intl` before it reaches a formatter, because
+it is caller-controlled input. Relative time went with the change: "2 hours ago" under a heading that
+already says Today is the same fact twice, and the module had no other caller.
+
+**Today and yesterday are compared, not calculated.** A local day is 23 or 25 hours twice a year, so
+yesterday is found by taking the day key of 24 hours ago and comparing keys: the clocks never move by
+more than an hour, so any instant on the previous local day still keys to it. One instant decides what
+today means for the whole feed, passed down from the page, so an appended page cannot disagree with
+the first about where the sections fall.
+
+**The sections are the reader's to turn off, and nothing records that they did.** The switch is
+component state. It changes nothing the server holds and nothing another device would want, so a
+cookie or a settings field would buy a round trip for a view preference; the cost is that it does not
+survive a reload. It sits in the heading row beside the count rather than above the first row, where
+it owned a line of its own and read as a band across the page.
+
+**The count is said twice, at both ends of the list.** `total` answers two questions in the same
+words: how long the trail is, which is read at the top, and whether the last row on screen is the
+last one there is, which is read at the foot beside Load more. A reader who has pressed Load more
+three times is nowhere near the heading, so repeating the label is cheaper than moving it.
+
+**What an update moved sits behind a press, with the count in the label.** A task update can move a
+dozen fields, and a feed is read for what happened rather than for every value that moved, so the
+detail is collapsed and the label says how many there are, which is what tells a reader whether to
+open it at all. One change to a field the line already names ends the sentence instead, because
+"changed Dan's role from Member to Admin" is the whole event and a card under it would repeat the
+field's name to say the same thing. That fold is keyed on the action and entity pair, since only a
+pair whose own copy names a field can carry its values.
+
+**An empty feed says something different to a member.** Their rows are narrowed, so "nothing has
+happened" would be a lie in a busy household; they are told what they will see instead.
 
 ### A group's picture is an uploaded file, and every piece of that is forced
 
@@ -2151,16 +2378,21 @@ workaround **before** the feature depending on it gets built.
 7. **No "leave group" distinct from removal.** `DELETE /api/group-members/{id}` exists, but whether a
    plain member may call it on their own membership is a `@PreAuthorize` question the spec cannot
    answer. Verify against a running backend before building the control.
-8. **The audit log can't be read for a group.** `GET /api/audit-logs` takes a **numeric** `groupId`,
-   and no response carries a group's numeric id, since `GroupResponse` and `MyGroupResponse` are
-   addressed by `uid` alone; `/audit-logs/member/{groupMemberId}` has the same problem one level down.
-   `AuditLogResponse` also names nobody: `actorUserId` and `groupMemberId` are bare numbers, so even a
-   list we could fetch would read as "user 41 did something". Three things are owed: a uid-scoped
-   route or a numeric id on the group, the same for a membership, and an actor on the entry. The rail
-   carries "Audit trail, coming soon" until then.
+8. ~~**The audit log can't be read for a group.**~~ **Closed.** `GET /api/audit-logs/groups/{groupUid}`
+   is uid-scoped and an entry names its actor and its target, and `changedFields` carries the diff of
+   an `UPDATE`. The three old endpoints are gone and carried no authorization at all, so nothing
+   migrates. The filter by actor owed here has landed: `AuditLogQueryRequest` also takes `actorRef`,
+   `dateFrom` and `dateTo`, an actor being a **user** uid, a third namespace from the membership uid
+   `entityRef` carries. `dateTo` is exclusive and both dates want an offset.
 9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
    `/api/uploads` signs one. The user's own `photoUrl` is still Google's URL and is not covered:
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.
+10. **A group's tasks, categories and tags cannot be listed from its uid.** All three list endpoints
+    take `@RequestParam Long groupId`, and `GroupResponse` exposes `uid` only: the numeric id appears
+    nowhere in the API but inside those same responses, which need the number to fetch. So the trail's
+    entity picker offers Members and Group alone, and phase 5 needs either uid-scoped routes (`GET
+    /api/groups/{uid}/tasks` and friends) or the numeric id on `GroupResponse`. Completions are worse:
+    they list by `?taskId=` or `/member/{groupMemberId}` only, so a group cannot ask for its own.
 
 ---
 

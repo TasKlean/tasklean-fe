@@ -22,7 +22,11 @@ is a shell: a rail that stands still beside a scrolling section. The group's own
 which carries only a notice.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
-  promotes, demotes and removes from, with leaving at the end. The audit trail is a dead entry.
+  promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
+  trail, newest first, a page of 20 at a time behind a Load more press, narrowed by
+  `?type=&ref=&actor=&from=&to=` in the URL and picked from three dropdowns, the actor's an
+  admin's. It is one timeline cut into days, in the reader's own zone,
+  with what an update moved behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - **Tags & Categories is the only dead entry left in the rail.**
@@ -51,7 +55,7 @@ npm run format         # Prettier, write
 npm run format:check   # Prettier, check only
 ```
 
-Next.js 16.4.2 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
+Next.js 16.4.5 (App Router, Turbopack), React 19.3, TypeScript 6 strict, Tailwind 4, ESLint 10,
 Prettier, Vitest + MSW, `jose`, `lucide-react`, `zod/mini`, `uqr`. **Node 26** (`.nvmrc` +
 `engines.node`); npm comes from Node's bundled copy, so a global npm install would silently shadow
 it.
@@ -89,9 +93,9 @@ deleting it makes Next write its marker block into CLAUDE.md instead. `next-env.
 
 ### Known install noise
 
-- **5 "high" audit findings**: `braces` -> `micromatch` -> `fast-glob` ->
-  `@next/eslint-plugin-next`, a devDependency chain. `audit fix --force` would downgrade
-  `eslint-config-next` to 14.x. Leave it.
+- **9 "moderate" audit findings, all one advisory**: `minimatch`'s globparts DoS, reached through
+  `eslint` itself and through `typescript-eslint` inside `eslint-config-next`. Lint-time
+  devDependencies only, and `audit fix --force` would downgrade `eslint-config-next`. Leave it.
 - **`unrs-resolver` and `msw` postinstalls are denied** (`allowScripts` in `package.json`).
 - **`typescript` is pinned `~6.0.3`, not `^`**: typescript-eslint declares `<6.1.0`, and **TS 7
   throws** on a hard `versionMajor >= 7` guard, killing lint. Don't widen the pin.
@@ -145,7 +149,10 @@ src/
                        on), group.helpers.ts (the shared read)
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
-                       the leave that is the same call
+                       the leave that is the same call; activity/ is the trail,
+                       with actions/ for the page after a cursor and
+                       page.helpers.ts for the read: the first page, the roster
+                       its rows and its pickers read by, and the refusals
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -179,6 +186,7 @@ src/
                        submit-button, or-divider, greeting, copy-button,
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
+                       zone-probe (the browser's own zone, into a cookie),
                        invite-code/ (invite-code-field, share-invite)
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
@@ -190,7 +198,13 @@ src/
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
-      group/overview/  member-row (+ member-actions, confirm-remove), leave-group
+      group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
+                       activity/ (activity-feed, activity-timeline, activity-row,
+                       change-card, token-line, day-sections-toggle,
+                       activity-subject, activity-empty, former-divider,
+                       filter-menu-row (+ .helpers, .styles, shared by every
+                       menu), type-menu/ (+ kind-list, member-list, .helpers),
+                       actor-menu/ and date-menu/ (+ preset-list, custom-range)
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -206,6 +220,14 @@ src/
   lib/                 all non-UI logic; nothing sits directly in src/lib
     account/           account.ts (own password, connections, deactivation),
                        two-factor.ts
+    audit/             audit.ts (one page of a group's trail), audit.types.ts,
+                       entity/ (the type set, and the six a group holds),
+                       labels/ (the line a row reads, from action + entity),
+                       changes/ (the line one changed field reads),
+                       tokens/ (the pieces a line is built from),
+                       days/ (a feed cut into the days it happened on),
+                       dates/ (the ranges on offer and their words),
+                       filter/ (URL <-> query <-> endpoint params)
     api/               client.ts (the only module that knows the envelope),
                        errors.ts (the error types and the two generic lines),
                        error-codes.ts, server.ts (session-aware),
@@ -234,12 +256,16 @@ src/
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
-    time/api-date.ts   API timestamps <-> Date
+    time/              api-date/ (API timestamps <-> Date), day/ (a day's name,
+                       its key, the clock and the instant a key starts at, in
+                       one zone), zone/ (the zone cookie's name and shape, and
+                       zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT)
     users/             me.ts, name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
-                       <form>.schema.ts each, plus upload-request),
+                       <form>.schema.ts each, plus upload-request and
+                       audit-page, which no form posts),
                        password/ (policy.ts, strength.ts), code-length.ts
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)
@@ -275,7 +301,8 @@ feature's knowledge, moves to `components/common/`. **Tests sit beside the code*
 **A module reading a server variable, holding a secret, calling `serverApi` or touching a cookie
 imports `server-only`**: `config/env`, `api/client`, `api/server`, `api/action-failure`,
 `auth/session`, `auth/device`, `auth/signin/*`, `auth/tokens/refresh`, `auth/two-factor-challenge`,
-`account/`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`, `uploads/uploads.ts`,
+`account/`, `audit/audit.ts`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`,
+`uploads/uploads.ts`,
 `qr/qr-code` (not for a secret: it keeps the encoder out of the browser bundle),
 `notifications/settings`, `preferences/preferences.ts`, `preferences/theme-cookie`.
 
@@ -283,8 +310,9 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), and the two upload halves that run in the browser
-(`uploads/uploads.types.ts`, `uploads/put-object`).
+`groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
+two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`).
 
 ### Styling
 
@@ -402,6 +430,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 - **A read two renders in one request both need is wrapped in `cache()`.** `getMyGroups` and
   `getGroup` are, because `request()` sends `cache: "no-store"` so fetch will not dedupe them. React
   memoises per request, so the second caller gets the first one's promise and a failure reaches both.
+- **A group's audit trail is never memoised and never shared.** `getGroupActivity` is the one read
+  whose rows differ per caller for the same URL, so a cache keyed on it leaks between accounts.
 - **An action revalidates only when the page's truth comes from the server.** Devices, password and
   connected accounts render rows and flags the action cannot hand back, so they call
   `revalidatePath`. Appearance, language and notifications return the saved value and render from
@@ -491,6 +521,86 @@ It must **not** be imported by anything a client component imports: all of `vali
 - **A step that cannot be undone asks for the name, not a second press.** `DeleteGroup` matches the
   typed name trimmed and case-insensitively. **Replacing the invite code confirms neutrally**,
   because nothing is lost.
+- **A trail's line is ours, keyed on the action and the entity together.** The backend's
+  `actionMessage` is the fallback for a pair we have no copy for, and stands alone, being a whole
+  sentence. **A line is `AuditToken[]`, not a string**, so `audit/tokens` names what each piece is
+  and `TokenLine` is the one place a name, a field and a value are painted: names and fields bold, a
+  value in a pill.
+- **A row names the member it is about, and one roster read covers everyone who ever was one.** The
+  entry carries a ref and no label, so the page hands the feed a `ref -> name` map built from `GET
+  /api/groups/{uid}/members?status=ALL`, which names a departure as readily as a current member. A
+  ref nothing could name still reads as the kind ("a member"). The paging action reads the same
+  roster and returns the names with its page.
+- **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
+  and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
+  the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
+- **A trail is cut into days, and a row shows only the clock.** The headings are Today, Yesterday and
+  then a date, and the press that takes them away is the feed's own state, hanging off the end of the
+  **first day's rule**, which is the line it is about: it dates each row instead and leaves the line
+  unbroken. Run together, that bare rule is drawn on its own, so the press does not move when
+  pressed. It reads like a row's "Show changes", and its label says what the press will do ("Group by
+  date", "Ungroup by date") rather than carrying a switch's state. **The whole feed is measured
+  against one instant**, passed down from the page, so appended rows agree with the first and the
+  browser hydrates to what the server drew.
+- **Every zone-aware function takes the zone, and never reads it.** `time/day` formats and `audit/days`
+  groups, both from an argument, so the server's render and the browser's hydration cannot disagree.
+- **The trail's cursor lives in the feed component's memory, never in the URL.** `ActivityFeed` holds
+  the pages and asks for the next through an action that revalidates nothing, since a re-render would
+  throw away what is on screen. A refused cursor is reported, never retried from the first page.
+  `nextCursor` is the only thing that says more exists, and `total` is the label at the foot of the
+  list, where Load more is, said once rather than above a list the reader has scrolled past.
+- **The trail's filter is the URL, and `?ref=` is never read without `?type=`.** The endpoint refuses
+  that pair with a 400 carrying no code, so `auditFilter` drops both or neither, and the cursor
+  carries the filter so page two cannot resume in another feed. **The feed is keyed on the filter**,
+  or React keeps the pages the last one loaded.
+- **A trail is filtered by the thing, the person and the days, in three controls.** `?type=&ref=`
+  narrows what the rows are about, `?actor=` whose actions they are, `?from=&to=` when, and the
+  endpoint takes all of them at once. An
+  actor is a **user** uid, a third namespace from the membership uid `?ref=` carries, which is why
+  `actorRefRule` is its own rule. **Only an admin is offered the control, and a refusal is
+  normalised before it is sent**: the endpoint answers a member naming anybody but themselves with a
+  403 carrying no code, which `isGroupUnavailable` cannot tell from the group being gone, so
+  `allowedActor` clears it and `loadTrail`'s bounce is gated on the filter holding no actor.
+- **The range is calendar days in the URL and instants on the wire.** `?from=&to=` carries
+  `YYYY-MM-DD`, which `auditFilterQuery` turns into `dateFrom` and `dateTo` using the reader's zone,
+  passed in like every other zone-aware call. **`dateTo` is exclusive**, so the ceiling is sent as
+  the start of the following day, which `time/day`'s `dayStart` and `shiftDays` work out. A backwards
+  range is a 400 with a message of the backend's own, so it is headed off three times: the two fields
+  cap each other, `auditFilter` drops both ends if a typed URL reads backwards, and the endpoint
+  stays the authority. **`auditFilterParams` takes a `Partial`**, so a link naming two axes is not
+  revisited every time the filter grows another.
+- **One timeline, whatever the filter says, and every filter is a dropdown of links.** A row carries
+  no entity chip, since its own sentence names the kind. All three menus are disclosures, not
+  listboxes: the panels hold `<Link>`s, so the server decides what is current and JavaScript only
+  opens them. **A closed pill names the filter until something is picked** ("Entity type", "Actor",
+  "Date"), where the panel's own reset row keeps the wording of a choice ("All activity", "Anyone",
+  "Any time") and the pill's `aria-label` keeps saying which. **A choice that needs more than a link
+  drills down in place**: Members carries a
+  press of its own at the row's end and the panel swaps the kinds for the roster, and Custom range is
+  a press rather than a link, having no days of its own until they are typed. Focus follows the panel
+  that replaced the button, both ways. **The custom range is a GET form** posting the two days to the
+  same path with the rest of the filter as hidden fields, so it works with no JavaScript. Both panels are painted from `filter-menu.styles` and their
+  rows are one `FilterMenuRow`, so a row in either measures the same.
+- **The people who have left are offered, and the block they sit in is labelled.** The roster sorts
+  them last, so `FormerDivider` heads the block once rather than tagging every row, and each row
+  carries the wording in its `aria-label` because the divider is hidden. **A panel names the edge it
+  hangs from** and each pill is half the row on a phone, since a 256px panel hanging off the inner
+  edge of the right-hand pill runs off a 360px screen.
+- **An element a page hands a client component as a prop carries a `key`.** The slots `ActivityFeed`
+  takes (`heading`, `menu`, `subject`) cross the server boundary as named props, where React
+  validates them as list children and warns without one. `children` is the one prop exempt, and the
+  day switch sharing the menu's row is what cost us it.
+- **An update names the fields it moved, and carries their values only sometimes.** The backend
+  withholds a value unless it is safe to keep forever, so `audit/changes` phrases four states: `A to
+  B`, set, cleared and a bare "changed", and an unmapped name is humanised rather than dropped.
+  `assignedToId` is **Assignee**, since it is a membership id.
+- **What an update moved sits behind a press, counted in the label.** "Show 5 changes" opens the card
+  under the line. **One change to a field the line already names ends the sentence instead**, which
+  `INLINE_FIELDS` is the one place for, so a role change reads whole and shows nothing to press.
+- **A value is worded by its field's kind, and an unknown enum is still worded.** A role goes through
+  `roleLabel`, a date through `parseApiDate` in the reader's zone, a flag reads Yes or No and minutes
+  carry their unit. Anything shaped like one of the backend's constants is humanised, so a field
+  added later reads properly before we have mapped it.
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.
@@ -674,6 +784,12 @@ layout.
   one was tried and it swallowed the case the cache exists for. An RSC payload is skipped because it
   cannot repaint `<html>`, told apart by `sec-fetch-dest` since Next's own `RSC` header never reaches
   Proxy. A failed read keeps the cached colour.
+- **The reader's zone is a cookie the browser writes, `tasklean_tz`.** Nothing on the server knows a
+  zone: no API field holds one and no request header carries one. `ZoneProbe` sits in the signed-in
+  layout, writes the cookie when it differs from the one there and refreshes once, so a first document
+  is drawn in UTC and redrawn. It compares against the cookie, not against what was rendered, and
+  refreshes only if the write landed, or a browser blocking cookies would reload forever.
+  `readTimeZone()` validates through `Intl` before the value reaches a formatter.
 
 ### Devices and the client IP
 

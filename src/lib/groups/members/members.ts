@@ -7,7 +7,7 @@
 import "server-only";
 
 import { serverApi } from "@/lib/api/server/server";
-import type { GroupMember, MemberRoleRequest } from "@/lib/groups/groups.types";
+import type { GroupMember, MemberRoleRequest, MembershipStatus } from "@/lib/groups/groups.types";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 
 const MEMBERS_PATH = "/api/group-members";
@@ -18,12 +18,18 @@ function memberPath(uid: string, suffix = ""): string {
 }
 
 /**
- * Orders a roster with the admins first, then by name.
+ * Orders a roster with the people still in the group first, then the admins,
+ * then by name.
  *
  * @returns A comparator. A member with no readable name sorts last within its
- * own group rather than jumping to the top as an empty string.
+ * own tier rather than jumping to the top as an empty string.
  */
-function byRoleThenName(left: GroupMember, right: GroupMember): number {
+function rosterOrder(left: GroupMember, right: GroupMember): number {
+  // Absent counts as still here: only a read that asked for the people who
+  // have left has any row with the flag off.
+  const leftHere = left.isActive !== false;
+  if (leftHere !== (right.isActive !== false)) return leftHere ? -1 : 1;
+
   const leftAdmin = isGroupAdmin(left.role);
   if (leftAdmin !== isGroupAdmin(right.role)) return leftAdmin ? -1 : 1;
 
@@ -37,19 +43,28 @@ function byRoleThenName(left: GroupMember, right: GroupMember): number {
 }
 
 /**
- * Lists a group's active members.
+ * Lists a group's members, by default the people currently in it.
  *
- * @returns Every membership, each carrying the user behind it, which is enough
- * to render the roster from this one call.
+ * @param groupUid The group in the route.
+ * @param status Which memberships to ask for. `ALL` reaches everyone who was
+ * ever in the group, as one row per person: rejoining revives the row rather
+ * than adding a second, so nothing has to be de-duplicated.
+ * @returns Every membership the status covers, each carrying the user behind
+ * it, which is enough to render the roster from this one call. Sorted here
+ * because the endpoint answers in no particular order.
  * @throws SessionExpiredError when the session is gone. ApiError otherwise,
  * where 403 means the group is not the caller's or does not exist alike.
  */
-export async function listGroupMembers(groupUid: string): Promise<GroupMember[]> {
+export async function listGroupMembers(
+  groupUid: string,
+  status?: MembershipStatus,
+): Promise<GroupMember[]> {
   const members = await serverApi<GroupMember[]>(
     `/api/groups/${encodeURIComponent(groupUid)}/members`,
+    { query: { status } },
   );
 
-  return Array.isArray(members) ? [...members].sort(byRoleThenName) : [];
+  return Array.isArray(members) ? [...members].sort(rosterOrder) : [];
 }
 
 /**

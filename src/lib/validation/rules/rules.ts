@@ -16,6 +16,7 @@ import { LOCALES, THEMES } from "@/lib/preferences/preferences.types";
 import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, UPLOAD_PURPOSES } from "@/lib/uploads/uploads.types";
+import { AUDIT_FILTER_TYPES } from "@/lib/audit/filter/filter.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
 // classes exclude the dot that separates the labels, so nothing backtracks.
@@ -42,6 +43,14 @@ const INVITE_CODE = /^[A-Z\d]{8}$/;
 // A uid is a UUID, and this bounds a hidden field before it becomes a path
 // segment. Generous rather than exact, in case that format ever changes.
 const UID_MAX_LENGTH = 64;
+
+// AuditLogQueryRequest's own @Size, so an over-long cursor is refused here
+// rather than coming back as a 400.
+const CURSOR_MAX_LENGTH = 128;
+
+// FieldLimits.UID, which is what an entity ref is bounded by whichever kind of
+// identifier it carries.
+const ENTITY_REF_MAX_LENGTH = 100;
 
 /** A required, trimmed address. */
 export const emailRule = z
@@ -229,6 +238,64 @@ export const uploadPurposeRule = z.enum(UPLOAD_PURPOSES, {
 export const imageTypeRule = z.enum(IMAGE_TYPES, {
   error: "Pick a JPEG, PNG or WebP image.",
 });
+
+/**
+ * A page cursor, which a caller only ever echoes back from a previous page.
+ *
+ * Blank becomes absent, so a press with nothing to continue from asks for the
+ * first page rather than sending an empty parameter.
+ */
+export const cursorRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(CURSOR_MAX_LENGTH, "That page cannot be loaded.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** One of the kinds of thing a group's trail can be narrowed to. */
+export const auditFilterTypeRule = z.optional(
+  z.enum(AUDIT_FILTER_TYPES, { error: "That is not a kind of thing this trail records." }),
+);
+
+/**
+ * The one entity a trail is pinned to, addressed the way the API addresses it.
+ *
+ * Blank becomes absent, so a press carrying an empty ref asks for the kind
+ * rather than for an entity with no identifier.
+ */
+export const entityRefRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(ENTITY_REF_MAX_LENGTH, "That filter cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/**
+ * Whose actions a trail is narrowed to, as a user uid.
+ *
+ * Its own rule rather than `entityRefRule`: the two are capped the same but
+ * name different things, and a membership uid sent here reads as a user that
+ * does not exist.
+ */
+export const actorRefRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(ENTITY_REF_MAX_LENGTH, "That filter cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/**
+ * One end of a trail's date range, as a calendar day.
+ *
+ * Shape only: a range that reads backwards is a 400, and that is settled by
+ * `auditFilter`, which holds both ends and this rule sees one.
+ */
+export const dayRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.regex(/^\d{4}-\d{2}-\d{2}$/, "That date cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
 
 /** The exact byte count of what will be sent, which is signed along with it. */
 export const imageSizeRule = z

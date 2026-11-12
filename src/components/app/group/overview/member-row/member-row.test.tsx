@@ -104,16 +104,19 @@ describe("MemberRow", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("offers a member no controls at all", () => {
+  it("offers a plain member nothing to press", () => {
     render(<MemberRow {...BASE} manageable={false} />);
 
+    expect(screen.getByText("Maja Bregar")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("offers nothing on a membership that arrived without a uid", () => {
     render(<MemberRow {...BASE} memberUid={null} />);
 
     expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("reports a refusal on the row it happened to", async () => {

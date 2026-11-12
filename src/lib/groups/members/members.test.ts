@@ -66,6 +66,36 @@ describe("listGroupMembers", () => {
     expect(members.map((row) => row.uid)).toEqual(["m2", "m1"]);
   });
 
+  it("puts the people who have left after the ones still in the group", async () => {
+    server.use(
+      http.get(`${BASE}/api/groups/g1/members`, () =>
+        envelope([
+          { ...member("m1", "GROUP_ADMIN", "Ana"), isActive: false },
+          member("m2", "GROUP_MEMBER", "Zala"),
+        ]),
+      ),
+    );
+
+    const members = await listGroupMembers("g1", "ALL");
+
+    expect(members.map((row) => row.uid)).toEqual(["m2", "m1"]);
+  });
+
+  it("asks for a status only when it is given one", async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get(`${BASE}/api/groups/g1/members`, ({ request }) => {
+        seen.push(new URL(request.url).search);
+        return envelope([]);
+      }),
+    );
+
+    await listGroupMembers("g1");
+    await listGroupMembers("g1", "ALL");
+
+    expect(seen).toEqual(["", "?status=ALL"]);
+  });
+
   it("answers with an empty list when the envelope carried no array", async () => {
     server.use(http.get(`${BASE}/api/groups/g1/members`, () => envelope(undefined)));
 

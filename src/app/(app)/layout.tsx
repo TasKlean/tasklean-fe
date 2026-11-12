@@ -5,6 +5,7 @@
  */
 
 import { AppHeader } from "@/components/app/chrome/app-header/app-header";
+import { ZoneProbe } from "@/components/common/zone-probe/zone-probe";
 import { getSession } from "@/lib/auth/session/session";
 import { getMyGroups } from "@/lib/groups/groups";
 import type { MyGroup } from "@/lib/groups/groups.types";
@@ -39,6 +40,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         groups={groups}
       />
       <main>{children}</main>
+
+      {/* Writes the zone cookie every signed-in page is drawn from. Here rather
+          than on the one screen that reads it, so the cookie is already there. */}
+      <ZoneProbe />
     </div>
   );
 }

@@ -20,6 +20,7 @@ const OVERVIEW = [
   ["Back to tasks", "/app/groups/g1"],
   ["Information", "/app/groups/g1/overview/information"],
   ["Members", "/app/groups/g1/overview/members"],
+  ["Activity", "/app/groups/g1/overview/activity"],
 ];
 
 const SETTINGS = [
@@ -124,11 +125,11 @@ describe("GroupNav", () => {
     expect(screen.getByRole("heading", { name: "Group settings" })).toBeInTheDocument();
   });
 
-  it("says the audit trail is coming rather than linking into nothing", () => {
-    pathname.mockReturnValue("/app/groups/g1/overview/information");
+  it("says an unbuilt section is coming rather than linking into nothing", () => {
+    pathname.mockReturnValue("/app/groups/g1");
     render(<GroupNav uid="g1" collapsed={false} admin />);
 
-    expect(screen.getByRole("button", { name: "Audit trail, coming soon" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Tags & Categories, coming soon" })).toBeDisabled();
   });
 
   it("marks the open sub-section, not the area it sits in", () => {

@@ -13,13 +13,13 @@ type AvatarProps = {
   photoUrl?: string | null;
   name?: string | null;
   lastName?: string | null;
-  size?: "sm" | "lg";
+  size?: "xs" | "sm" | "lg";
 };
 
-const PIXELS = { sm: 40, lg: 96 } as const;
-const BOX = { sm: "size-10", lg: "size-24" } as const;
-const TEXT = { sm: "text-label-lg", lg: "text-headline-md" } as const;
-const ICON = { sm: "size-5", lg: "size-10" } as const;
+const PIXELS = { xs: 32, sm: 40, lg: 96 } as const;
+const BOX = { xs: "size-8", sm: "size-10", lg: "size-24" } as const;
+const TEXT = { xs: "text-label-sm", sm: "text-label-lg", lg: "text-headline-md" } as const;
+const ICON = { xs: "size-4", sm: "size-5", lg: "size-10" } as const;
 
 /** Renders a profile photo, the wearer's initials, or a neutral placeholder. */
 export function Avatar({ photoUrl, name, lastName, size = "sm" }: Readonly<AvatarProps>) {
