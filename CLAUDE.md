@@ -280,7 +280,7 @@ src/
                        browser reads too), put-object/ (the browser's PUT),
                        image-src/ (our route, never the bucket)
     users/             me/ (the profile: two reads and the one write, plus
-                       me.types.ts), name.ts (display name and initials)
+                       me.types.ts), name/ (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
                        <form>.schema.ts each, plus upload-request, audit-page
                        and account-page, which no form posts),
