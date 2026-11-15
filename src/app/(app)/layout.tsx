@@ -5,6 +5,7 @@
  */
 
 import { AppHeader } from "@/components/app/chrome/app-header/app-header";
+import { SignedOutListener } from "@/components/common/signed-out-listener/signed-out-listener";
 import { ZoneProbe } from "@/components/common/zone-probe/zone-probe";
 import { getSession } from "@/lib/auth/session/session";
 import { getMyGroups } from "@/lib/groups/groups";
@@ -45,6 +46,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       {/* Writes the zone cookie every signed-in page is drawn from. Here rather
           than on the one screen that reads it, so the cookie is already there. */}
       <ZoneProbe />
+
+      {/* In the shell, so every signed-in page is listening: a sign-out in one
+          tab leaves all the others painted as though they were still in. */}
+      <SignedOutListener />
     </div>
   );
 }

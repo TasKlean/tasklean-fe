@@ -21,5 +21,7 @@ export async function logoutAction(): Promise<void> {
   }
 
   await clearSession();
-  redirect("/");
+  // The marker is for the other tabs, not this one: the home page posts it to
+  // them, and only once the cookie above is actually gone.
+  redirect("/?signedOut=1");
 }

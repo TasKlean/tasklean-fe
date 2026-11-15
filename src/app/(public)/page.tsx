@@ -3,6 +3,7 @@
  */
 
 import type { Metadata } from "next";
+import { SignedOutBroadcast } from "@/components/common/signed-out-broadcast/signed-out-broadcast";
 import { Comparison } from "@/components/marketing/comparison";
 import { CtaBand } from "@/components/marketing/cta-band";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
@@ -22,10 +23,14 @@ export const metadata: Metadata = {
   },
 };
 
-/** Renders the public home page. */
-export default function HomePage() {
+/** Renders the public home page, and where logout lands, tells the other tabs. */
+export default async function HomePage({ searchParams }: PageProps<"/">) {
+  const { signedOut } = await searchParams;
+
   return (
     <>
+      {signedOut === "1" ? <SignedOutBroadcast /> : null}
+
       <Hero />
       <HowItWorks />
       <FeatureGrid />

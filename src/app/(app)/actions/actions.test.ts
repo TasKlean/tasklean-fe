@@ -63,21 +63,21 @@ describe("logoutAction", () => {
   it("clears the cookie and returns to the public site", async () => {
     server.use(revokeHandler({ calls: 0 }));
 
-    expect(await redirectedTo()).toBe("/");
+    expect(await redirectedTo()).toBe("/?signedOut=1");
     expect(clearSession).toHaveBeenCalled();
   });
 
   it("still signs the browser out when the backend refuses", async () => {
     server.use(revokeHandler({ calls: 0 }, 401));
 
-    expect(await redirectedTo()).toBe("/");
+    expect(await redirectedTo()).toBe("/?signedOut=1");
     expect(clearSession).toHaveBeenCalled();
   });
 
   it("does not call the backend without a session", async () => {
     getSession.mockResolvedValue(null as never);
 
-    expect(await redirectedTo()).toBe("/");
+    expect(await redirectedTo()).toBe("/?signedOut=1");
     expect(clearSession).toHaveBeenCalled();
   });
 });

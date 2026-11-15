@@ -200,6 +200,8 @@ src/
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
                        zone-probe (the browser's own zone, into a cookie),
+                       signed-out-listener and signed-out-broadcast (the two
+                       ends of the sign-out a tab tells the others about),
                        invite-code/ (invite-code-field, share-invite),
                        activity/ (a trail, whichever one: activity-feed,
                        activity-timeline, activity-row, change-card, token-line,
@@ -258,6 +260,8 @@ src/
       device.ts        the device id cookie and its four headers
       two-factor-challenge.ts, password-reset.ts, google-nonce.ts
       safe-next.ts     blocks open redirect, owns SIGNED_IN_HOME
+      signed-out-channel/  the BroadcastChannel a tab reports a sign-out on,
+                       the one module here that runs in the browser
     config/env.ts      validated environment
     devices/           the caller's own devices and sessions
     groups/            groups.ts (create, join, mine, that list filtered,
@@ -332,7 +336,7 @@ It must **not** be imported by anything a client component imports: all of `vali
 `groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
 (`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
 three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`,
-`uploads/image-src`).
+`uploads/image-src`), and `auth/signed-out-channel`, whose two ends are both browser side.
 
 ### Styling
 
@@ -860,6 +864,18 @@ layout.
   never leave someone in a session they asked to leave, so the cookie is cleared either way. It ends
   **this device only**; signing out everywhere and removing every device are separate calls, and
   both end this session too.
+- **Signing out already ends every tab's session; the channel only makes them show it.** The cookie
+  is browser wide, so a stale tab is already bounced by Proxy, refused by `serverApi` and 401'd by
+  the image route. `auth/signed-out-channel` posts to the other tabs so the page they are painted as
+  catches up, and `SignedOutListener` sits in the signed-in shell. **It reloads the document, never
+  `router.refresh()`**, which is modelled as a navigation to the route it is already on and so
+  discards the redirect Proxy answers with, leaving the tab painted as it was.
+- **The post happens on arrival, never on a press.** `SignedOutBroadcast` renders on the screen a
+  sign-out lands on: `/login` behind `signedOut`, `deactivated` or `reset`, and the home page behind
+  the `/?signedOut=1` logout redirects with. Arrival is the first moment the cookie is certainly
+  gone, where a press would race the backend call logout makes first, and a refused "sign out
+  everywhere" would sign the other tabs out anyway. **Same browser profile only, and a deliberate
+  sign-out only**, so a session that expired on its own leaves the other tabs stale until touched.
 
 ### Google sign-in
 
