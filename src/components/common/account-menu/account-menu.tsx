@@ -16,6 +16,7 @@ import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 
 type AccountMenuProps = {
   name: string | null;
+  photoUid: string | null;
   photoUrl: string | null;
 };
 
@@ -23,7 +24,7 @@ const ITEM =
   "text-label-lg text-foreground hover:bg-muted gap-space-sm px-space-md flex min-h-11 w-full items-center text-left transition-colors";
 
 /** Renders the account avatar with its menu of account, settings and logout. */
-export function AccountMenu({ name, photoUrl }: Readonly<AccountMenuProps>) {
+export function AccountMenu({ name, photoUid, photoUrl }: Readonly<AccountMenuProps>) {
   const { open, toggle, close, root, trigger } = useDisclosure();
   const panelId = useId();
 
@@ -39,7 +40,7 @@ export function AccountMenu({ name, photoUrl }: Readonly<AccountMenuProps>) {
         onClick={toggle}
         className="hover:bg-muted flex size-11 shrink-0 items-center justify-center rounded-full transition-colors"
       >
-        <Avatar photoUrl={photoUrl} name={name} />
+        <Avatar photoUid={photoUid} photoUrl={photoUrl} name={name} />
       </button>
 
       {open ? (

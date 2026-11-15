@@ -15,6 +15,8 @@ export type Session = {
   userUid: string;
   // Display only, for the chrome. Absent on a session sealed before it existed.
   name?: string;
+  // One or the other, never both: `photoUid` is our upload, `photoUrl` Google's.
+  photoUid?: string;
   photoUrl?: string;
 };
 
@@ -80,6 +82,7 @@ function toSession(payload: unknown): Session | null {
     userUid: value.userUid,
     // Spread so the key stays absent rather than present-and-undefined.
     ...(typeof value.name === "string" ? { name: value.name } : {}),
+    ...(typeof value.photoUid === "string" ? { photoUid: value.photoUid } : {}),
     ...(typeof value.photoUrl === "string" ? { photoUrl: value.photoUrl } : {}),
   };
 }

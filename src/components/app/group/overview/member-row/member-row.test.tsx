@@ -28,6 +28,7 @@ const BASE = {
   name: "Maja Bregar",
   firstName: "Maja",
   lastName: "Bregar",
+  photoUid: null,
   photoUrl: null,
   role: "Member",
   admin: false,

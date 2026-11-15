@@ -15,7 +15,12 @@ export default async function PublicLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="bg-background flex min-h-svh flex-col">
-      <SiteHeader signedIn={session !== null} name={name} photoUrl={session?.photoUrl ?? null} />
+      <SiteHeader
+        signedIn={session !== null}
+        name={name}
+        photoUid={session?.photoUid ?? null}
+        photoUrl={session?.photoUrl ?? null}
+      />
       <main className="flex-1">{children}</main>
       <SiteFooter signedIn={session !== null} name={name} />
     </div>

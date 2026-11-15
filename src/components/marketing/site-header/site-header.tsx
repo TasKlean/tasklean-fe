@@ -19,11 +19,12 @@ const SECTIONS = [
 type SiteHeaderProps = {
   signedIn: boolean;
   name: string | null;
+  photoUid: string | null;
   photoUrl: string | null;
 };
 
 /** Renders the public site header. */
-export function SiteHeader({ signedIn, name, photoUrl }: Readonly<SiteHeaderProps>) {
+export function SiteHeader({ signedIn, name, photoUid, photoUrl }: Readonly<SiteHeaderProps>) {
   return (
     <header className="bg-background/85 border-border/60 sticky top-0 z-50 w-full border-b backdrop-blur-xl">
       <div className="max-w-app px-margin md:px-margin-tablet lg:px-margin-desktop gap-gutter mx-auto flex h-16 items-center justify-between md:h-20">
@@ -56,7 +57,7 @@ export function SiteHeader({ signedIn, name, photoUrl }: Readonly<SiteHeaderProp
                 name={name}
                 className="text-label-lg text-muted-foreground px-space-sm hidden whitespace-nowrap sm:block"
               />
-              <AccountMenu name={name} photoUrl={photoUrl} />
+              <AccountMenu name={name} photoUid={photoUid} photoUrl={photoUrl} />
             </>
           ) : (
             <>

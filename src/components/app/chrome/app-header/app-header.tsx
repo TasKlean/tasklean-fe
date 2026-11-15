@@ -21,12 +21,13 @@ import type { MyGroup } from "@/lib/groups/groups.types";
 
 type AppHeaderProps = {
   name: string | null;
+  photoUid: string | null;
   photoUrl: string | null;
   groups: MyGroup[];
 };
 
 /** Renders the signed-in header. */
-export function AppHeader({ name, photoUrl, groups }: Readonly<AppHeaderProps>) {
+export function AppHeader({ name, photoUid, photoUrl, groups }: Readonly<AppHeaderProps>) {
   return (
     // The height is here rather than on the row inside, border included, so
     // `--spacing-header` is the header's whole outer height: with the border
@@ -56,7 +57,7 @@ export function AppHeader({ name, photoUrl, groups }: Readonly<AppHeaderProps>) 
             className="text-label-lg text-muted-foreground px-space-sm hidden whitespace-nowrap sm:block"
           />
 
-          <AccountMenu name={name} photoUrl={photoUrl} />
+          <AccountMenu name={name} photoUid={photoUid} photoUrl={photoUrl} />
         </div>
       </HeaderBar>
     </header>

@@ -9,7 +9,7 @@ vi.mock("@/app/(app)/actions/actions", () => ({ logoutAction: vi.fn() }));
 
 describe("AccountMenu closed", () => {
   it("shows only the trigger", () => {
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
 
     expect(screen.getByRole("button", { name: "Your account" })).toHaveAttribute(
       "aria-expanded",
@@ -23,7 +23,7 @@ describe("AccountMenu closed", () => {
 describe("AccountMenu open", () => {
   it("offers account, settings and logout", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
 
     await user.click(screen.getByRole("button", { name: "Your account" }));
 
@@ -34,7 +34,7 @@ describe("AccountMenu open", () => {
 
   it("tells assistive tech that it is open", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
 
     await user.click(screen.getByRole("button", { name: "Your account" }));
 
@@ -46,7 +46,7 @@ describe("AccountMenu open", () => {
 
   it("names who is signed in", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
 
     await user.click(screen.getByRole("button", { name: "Your account" }));
 
@@ -55,7 +55,7 @@ describe("AccountMenu open", () => {
 
   it("closes on escape and hands focus back to the trigger", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
     const trigger = screen.getByRole("button", { name: "Your account" });
 
     await user.click(trigger);
@@ -69,7 +69,7 @@ describe("AccountMenu open", () => {
     const user = userEvent.setup();
     render(
       <div>
-        <AccountMenu name="Ada" photoUrl={null} />
+        <AccountMenu name="Ada" photoUid={null} photoUrl={null} />
         <button type="button">Somewhere else</button>
       </div>,
     );
@@ -82,7 +82,7 @@ describe("AccountMenu open", () => {
 
   it("closes once a destination is chosen", async () => {
     const user = userEvent.setup();
-    render(<AccountMenu name="Ada" photoUrl={null} />);
+    render(<AccountMenu name="Ada" photoUid={null} photoUrl={null} />);
 
     await user.click(screen.getByRole("button", { name: "Your account" }));
     await user.click(screen.getByRole("link", { name: "Settings" }));

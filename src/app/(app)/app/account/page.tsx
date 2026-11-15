@@ -57,7 +57,13 @@ export default async function AccountPage() {
       {failure ? <LoadError title="We could not load your profile." message={failure} /> : null}
 
       <section className="bg-card shadow-level-1 p-space-lg sm:p-space-xl gap-space-lg flex flex-col items-center rounded-xl text-center sm:flex-row sm:text-left">
-        <Avatar photoUrl={user.photoUrl} name={user.name} lastName={user.lastName} size="lg" />
+        <Avatar
+          photoUid={user.photoUid}
+          photoUrl={user.photoUrl}
+          name={user.name}
+          lastName={user.lastName}
+          size="lg"
+        />
 
         <div className="gap-space-xs flex min-w-0 flex-col">
           <h1 className="text-headline-md md:text-headline-lg text-foreground break-words">

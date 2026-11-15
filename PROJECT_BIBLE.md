@@ -2184,7 +2184,7 @@ after the reader left the group. A route of ours also solves two things a signed
 `<img>` fetches on its own and cannot be handed a token, so the thing in `src` must be same-origin
 for the session cookie to ride along; and a uid is permanent where a signature expires.
 
-**`unoptimized` is load-bearing for a second, unrelated reason.** Since Next 15.4.5 and 14.2.31, the
+**The optimizer is never pointed at our route, for a second, unrelated reason.** Since Next 15.4.5 and 14.2.31, the
 fix for CVE-2025-57752, the optimizer's internal fetch deliberately drops `Cookie` and
 `Authorization`, because a cache keyed without them served one reader's private image to another. Our
 route is guarded by the session, so an optimized `src` comes back 401, and `next.config.ts` needed
@@ -2216,10 +2216,11 @@ and a screenshot settled it.
 
 **A background image has neither problem.** `background-image` that 404s paints nothing, so the
 letter underneath shows: no handler, no state, no second request, and `GroupAvatar` stays a Server
-Component. The cost is the one image outside `next/image`, which buys nothing here anyway, since the
-route is `unoptimized` and `fill` reduces it to an absolutely positioned `<img>`. The URL is the
-dynamic value the styling rule allows inline, safe to interpolate because `groupPhotoSrc` encodes the
-uid. The letter is `aria-hidden` behind a picture, so a reader is not told "F" over a photograph.
+Component. The cost is an image outside `next/image`, which buys nothing here anyway, since the route
+cannot be optimized at all and `fill` would reduce it to an absolutely positioned `<img>`. The URL is
+the dynamic value the styling rule allows inline, safe to interpolate because `uploadedImageSrc`
+encodes the uid. `Avatar` draws our upload the same way for the same reasons, keeping `next/image`
+only for the public URL Google provisioned an account with. The letter is `aria-hidden` behind a picture, so a reader is not told "F" over a photograph.
 
 **The cache is `private, max-age=3600, immutable`.** `immutable` is honest because a uid addresses one
 object forever; `private` is the load-bearing half, since a shared cache holding a household's photo
@@ -2275,6 +2276,16 @@ of it" is nonsense said about your own face, and the `src` builder left `groups/
 `/api/image/{uid}` or null rather than judging a link; the `https`-only rule and the `javascript:`
 and `data:` cases went with the pasted link. It is still a square with the group's first letter
 behind it, where a person's avatar is a circle with their initials: a group is not somebody.
+
+**A person's avatar draws two sources two ways, and that is not a compromise.** `photoUid` and
+`photoUrl` are mutually exclusive on the wire, so `Avatar` takes ours first and Google's as the
+fallback. Ours is the background over the initials the group picture already proved, because our
+route sits behind the session and legitimately answers 404 for an object the sweeper collected or a
+reader who shares no group with its owner, and an `<img>` would draw the browser's glyph for either.
+Google's keeps `next/image`: that host is allowlisted, its bytes are public and the optimizer earns
+its place. Hiding a failed `<img>` instead would cost an `onError` handler and make every screen
+holding an avatar a client component. The session seals both fields for the same reason, rather than
+resolving one: `Avatar` stays the only place that picks.
 
 ### A description sized to its content, and what `field-sizing` costs
 

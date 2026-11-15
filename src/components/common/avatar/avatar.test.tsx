@@ -13,6 +13,40 @@ vi.mock("next/image", () => ({
 
 const GOOGLE_PHOTO = "https://lh3.googleusercontent.com/a/abc123=s96-c";
 
+function picture(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>("[style*='background-image']");
+}
+
+describe("Avatar with an uploaded photo", () => {
+  it("reads it through our own route, never from the bucket", () => {
+    const { container } = render(<Avatar photoUid="up-1" name="Ada" lastName="Lovelace" />);
+
+    expect(picture(container)?.style.backgroundImage).toContain("/api/image/up-1");
+  });
+
+  it("wins over the url Google gave the account", () => {
+    const { container } = render(<Avatar photoUid="up-1" photoUrl={GOOGLE_PHOTO} name="Ada" />);
+
+    expect(picture(container)?.style.backgroundImage).toContain("/api/image/up-1");
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("keeps the initials under it, so a read that fails needs no handler", () => {
+    const { container } = render(<Avatar photoUid="up-1" name="Ada" lastName="Lovelace" />);
+
+    expect(picture(container)).not.toBeNull();
+    expect(screen.getByText("AL")).toBeInTheDocument();
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("stands in with the initials for a uid that is nothing but space", () => {
+    const { container } = render(<Avatar photoUid="   " name="Ada" lastName="Lovelace" />);
+
+    expect(picture(container)).toBeNull();
+    expect(screen.getByText("AL")).toBeInTheDocument();
+  });
+});
+
 describe("Avatar with a photo", () => {
   it("draws a photo served from an allowed host", () => {
     const { container } = render(<Avatar photoUrl={GOOGLE_PHOTO} name="Ada" lastName="Lovelace" />);

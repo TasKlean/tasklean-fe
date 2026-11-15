@@ -670,15 +670,18 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 
 ### Images and uploads
 
-- **A group's picture is an uploaded file, addressed by uid and painted as a background.** The bucket
-  is private, so `Group.photoUid` is an upload rather than a URL and `uploads/image-src` turns any
-  uid into `/api/image/{uid}`, whatever the picture is of. The avatar is a square with the group's first letter where a person's is a
-  circle with initials, and **the letter is always drawn, with the picture as a layer over it**: a
-  background that 404s paints nothing, so a dead upload falls back with no handler, no state and one
-  request. An `<img>` would draw the browser's broken glyph whatever its `alt` says. `GroupAvatar`
-  is the one place an inline style is used, for the URL. `Avatar`, for a person, is `next/image` and
-  **`unoptimized`**: our route is guarded by the session and Next's optimizer drops cookies from its
-  own fetch, so an optimized src would be refused and draw nothing.
+- **An uploaded picture is addressed by uid and painted as a background.** The bucket is private, so
+  `photoUid` is an upload rather than a URL and `uploads/image-src` turns any uid into
+  `/api/image/{uid}`, whatever the picture is of. A group's is a square with its first letter where a
+  person's is a circle with their initials, and **the letter is always drawn, with the picture as a
+  layer over it**: a background that 404s paints nothing, so a dead upload falls back with no
+  handler, no state and one request. An `<img>` would draw the browser's broken glyph whatever its
+  `alt` says. `GroupAvatar` and `Avatar` are the two places an inline style is used, for the URL.
+- **`Avatar` draws our upload and Google's URL differently, and ours wins.** An account carries one or
+  the other, never both, so a `photoUid` is drawn as the layer above and a `photoUrl` stays
+  `next/image`: the optimizer allows that host and is worth having, where our own route is behind the
+  session and may legitimately 404. `isRenderable` and `next.config.ts`'s `remotePatterns` therefore
+  guard only the URL half.
 - **The image route tells a missing object from a broken bucket.** A read is presigned without
   checking the key exists, deliberately, since a `head` per avatar is a round trip, so a bucket that
   lost its objects while the database kept its rows answers 404 and the route passes that on. Every
@@ -796,8 +799,9 @@ layout.
 - **The display name rides in the session cookie**, carried by every auth response including
   refresh, so the chrome can greet by name without an API call per page. Display only, and may be
   stale.
-- **So does the avatar, but it costs one call at sign-in.** `AuthResponse` has no `photoUrl`, so
-  `startSession` reads `/api/users/me` once and seals it. Best effort: a failure costs an avatar,
+- **So does the avatar, but it costs one call at sign-in.** `AuthResponse` carries no picture of
+  either kind, so `startSession` reads `/api/users/me` once and seals both fields, leaving `Avatar`
+  the one place that picks. Best effort: a failure costs an avatar,
   never a login. Every sign-in path goes through `startSession`, never `setSession` directly.
 - **Sign-in caches the theme as well as the avatar.** `startSession` reads `/api/user-settings` and
   writes `tasklean_theme`, always, so a browser never keeps painting the theme of whoever used it
