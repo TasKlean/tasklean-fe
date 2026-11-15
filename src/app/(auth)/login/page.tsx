@@ -10,6 +10,7 @@ import { BackLink } from "@/components/auth/back-link";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { LoginForm } from "@/components/auth/login-form/login-form";
 import { FormNotice } from "@/components/common/form-notice";
+import { SignedOutBroadcast } from "@/components/common/signed-out-broadcast/signed-out-broadcast";
 import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
@@ -31,9 +32,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const nextPath = typeof next === "string" ? next : undefined;
   const nonceHash = (await headers()).get(NONCE_HEADER_NAME);
   const signedOutNotice = typeof signedOut === "string" ? SIGNED_OUT_NOTICES[signedOut] : undefined;
+  // The three params that only arrive because a session ended, which is what
+  // the other tabs are told. A bare bounce from Proxy is not one of them.
+  const sessionEnded = Boolean(signedOutNotice) || deactivated === "1" || reset === "1";
 
   return (
     <div className="gap-space-lg flex flex-col">
+      {sessionEnded ? <SignedOutBroadcast /> : null}
+
       <BackLink />
 
       <header className="gap-space-xs flex flex-col">

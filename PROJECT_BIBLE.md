@@ -835,6 +835,67 @@ otherwise silently expand to 32 bytes.
 Rotating `SESSION_SECRET` invalidates every session at once. That is the emergency revoke-all lever,
 and the reason it must differ per environment.
 
+### Signing out is already browser wide, so the tabs only need telling
+
+The session is one httpOnly cookie, so `clearSession()` ends it for every tab at once and there was
+never a per-tab session to sign out. The boundary was already tight before any of this: a stale tab
+that navigates is bounced by Proxy, one that posts an action gets `SessionExpiredError` from
+`serverApi`'s own `if (!session)`, and one that loads an avatar gets a 401 from `/api/image/{uid}`.
+Nothing it tries succeeds.
+
+**What was left is cosmetic, and that is the whole of what `signed-out-channel` buys.** The pixels
+already painted stay painted until someone touches that tab, which on a shared machine means a
+roster and an email address sitting on screen after the person left. Worth fixing, not a leak.
+
+**A `BroadcastChannel` post, not a readable marker cookie.** Keying on the state rather than the
+event would have covered strictly more causes, since a session also ends when Proxy's refresh is
+refused, which runs on the server with no browser to post from. That was the better design and it
+was rejected deliberately: it needs a second cookie, and we would rather carry the gap. **So the
+limits are real and known**: same browser profile only, and the press only. A session that expired
+on its own leaves every other tab stale until it is looked at.
+
+**Every sign-out posts on arrival, and nothing posts on a press.** Logout was built the other way
+first, on the button, since it cannot fail. That was wrong for a second reason that matters more:
+`logoutAction` calls `revokeSession` before `clearSession`, so a post on the press races a backend
+round trip, and the other tabs would reload into a session that was still alive and go right back to
+being stale. On arrival is the first moment the cookie is certainly gone. It also keeps a refused
+"sign out everywhere" or "remove every device" from signing anybody out, those two being the ones
+that can come back a failure. Logout therefore redirects to **`/?signedOut=1`** rather than `/`, and
+the home page reads the marker the way `/login` already reads its own.
+
+**The listener reloads the document; `router.refresh()` does not work here.** This was the bug the
+first build shipped with, and it is worth never rediscovering. A refresh is modelled inside Next as
+a navigation to the route it is already on: `refreshReducer` calls `navigateToKnownRoute`, and when
+the response carries no matching route tree the segment cache calls `rejectRouteCacheEntry` and
+returns null. The comments there say an MPA navigation is only triggered "during an actual
+navigation". So the refresh fetched Proxy's redirect, found a payload for a different route,
+discarded it silently, and left the tab painted exactly as it was: signed in until the reader
+clicked something. `window.location.reload()` is a document request, so the browser follows the 307
+itself, Proxy stays the authority on where they land and the `next` path survives. The listener test
+pins the reload for that reason, since a regression to a soft refresh would otherwise be silent.
+
+Refreshing on every tab focus instead would have needed no channel at all, and was rejected because
+it discards `ActivityFeed`'s in-memory pages.
+
+**The message is checked, not trusted.** Any script on the origin can open the same channel, and an
+unchecked message would bounce every tab to login. The test posting a wrong message then a right one
+on a hand-made channel is what keeps that honest: asserting only the wrong one would pass just as
+well if the channel name had drifted.
+
+**The API is feature-detected even though it is baseline**, Safari having had it since 15.4. Both
+ends are in the signed-in shell, so without the guard a browser that lacks it would throw inside an
+effect on every page behind the session, and the whole app would break for a feature that is only
+cosmetic. The test for the unsupported path pins exactly that, the teardown included: an
+`onSignedOut` returning nothing instead of a function breaks the effect cleanup rather than the
+effect.
+
+**Node ships a real `BroadcastChannel`, so the tests use it.** A jsdom stub was written first and
+turned out to be dead code, since `globalThis.BroadcastChannel ??=` never fires. Its delivery is a
+macrotask rather than a microtask, so every positive assertion polls with `vi.waitFor` and budgets
+**5 seconds**, not the default one: a fixed `setTimeout(0)` flaked one run in eight, and the default
+second then failed the suite once more while it was spawning a worker per file. A negative
+assertion keeps a flat 50ms wait, where a longer one only makes it stricter.
+
 ### `uqr` for the QR code, not `qrcode`
 
 QR encoding is Reed-Solomon plus mask selection, so it is the rare case where a dependency beats
