@@ -8,8 +8,8 @@
  */
 
 // One constant per kind of image, matching the backend's `UploadPurpose`, where
-// each carries its own authorization rule. Only a group photo exists yet.
-export const UPLOAD_PURPOSES = ["GROUP_PHOTO"] as const;
+// each carries its own authorization rule.
+export const UPLOAD_PURPOSES = ["GROUP_PHOTO", "USER_PHOTO"] as const;
 
 export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number];
 
@@ -25,7 +25,8 @@ export type ImageType = (typeof IMAGE_TYPES)[number];
 
 export type UploadRequest = {
   purpose: UploadPurpose;
-  // What the image is for: a group's uid, for a group photo.
+  // What the image is for: a group's uid for a group photo, and your own user
+  // uid for an avatar. Never a group uid for the latter, which is a 403.
   targetUid: string;
   contentType: ImageType;
   // Exactly what the PUT will send, since the length is signed as well.

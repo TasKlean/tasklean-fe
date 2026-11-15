@@ -17,6 +17,9 @@ export type CurrentUser = {
   name?: string;
   middleName?: string;
   lastName?: string;
+  // Exactly one is ever set: ours is an upload uid read through `/api/image`,
+  // Google's a URL. Reading only the URL draws nothing for anyone who uploaded.
+  photoUid?: string;
   photoUrl?: string;
   isEmailVerified?: boolean;
   dateCreated?: string;

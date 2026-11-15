@@ -10,6 +10,7 @@ import { serverApi } from "@/lib/api/server/server";
 import type {
   SignedUpload,
   SignedUrlResponse,
+  UploadPurpose,
   UploadRequest,
   UploadResponse,
 } from "@/lib/uploads/uploads.types";
@@ -20,10 +21,22 @@ const UPLOADS_PATH = "/api/uploads";
 // it is deliberately not exposed, and the remedy is the same either way.
 export const UPLOAD_NOT_USABLE = "UPLOAD_NOT_USABLE";
 
-// What a refused presign says. A 403 covers a target that is not the caller's
-// and one that never existed alike, so the line names neither cause.
-export const UPLOAD_REFUSED =
-  "You cannot add a picture to that group. You may no longer be an admin of it.";
+// What a refused presign says, per purpose. A 403 covers a target that is not
+// the caller's and one that never existed alike, so neither line names a cause.
+const REFUSED: Record<UploadPurpose, string> = {
+  GROUP_PHOTO: "You cannot add a picture to that group. You may no longer be an admin of it.",
+  USER_PHOTO: "You cannot add a picture to that account.",
+};
+
+/**
+ * Picks the line a refused presign shows.
+ *
+ * @param purpose What the image was for, which is what decides who may upload
+ * it and so what a refusal means.
+ */
+export function uploadRefusedMessage(purpose: UploadPurpose): string {
+  return REFUSED[purpose];
+}
 
 /**
  * Asks for a signed URL to upload one image to.

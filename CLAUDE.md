@@ -257,7 +257,7 @@ src/
     groups/            groups.ts (create, join, mine, that list filtered,
                        detail, update, rotate, delete), groups.types.ts,
                        members/, role.ts (the one place a role is compared),
-                       photo/ (our route, never the bucket), labels.ts,
+                       labels.ts,
                        filter/ (URL <-> query <-> endpoint params),
                        unavailable.ts (the 403), last-admin.ts (the 409)
     images/            fit-box/ (the size drawn at), resize/ (decode, redraw,
@@ -272,7 +272,8 @@ src/
                        one zone), zone/ (the zone cookie's name and shape, and
                        zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
-                       browser reads too), put-object/ (the browser's PUT)
+                       browser reads too), put-object/ (the browser's PUT),
+                       image-src/ (our route, never the bucket)
     users/             me.ts, name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
                        <form>.schema.ts each, plus upload-request, audit-page
@@ -323,7 +324,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
 `groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
 (`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
-two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`).
+three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`,
+`uploads/image-src`).
 
 ### Styling
 
@@ -669,8 +671,8 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
 ### Images and uploads
 
 - **A group's picture is an uploaded file, addressed by uid and painted as a background.** The bucket
-  is private, so `Group.photoUid` is an upload rather than a URL and `lib/groups/photo` turns it into
-  `/api/image/{uid}`. The avatar is a square with the group's first letter where a person's is a
+  is private, so `Group.photoUid` is an upload rather than a URL and `uploads/image-src` turns any
+  uid into `/api/image/{uid}`, whatever the picture is of. The avatar is a square with the group's first letter where a person's is a
   circle with initials, and **the letter is always drawn, with the picture as a layer over it**: a
   background that 404s paints nothing, so a dead upload falls back with no handler, no state and one
   request. An `<img>` would draw the browser's broken glyph whatever its `alt` says. `GroupAvatar`
@@ -948,6 +950,11 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
   them `memberId`, never `userId`. Still numeric on the task and completion endpoints; the membership
   routes take the membership's own `uid`.
+- **A person carries a `photoUid` or a `photoUrl`, never both, and the uid is ours.** `photoUid` is
+  an upload read through `/api/image/{uid}`; `photoUrl` is only what Google provisioned the account
+  with, and clearing ours makes it reappear. Both fields ride on `/users/me`, `/users/{uid}`, every
+  roster user and the trail's actor, so a reader taking `photoUrl` alone shows nothing for anyone who
+  uploaded.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
   goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes
   no `Z`** (the backend parses `ISO_LOCAL_DATE_TIME`).

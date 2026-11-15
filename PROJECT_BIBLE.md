@@ -2264,7 +2264,14 @@ on the file that is picked, checked before decoding because decoding is what cos
 memory, and it is the only one a reader meets. The picker quoted the wrong one until the hint and the
 refusal were made to read the same constant.
 
-**One module still decides what a picture's `src` is**, but `lib/groups/photo` returns
+**A second kind of image is a second purpose, not a flag on the first.** The backend's
+`UploadPurpose` decides who may ask for a presign and which prefix the object lands under, so an
+avatar is `USER_PHOTO` with its own rule rather than a group photo aimed at a person. Two
+consequences here: the one refusal line became one per purpose, since "You may no longer be an admin
+of it" is nonsense said about your own face, and the `src` builder left `groups/` for
+`uploads/image-src`, because `/api/image/{uid}` was never about groups.
+
+**One module still decides what a picture's `src` is**, but `uploads/image-src` returns
 `/api/image/{uid}` or null rather than judging a link; the `https`-only rule and the `javascript:`
 and `data:` cases went with the pasted link. It is still a square with the group's first letter
 behind it, where a person's avatar is a circle with their initials: a group is not somebody.
