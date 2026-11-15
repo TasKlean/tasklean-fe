@@ -2265,6 +2265,33 @@ on the file that is picked, checked before decoding because decoding is what cos
 memory, and it is the only one a reader meets. The picker quoted the wrong one until the hint and the
 refusal were made to read the same constant.
 
+**A profile edit takes its subject from the session, never from the form.** Every other form posts
+what it is about, because an action cannot see the route's params. This one must not: only the
+subject may send a `photoUid`, and the backend refuses a body carrying one for anybody else, so a
+uid off the wire would be a press able to name an account. The session already holds `userUid`, and
+the one case it does not, an exchange that answered with the token pair alone, falls back to a
+profile read rather than to a dead end.
+
+**A save reseals the session, because the chrome reads the name and the picture from the cookie.**
+Both were cached at sign-in to spare a profile read per page, which means a save that only wrote to
+the backend would leave the header greeting you by your old name under your old face until you signed
+in again. The reseal rebuilds both fields from what was saved rather than merging them, since
+clearing our upload is what makes the Google picture reappear and a spread would keep the stale one.
+Writing the cookie re-renders the route, so the page needs no revalidation of its own.
+
+**The name cap is the backend's column, and it lives in `rules.ts` with the fields that carry it.**
+`singleWordRule` and the bare `requiredTextRule` had no bound at all, so a 150-character first name
+was a 400 with nothing a reader could act on. `firstNameRule`, `lastNameRule` and `middleNameRule`
+carry `FieldLimits.NAME` and register adopted them, which is the point of putting them there;
+`requiredTextRule` stays unbounded because the Google id token posts through it and is far longer
+than any name. A middle name emptied is **absent** rather than blank, because an omitted field is how
+the backend is told to clear one, exactly as an omitted `photoUid` clears a picture.
+
+**Profile sits first in Account, and Account stays last.** It is the group the page belongs to, and
+it also answers the note that used to be in `sections.ts`: Account held nothing but a destructive
+link. Moving the whole group up the rail to make room for a name field would have reordered settings
+for everybody to solve a problem nobody had.
+
 **A second kind of image is a second purpose, not a flag on the first.** The backend's
 `UploadPurpose` decides who may ask for a presign and which prefix the object lands under, so an
 avatar is `USER_PHOTO` with its own rule rather than a group photo aimed at a person. Two
@@ -2409,12 +2436,11 @@ workaround **before** the feature depending on it gets built.
    deactivates its memberships nor stops answering a direct read.
 2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
    and the `TaskTag` junction has no controller, so filter-by-tag is not buildable.
-3. **No file upload, except for a group's photo.** **Partly closed.** `/api/uploads` presigns, but
-   `UploadPurpose` holds `GROUP_PHOTO` alone: `taskPhotoUrl` and `completionPhotoUrl` are still plain
-   URL strings with nothing to point them at, so photo proof remains unbuildable. Two things are owed
-   when `TASK_PHOTO` arrives: `UploadService.createUpload` resolves `targetUid` as a group
-   unconditionally, and the 403 the presign returns is phrased by us as a group permission, which
-   will have to become per-purpose.
+3. **No file upload for a task.** **Partly closed.** `UploadPurpose` holds `GROUP_PHOTO` and
+   `USER_PHOTO`, and both ends of the earlier debt are paid: the backend resolves `targetUid` per
+   purpose and our presign refusal is per purpose too. What remains is photo proof: `taskPhotoUrl`
+   and `completionPhotoUrl` are still plain URL strings with nothing to point them at, so a
+   `TASK_PHOTO` purpose has to arrive before it is buildable.
 4. **Notifications are read-only.** `GET` and `PATCH /{id}/read` exist but no create endpoint, so
    "ping a member about a task", an MVP feature, has no API.
 5. **No server-side task filtering.** Client-side only for now.

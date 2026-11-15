@@ -36,6 +36,10 @@ changes, two-factor and device events, newest first, a page of 20 behind a Load 
 feed the group screens draw, with the range as its only filter and the IP address on the rows the
 reader acted on.
 
+**`/app/settings/profile` is where your own name and picture are changed**, first under Account:
+first, middle and last name plus an uploaded avatar, saved in one press. A save reseals the session,
+so the header's greeting and avatar follow it. The email address is not editable anywhere.
+
 **Two-factor is complete for the one provider the backend has**: a gated sign-in, the methods list,
 enrolling, turning it off and reissuing recovery codes. Every `/api/account/2fa` endpoint has a
 caller.
@@ -169,7 +173,8 @@ src/
                        two-factor/, devices/ (+ page.helpers.ts), password/,
                        connected-accounts/, deactivate/, activity/ (the
                        account's own trail: page.helpers.ts for the read,
-                       actions/ for the page after a cursor)
+                       actions/ for the page after a cursor), profile/ (your own
+                       name and picture, with actions/ for the save)
       uploads/actions/ the presign every picker shares, in a segment with no
                        page.tsx, so it is an action rather than a route
     (auth)/            brand panel + form shell, robots noindex. actions.ts is
@@ -220,7 +225,7 @@ src/
       settings/        settings-nav, then one directory per page: appearance/,
                        language/ (locale-select, our dropdown not the
                        platform's), notifications/, two-factor/, devices/,
-                       password/, connected-accounts/, deactivate/
+                       password/, connected-accounts/, deactivate/, profile/
     auth/              login-form, register-form, verify-email-form,
                        two-factor-form, google-sign-in, google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -274,7 +279,8 @@ src/
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT),
                        image-src/ (our route, never the bucket)
-    users/             me.ts, name.ts (display name and initials)
+    users/             me/ (the profile: two reads and the one write, plus
+                       me.types.ts), name.ts (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
                        <form>.schema.ts each, plus upload-request, audit-page
                        and account-page, which no form posts),
@@ -691,6 +697,11 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   /api/groups/{uid}` takes the group as it will then be, so `EditGroupForm` posts the uid the group
   already holds on every save that is not a removal, and never a blank one: `""` passes the
   backend's validation and then fails the lookup behind it as a 400. `optionalUidRule` enforces it.
+- **Saving a profile replaces it the same way, and its subject comes off the session.** `PUT
+  /api/users/{uid}` takes the profile as it will then be, so `ProfileForm` reposts the uid the
+  account already holds and `updateProfileAction` takes the user uid from the cookie rather than from
+  the form: only the subject may send a `photoUid`, and the backend refuses a body carrying one for
+  anybody else. The save then reseals the session, so the chrome's name and avatar follow it.
 - **The picture is the one JS-only field, and it cannot be set while creating a group.** The bytes
   must reach the bucket and come back as a uid before the form can be sent, so `EditGroupForm`
   intercepts its own submit, which is also why `SubmitButton` does, **which is why the press reports
@@ -958,7 +969,8 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   an upload read through `/api/image/{uid}`; `photoUrl` is only what Google provisioned the account
   with, and clearing ours makes it reappear. Both fields ride on `/users/me`, `/users/{uid}`, every
   roster user and the trail's actor, so a reader taking `photoUrl` alone shows nothing for anyone who
-  uploaded.
+  uploaded. **Only the subject may write one**: a `photoUid` in a body for somebody else is a 403
+  whatever the caller's platform role, so an admin editing another account must omit the field.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
   goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes
   no `Z`** (the backend parses `ISO_LOCAL_DATE_TIME`).

@@ -15,6 +15,7 @@ import { SubmitButton } from "@/components/common/submit-button";
 import { TextField } from "@/components/common/text-field/text-field";
 import { PASSWORD_HINT } from "@/lib/validation/password/policy/policy";
 import { validateRegister } from "@/lib/validation/forms/register.schema/register.schema";
+import { NAME_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
 const INITIAL: RegisterState = { error: null };
 
@@ -83,6 +84,7 @@ export function RegisterForm() {
           name="name"
           required
           autoComplete="given-name"
+          maxLength={NAME_MAX_LENGTH}
           placeholder="Your first name"
           icon={<User className="size-5" />}
           value={fields.name}
@@ -95,6 +97,7 @@ export function RegisterForm() {
           name="lastName"
           required
           autoComplete="family-name"
+          maxLength={NAME_MAX_LENGTH}
           placeholder="Your last name"
           icon={<User className="size-5" />}
           value={fields.lastName}
@@ -108,6 +111,7 @@ export function RegisterForm() {
         label="Middle name"
         name="middleName"
         autoComplete="additional-name"
+        maxLength={NAME_MAX_LENGTH}
         placeholder="Your middle name"
         icon={<User className="size-5" />}
         value={fields.middleName}

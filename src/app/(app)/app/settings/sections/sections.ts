@@ -3,8 +3,8 @@
  * feeds the desktop rail and the mobile index, so the two cannot drift.
  *
  * Preferences sits first because it is the harmless group people come back to,
- * and Account sits last while deactivation is the only thing in it: a
- * destructive link has no business being the first thing settings offers.
+ * and Account sits last because it ends in the one destructive link, which has
+ * no business being the first thing settings offers.
  */
 
 import {
@@ -16,6 +16,7 @@ import {
   MonitorSmartphone,
   Palette,
   ShieldCheck,
+  UserRound,
   UserX,
 } from "lucide-react";
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections/sections.types";
@@ -82,6 +83,12 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: "Account",
     sections: [
+      {
+        href: "/app/settings/profile",
+        label: "Profile",
+        description: "Your name and your picture",
+        icon: UserRound,
+      },
       {
         href: "/app/settings/deactivate",
         label: "Deactivate account",
