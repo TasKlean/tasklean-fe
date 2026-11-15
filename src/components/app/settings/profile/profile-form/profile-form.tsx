@@ -170,6 +170,7 @@ export function ProfileForm({
 
         <ImagePicker
           label="Profile picture"
+          shape="circle"
           preview={image.preview ?? uploadedImageSrc(kept)}
           busy={image.busy}
           failure={image.failure}

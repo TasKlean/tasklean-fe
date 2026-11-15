@@ -36,9 +36,10 @@ changes, two-factor and device events, newest first, a page of 20 behind a Load 
 feed the group screens draw, with the range as its only filter and the IP address on the rows the
 reader acted on.
 
-**`/app/settings/profile` is where your own name and picture are changed**, first under Account:
-first, middle and last name plus an uploaded avatar, saved in one press. A save reseals the session,
-so the header's greeting and avatar follow it. The email address is not editable anywhere.
+**`/app/settings/profile` is where your own name and picture are changed**, and it is the whole of
+Account, the first group: first, middle and last name plus an uploaded avatar, saved in one press. A
+save reseals the session, so the header's greeting and avatar follow it. The email address is not
+editable anywhere. Deactivation is a group of its own at the end.
 
 **Two-factor is complete for the one provider the backend has**: a gated sign-in, the methods list,
 enrolling, turning it off and reissuing recovery codes. Every `/api/account/2fa` endpoint has a
@@ -167,9 +168,9 @@ src/
                        One directory per section: preferences/, notifications/,
                        details/, invite-code/, delete/
         account/       the profile page behind the avatar menu
-        settings/      layout.tsx, page.tsx, sections.ts (Preferences, Security,
-                       Account) and sections.types.ts, then one directory per
-                       page: appearance/, language/, notifications/,
+        settings/      layout.tsx, page.tsx, sections.ts (Account, Preferences,
+                       Security, Deactivate) and sections.types.ts, then one
+                       directory per page: appearance/, language/, notifications/,
                        two-factor/, devices/ (+ page.helpers.ts), password/,
                        connected-accounts/, deactivate/, activity/ (the
                        account's own trail: page.helpers.ts for the read,
@@ -688,6 +689,10 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   `next/image`: the optimizer allows that host and is worth having, where our own route is behind the
   session and may legitimately 404. `isRenderable` and `next.config.ts`'s `remotePatterns` therefore
   guard only the URL half.
+- **The picker previews the shape the picture will be saved in.** `ImagePicker` takes a `shape`,
+  square for a group and `circle` for a person, so what is chosen is seen as it will be drawn. Each
+  shape names its own radius in `previewBox`, since two radius utilities in one class list resolve in
+  the stylesheet.
 - **The image route tells a missing object from a broken bucket.** A read is presigned without
   checking the key exists, deliberately, since a `head` per avatar is a round trip, so a bucket that
   lost its objects while the database kept its rows answers 404 and the route passes that on. Every

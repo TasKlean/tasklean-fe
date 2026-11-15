@@ -2,9 +2,9 @@
  * The settings groups and their sections, in the order they appear. One list
  * feeds the desktop rail and the mobile index, so the two cannot drift.
  *
- * Preferences sits first because it is the harmless group people come back to,
- * and Account sits last because it ends in the one destructive link, which has
- * no business being the first thing settings offers.
+ * Account sits first because your own name and picture are what settings is most
+ * often opened for, and the one destructive link has a group of its own at the
+ * end rather than sitting under a heading that invites a browse.
  */
 
 import {
@@ -22,6 +22,17 @@ import {
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections/sections.types";
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
+  {
+    label: "Account",
+    sections: [
+      {
+        href: "/app/settings/profile",
+        label: "Profile",
+        description: "Your name and your picture",
+        icon: UserRound,
+      },
+    ],
+  },
   {
     label: "Preferences",
     sections: [
@@ -81,14 +92,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    label: "Account",
+    label: "Deactivate",
     sections: [
-      {
-        href: "/app/settings/profile",
-        label: "Profile",
-        description: "Your name and your picture",
-        icon: UserRound,
-      },
       {
         href: "/app/settings/deactivate",
         label: "Deactivate account",

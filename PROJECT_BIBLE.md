@@ -2287,10 +2287,12 @@ carry `FieldLimits.NAME` and register adopted them, which is the point of puttin
 than any name. A middle name emptied is **absent** rather than blank, because an omitted field is how
 the backend is told to clear one, exactly as an omitted `photoUid` clears a picture.
 
-**Profile sits first in Account, and Account stays last.** It is the group the page belongs to, and
-it also answers the note that used to be in `sections.ts`: Account held nothing but a destructive
-link. Moving the whole group up the rail to make room for a name field would have reordered settings
-for everybody to solve a problem nobody had.
+**Account is the first group and holds only Profile, and the destructive link is a group of its
+own.** Your own name and picture are what settings is most often opened for, so they come first;
+deactivation was the only other thing in Account, and a destructive link under a heading that invites
+a browse is the thing the old ordering was avoiding. Giving it a group named for exactly what it does
+keeps it last and keeps it unmistakable, which is better than burying it in a group people open for
+something else.
 
 **A second kind of image is a second purpose, not a flag on the first.** The backend's
 `UploadPurpose` decides who may ask for a presign and which prefix the object lands under, so an
