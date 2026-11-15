@@ -26,6 +26,7 @@ type MemberRowProps = {
   name: string;
   firstName: string | null;
   lastName: string | null;
+  photoUid: string | null;
   photoUrl: string | null;
   role: string;
   admin: boolean;
@@ -43,6 +44,7 @@ export function MemberRow({
   name,
   firstName,
   lastName,
+  photoUid,
   photoUrl,
   role,
   admin,
@@ -85,7 +87,7 @@ export function MemberRow({
 
   return (
     <li className="bg-card border-border/60 p-space-lg gap-space-md flex items-start rounded-xl border">
-      <Avatar photoUrl={photoUrl} name={firstName} lastName={lastName} />
+      <Avatar photoUid={photoUid} photoUrl={photoUrl} name={firstName} lastName={lastName} />
 
       <div className="gap-space-md flex min-w-0 flex-1 flex-col">
         <div className="gap-space-md flex items-start justify-between">

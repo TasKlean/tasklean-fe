@@ -7,7 +7,7 @@
  * where a broken `<img>` draws the browser's own glyph whatever its `alt` says.
  */
 
-import { groupPhotoSrc } from "@/lib/groups/photo/photo";
+import { uploadedImageSrc } from "@/lib/uploads/image-src/image-src";
 
 type GroupAvatarProps = {
   name: string;
@@ -40,7 +40,7 @@ export function GroupAvatar({ name, photoUid, size }: Readonly<GroupAvatarProps>
   // `relative` is what the picture's own layer is positioned against, and
   // `overflow-hidden` is what rounds it off with the box.
   const shell = `bg-muted text-foreground ring-border/60 relative grid shrink-0 place-items-center overflow-hidden ring-1 ${BOX[size]}`;
-  const src = groupPhotoSrc(photoUid);
+  const src = uploadedImageSrc(photoUid);
 
   return (
     <span className={shell}>

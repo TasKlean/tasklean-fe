@@ -192,4 +192,16 @@ describe("session display name", () => {
 
     expect(Object.keys((await unsealSession(sealed)) ?? {})).not.toContain("name");
   });
+
+  it("round-trips an uploaded photo uid, which the chrome draws by itself", async () => {
+    const withPhoto = { ...session, photoUid: "up-1" };
+
+    await expect(unsealSession(await sealSession(withPhoto))).resolves.toEqual(withPhoto);
+  });
+
+  it("leaves the key absent for an account with no upload of its own", async () => {
+    const sealed = await sealSession({ ...session, photoUrl: "https://photo.test/a" });
+
+    expect(Object.keys((await unsealSession(sealed)) ?? {})).not.toContain("photoUid");
+  });
 });

@@ -2,9 +2,9 @@
  * The settings groups and their sections, in the order they appear. One list
  * feeds the desktop rail and the mobile index, so the two cannot drift.
  *
- * Preferences sits first because it is the harmless group people come back to,
- * and Account sits last while deactivation is the only thing in it: a
- * destructive link has no business being the first thing settings offers.
+ * Account sits first because your own name and picture are what settings is most
+ * often opened for, and the one destructive link has a group of its own at the
+ * end rather than sitting under a heading that invites a browse.
  */
 
 import {
@@ -16,11 +16,23 @@ import {
   MonitorSmartphone,
   Palette,
   ShieldCheck,
+  UserRound,
   UserX,
 } from "lucide-react";
 import type { SettingsGroup } from "@/app/(app)/app/settings/sections/sections.types";
 
 export const SETTINGS_GROUPS: SettingsGroup[] = [
+  {
+    label: "Account",
+    sections: [
+      {
+        href: "/app/settings/profile",
+        label: "Profile",
+        description: "Your name and your picture",
+        icon: UserRound,
+      },
+    ],
+  },
   {
     label: "Preferences",
     sections: [
@@ -80,7 +92,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
-    label: "Account",
+    label: "Deactivate",
     sections: [
       {
         href: "/app/settings/deactivate",

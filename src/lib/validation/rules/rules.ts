@@ -29,6 +29,10 @@ const EMAIL_MAX_LENGTH = 254;
 // RenameDeviceRequest's own @Size, so a refusal comes from here, not a 400.
 const DEVICE_NAME_MAX_LENGTH = 255;
 
+// FieldLimits.NAME, which bounds every part of a person's name. Exported
+// because the forms that post them have to stop typing at the same number.
+export const NAME_MAX_LENGTH = 100;
+
 // GroupRequest's own @Size, so a refusal comes from here, not a 400. Exported
 // because the form that posts the field has to stop typing at the same number.
 export const GROUP_NAME_MAX_LENGTH = 255;
@@ -62,15 +66,43 @@ export const emailRule = z
     z.regex(EMAIL, "Enter a valid email address."),
   );
 
-/** A required, trimmed single word: a first name. */
-export const singleWordRule = (missing: string) =>
-  z
-    .string({ error: missing })
-    .check(z.trim(), z.minLength(1, missing), z.regex(/^\S+$/, "Use one word, without spaces."));
-
-/** Required, trimmed free text: a surname, where spaces are ordinary. */
+/** Required, trimmed free text, unbounded: a token rather than anything typed. */
 export const requiredTextRule = (missing: string) =>
   z.string({ error: missing }).check(z.trim(), z.minLength(1, missing));
+
+/** A first name: one word, since a space in it is somebody's middle name. */
+export const firstNameRule = (missing: string) =>
+  z
+    .string({ error: missing })
+    .check(
+      z.trim(),
+      z.minLength(1, missing),
+      z.maxLength(NAME_MAX_LENGTH, `Use ${NAME_MAX_LENGTH} characters or fewer.`),
+      z.regex(/^\S+$/, "Use one word, without spaces."),
+    );
+
+/** A surname, where spaces are ordinary. */
+export const lastNameRule = (missing: string) =>
+  z
+    .string({ error: missing })
+    .check(
+      z.trim(),
+      z.minLength(1, missing),
+      z.maxLength(NAME_MAX_LENGTH, `Use ${NAME_MAX_LENGTH} characters or fewer.`),
+    );
+
+/**
+ * A middle name: optional, trimmed, and absent once emptied rather than blank,
+ * because an omitted field is how the backend is told to clear one.
+ */
+export const middleNameRule = z.optional(
+  z.pipe(
+    z
+      .string()
+      .check(z.trim(), z.maxLength(NAME_MAX_LENGTH, `Use ${NAME_MAX_LENGTH} characters or fewer.`)),
+    z.transform((value) => value || undefined),
+  ),
+);
 
 /** Optional trimmed text, absent when blank. */
 export const optionalTextRule = z.optional(z.string().check(z.trim()));

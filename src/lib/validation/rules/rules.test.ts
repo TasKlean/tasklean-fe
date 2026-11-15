@@ -5,7 +5,8 @@ import {
   emailRule,
   optionalTwoFactorCodeRule,
   passwordRule,
-  singleWordRule,
+  firstNameRule,
+  lastNameRule,
   twoFactorCodeError,
 } from "@/lib/validation/rules/rules";
 
@@ -91,17 +92,31 @@ describe("passwordRule", () => {
   });
 });
 
-describe("singleWordRule", () => {
+describe("firstNameRule", () => {
   it("accepts one word and trims it", () => {
-    expect(check(singleWordRule("missing"), "  Maja  ")).toBeNull();
+    expect(check(firstNameRule("missing"), "  Maja  ")).toBeNull();
   });
 
   it("rejects an internal space", () => {
-    expect(check(singleWordRule("missing"), "Mary Jane")).toBe("Use one word, without spaces.");
+    expect(check(firstNameRule("missing"), "Mary Jane")).toBe("Use one word, without spaces.");
   });
 
   it("uses the given message when absent", () => {
-    expect(check(singleWordRule("Enter your first name."), "  ")).toBe("Enter your first name.");
+    expect(check(firstNameRule("Enter your first name."), "  ")).toBe("Enter your first name.");
+  });
+
+  it("refuses more than the backend's column holds", () => {
+    expect(check(firstNameRule("missing"), "a".repeat(101))).toBe("Use 100 characters or fewer.");
+  });
+});
+
+describe("lastNameRule", () => {
+  it("accepts a surname with a space in it", () => {
+    expect(check(lastNameRule("missing"), "  van Dijk  ")).toBeNull();
+  });
+
+  it("refuses more than the backend's column holds", () => {
+    expect(check(lastNameRule("missing"), "a".repeat(101))).toBe("Use 100 characters or fewer.");
   });
 });
 

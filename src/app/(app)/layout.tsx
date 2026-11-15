@@ -36,6 +36,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     <div className="bg-background grid min-h-svh grid-cols-1 grid-rows-[auto_minmax(0,1fr)]">
       <AppHeader
         name={session?.name ?? null}
+        photoUid={session?.photoUid ?? null}
         photoUrl={session?.photoUrl ?? null}
         groups={groups}
       />

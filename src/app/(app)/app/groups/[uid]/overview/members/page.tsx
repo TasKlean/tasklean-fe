@@ -67,6 +67,7 @@ export default async function MembersPage({
               name={memberName(member.user)}
               firstName={member.user?.name ?? null}
               lastName={member.user?.lastName ?? null}
+              photoUid={member.user?.photoUid ?? null}
               photoUrl={member.user?.photoUrl ?? null}
               role={roleLabel(member.role)}
               admin={isGroupAdmin(member.role)}

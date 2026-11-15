@@ -15,13 +15,13 @@ import { ImageUp, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useId, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import {
+  previewBox,
   QUIET_PRESS,
   REMOVE_PRESS,
   SPINNER,
-  SQUARE_EMPTY,
-  SQUARE_FILLED,
   ZONE_IDLE,
   ZONE_OVER,
+  type PickerShape,
 } from "@/components/common/image-picker/image-picker.styles";
 import { describedById } from "@/components/common/text-field/described-by-id";
 import { FieldMessage } from "@/components/common/text-field/field-message";
@@ -35,6 +35,9 @@ type ImagePickerProps = {
   preview: string | null;
   busy: boolean;
   failure: string | null;
+  // The shape the picture will be drawn in once saved, so the preview shows it.
+  // A group's is a square and a person's a circle.
+  shape?: PickerShape;
   onPick: (file: Blob) => void;
   onRemove: () => void;
 };
@@ -49,6 +52,7 @@ export function ImagePicker({
   preview,
   busy,
   failure,
+  shape = "square",
   onPick,
   onRemove,
 }: Readonly<ImagePickerProps>) {
@@ -100,7 +104,7 @@ export function ImagePicker({
       </p>
 
       <div className="gap-space-md flex flex-wrap items-center">
-        <span className={preview ? SQUARE_FILLED : SQUARE_EMPTY}>
+        <span className={previewBox(shape, preview !== null)}>
           {preview ? (
             // `unoptimized`: an object URL has no host the optimizer could be
             // allowed, and the proxied read behind it is session-guarded, which

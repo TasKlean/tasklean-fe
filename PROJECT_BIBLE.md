@@ -2184,7 +2184,7 @@ after the reader left the group. A route of ours also solves two things a signed
 `<img>` fetches on its own and cannot be handed a token, so the thing in `src` must be same-origin
 for the session cookie to ride along; and a uid is permanent where a signature expires.
 
-**`unoptimized` is load-bearing for a second, unrelated reason.** Since Next 15.4.5 and 14.2.31, the
+**The optimizer is never pointed at our route, for a second, unrelated reason.** Since Next 15.4.5 and 14.2.31, the
 fix for CVE-2025-57752, the optimizer's internal fetch deliberately drops `Cookie` and
 `Authorization`, because a cache keyed without them served one reader's private image to another. Our
 route is guarded by the session, so an optimized `src` comes back 401, and `next.config.ts` needed
@@ -2216,10 +2216,11 @@ and a screenshot settled it.
 
 **A background image has neither problem.** `background-image` that 404s paints nothing, so the
 letter underneath shows: no handler, no state, no second request, and `GroupAvatar` stays a Server
-Component. The cost is the one image outside `next/image`, which buys nothing here anyway, since the
-route is `unoptimized` and `fill` reduces it to an absolutely positioned `<img>`. The URL is the
-dynamic value the styling rule allows inline, safe to interpolate because `groupPhotoSrc` encodes the
-uid. The letter is `aria-hidden` behind a picture, so a reader is not told "F" over a photograph.
+Component. The cost is an image outside `next/image`, which buys nothing here anyway, since the route
+cannot be optimized at all and `fill` would reduce it to an absolutely positioned `<img>`. The URL is
+the dynamic value the styling rule allows inline, safe to interpolate because `uploadedImageSrc`
+encodes the uid. `Avatar` draws our upload the same way for the same reasons, keeping `next/image`
+only for the public URL Google provisioned an account with. The letter is `aria-hidden` behind a picture, so a reader is not told "F" over a photograph.
 
 **The cache is `private, max-age=3600, immutable`.** `immutable` is honest because a uid addresses one
 object forever; `private` is the load-bearing half, since a shared cache holding a household's photo
@@ -2264,10 +2265,56 @@ on the file that is picked, checked before decoding because decoding is what cos
 memory, and it is the only one a reader meets. The picker quoted the wrong one until the hint and the
 refusal were made to read the same constant.
 
-**One module still decides what a picture's `src` is**, but `lib/groups/photo` returns
+**A profile edit takes its subject from the session, never from the form.** Every other form posts
+what it is about, because an action cannot see the route's params. This one must not: only the
+subject may send a `photoUid`, and the backend refuses a body carrying one for anybody else, so a
+uid off the wire would be a press able to name an account. The session already holds `userUid`, and
+the one case it does not, an exchange that answered with the token pair alone, falls back to a
+profile read rather than to a dead end.
+
+**A save reseals the session, because the chrome reads the name and the picture from the cookie.**
+Both were cached at sign-in to spare a profile read per page, which means a save that only wrote to
+the backend would leave the header greeting you by your old name under your old face until you signed
+in again. The reseal rebuilds both fields from what was saved rather than merging them, since
+clearing our upload is what makes the Google picture reappear and a spread would keep the stale one.
+Writing the cookie re-renders the route, so the page needs no revalidation of its own.
+
+**The name cap is the backend's column, and it lives in `rules.ts` with the fields that carry it.**
+`singleWordRule` and the bare `requiredTextRule` had no bound at all, so a 150-character first name
+was a 400 with nothing a reader could act on. `firstNameRule`, `lastNameRule` and `middleNameRule`
+carry `FieldLimits.NAME` and register adopted them, which is the point of putting them there;
+`requiredTextRule` stays unbounded because the Google id token posts through it and is far longer
+than any name. A middle name emptied is **absent** rather than blank, because an omitted field is how
+the backend is told to clear one, exactly as an omitted `photoUid` clears a picture.
+
+**Account is the first group and holds only Profile, and the destructive link is a group of its
+own.** Your own name and picture are what settings is most often opened for, so they come first;
+deactivation was the only other thing in Account, and a destructive link under a heading that invites
+a browse is the thing the old ordering was avoiding. Giving it a group named for exactly what it does
+keeps it last and keeps it unmistakable, which is better than burying it in a group people open for
+something else.
+
+**A second kind of image is a second purpose, not a flag on the first.** The backend's
+`UploadPurpose` decides who may ask for a presign and which prefix the object lands under, so an
+avatar is `USER_PHOTO` with its own rule rather than a group photo aimed at a person. Two
+consequences here: the one refusal line became one per purpose, since "You may no longer be an admin
+of it" is nonsense said about your own face, and the `src` builder left `groups/` for
+`uploads/image-src`, because `/api/image/{uid}` was never about groups.
+
+**One module still decides what a picture's `src` is**, but `uploads/image-src` returns
 `/api/image/{uid}` or null rather than judging a link; the `https`-only rule and the `javascript:`
 and `data:` cases went with the pasted link. It is still a square with the group's first letter
 behind it, where a person's avatar is a circle with their initials: a group is not somebody.
+
+**A person's avatar draws two sources two ways, and that is not a compromise.** `photoUid` and
+`photoUrl` are mutually exclusive on the wire, so `Avatar` takes ours first and Google's as the
+fallback. Ours is the background over the initials the group picture already proved, because our
+route sits behind the session and legitimately answers 404 for an object the sweeper collected or a
+reader who shares no group with its owner, and an `<img>` would draw the browser's glyph for either.
+Google's keeps `next/image`: that host is allowlisted, its bytes are public and the optimizer earns
+its place. Hiding a failed `<img>` instead would cost an `onError` handler and make every screen
+holding an avatar a client component. The session seals both fields for the same reason, rather than
+resolving one: `Avatar` stays the only place that picks.
 
 ### A description sized to its content, and what `field-sizing` costs
 
@@ -2391,12 +2438,11 @@ workaround **before** the feature depending on it gets built.
    deactivates its memberships nor stops answering a direct read.
 2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
    and the `TaskTag` junction has no controller, so filter-by-tag is not buildable.
-3. **No file upload, except for a group's photo.** **Partly closed.** `/api/uploads` presigns, but
-   `UploadPurpose` holds `GROUP_PHOTO` alone: `taskPhotoUrl` and `completionPhotoUrl` are still plain
-   URL strings with nothing to point them at, so photo proof remains unbuildable. Two things are owed
-   when `TASK_PHOTO` arrives: `UploadService.createUpload` resolves `targetUid` as a group
-   unconditionally, and the 403 the presign returns is phrased by us as a group permission, which
-   will have to become per-purpose.
+3. **No file upload for a task.** **Partly closed.** `UploadPurpose` holds `GROUP_PHOTO` and
+   `USER_PHOTO`, and both ends of the earlier debt are paid: the backend resolves `targetUid` per
+   purpose and our presign refusal is per purpose too. What remains is photo proof: `taskPhotoUrl`
+   and `completionPhotoUrl` are still plain URL strings with nothing to point them at, so a
+   `TASK_PHOTO` purpose has to arrive before it is buildable.
 4. **Notifications are read-only.** `GET` and `PATCH /{id}/read` exist but no create endpoint, so
    "ping a member about a task", an MVP feature, has no API.
 5. **No server-side task filtering.** Client-side only for now.

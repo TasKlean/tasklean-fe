@@ -36,6 +36,11 @@ changes, two-factor and device events, newest first, a page of 20 behind a Load 
 feed the group screens draw, with the range as its only filter and the IP address on the rows the
 reader acted on.
 
+**`/app/settings/profile` is where your own name and picture are changed**, and it is the whole of
+Account, the first group: first, middle and last name plus an uploaded avatar, saved in one press. A
+save reseals the session, so the header's greeting and avatar follow it. The email address is not
+editable anywhere. Deactivation is a group of its own at the end.
+
 **Two-factor is complete for the one provider the backend has**: a gated sign-in, the methods list,
 enrolling, turning it off and reissuing recovery codes. Every `/api/account/2fa` endpoint has a
 caller.
@@ -163,13 +168,14 @@ src/
                        One directory per section: preferences/, notifications/,
                        details/, invite-code/, delete/
         account/       the profile page behind the avatar menu
-        settings/      layout.tsx, page.tsx, sections.ts (Preferences, Security,
-                       Account) and sections.types.ts, then one directory per
-                       page: appearance/, language/, notifications/,
+        settings/      layout.tsx, page.tsx, sections.ts (Account, Preferences,
+                       Security, Deactivate) and sections.types.ts, then one
+                       directory per page: appearance/, language/, notifications/,
                        two-factor/, devices/ (+ page.helpers.ts), password/,
                        connected-accounts/, deactivate/, activity/ (the
                        account's own trail: page.helpers.ts for the read,
-                       actions/ for the page after a cursor)
+                       actions/ for the page after a cursor), profile/ (your own
+                       name and picture, with actions/ for the save)
       uploads/actions/ the presign every picker shares, in a segment with no
                        page.tsx, so it is an action rather than a route
     (auth)/            brand panel + form shell, robots noindex. actions.ts is
@@ -220,7 +226,7 @@ src/
       settings/        settings-nav, then one directory per page: appearance/,
                        language/ (locale-select, our dropdown not the
                        platform's), notifications/, two-factor/, devices/,
-                       password/, connected-accounts/, deactivate/
+                       password/, connected-accounts/, deactivate/, profile/
     auth/              login-form, register-form, verify-email-form,
                        two-factor-form, google-sign-in, google-button, back-link,
                        forgot-password-form, reset-password-form
@@ -257,7 +263,7 @@ src/
     groups/            groups.ts (create, join, mine, that list filtered,
                        detail, update, rotate, delete), groups.types.ts,
                        members/, role.ts (the one place a role is compared),
-                       photo/ (our route, never the bucket), labels.ts,
+                       labels.ts,
                        filter/ (URL <-> query <-> endpoint params),
                        unavailable.ts (the 403), last-admin.ts (the 409)
     images/            fit-box/ (the size drawn at), resize/ (decode, redraw,
@@ -272,8 +278,10 @@ src/
                        one zone), zone/ (the zone cookie's name and shape, and
                        zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
-                       browser reads too), put-object/ (the browser's PUT)
-    users/             me.ts, name.ts (display name and initials)
+                       browser reads too), put-object/ (the browser's PUT),
+                       image-src/ (our route, never the bucket)
+    users/             me/ (the profile: two reads and the one write, plus
+                       me.types.ts), name/ (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
                        <form>.schema.ts each, plus upload-request, audit-page
                        and account-page, which no form posts),
@@ -323,7 +331,8 @@ It must **not** be imported by anything a client component imports: all of `vali
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
 `groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
 (`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
-two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`).
+three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`,
+`uploads/image-src`).
 
 ### Styling
 
@@ -668,15 +677,22 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
 
 ### Images and uploads
 
-- **A group's picture is an uploaded file, addressed by uid and painted as a background.** The bucket
-  is private, so `Group.photoUid` is an upload rather than a URL and `lib/groups/photo` turns it into
-  `/api/image/{uid}`. The avatar is a square with the group's first letter where a person's is a
-  circle with initials, and **the letter is always drawn, with the picture as a layer over it**: a
-  background that 404s paints nothing, so a dead upload falls back with no handler, no state and one
-  request. An `<img>` would draw the browser's broken glyph whatever its `alt` says. `GroupAvatar`
-  is the one place an inline style is used, for the URL. `Avatar`, for a person, is `next/image` and
-  **`unoptimized`**: our route is guarded by the session and Next's optimizer drops cookies from its
-  own fetch, so an optimized src would be refused and draw nothing.
+- **An uploaded picture is addressed by uid and painted as a background.** The bucket is private, so
+  `photoUid` is an upload rather than a URL and `uploads/image-src` turns any uid into
+  `/api/image/{uid}`, whatever the picture is of. A group's is a square with its first letter where a
+  person's is a circle with their initials, and **the letter is always drawn, with the picture as a
+  layer over it**: a background that 404s paints nothing, so a dead upload falls back with no
+  handler, no state and one request. An `<img>` would draw the browser's broken glyph whatever its
+  `alt` says. `GroupAvatar` and `Avatar` are the two places an inline style is used, for the URL.
+- **`Avatar` draws our upload and Google's URL differently, and ours wins.** An account carries one or
+  the other, never both, so a `photoUid` is drawn as the layer above and a `photoUrl` stays
+  `next/image`: the optimizer allows that host and is worth having, where our own route is behind the
+  session and may legitimately 404. `isRenderable` and `next.config.ts`'s `remotePatterns` therefore
+  guard only the URL half.
+- **The picker previews the shape the picture will be saved in.** `ImagePicker` takes a `shape`,
+  square for a group and `circle` for a person, so what is chosen is seen as it will be drawn. Each
+  shape names its own radius in `previewBox`, since two radius utilities in one class list resolve in
+  the stylesheet.
 - **The image route tells a missing object from a broken bucket.** A read is presigned without
   checking the key exists, deliberately, since a `head` per avatar is a round trip, so a bucket that
   lost its objects while the database kept its rows answers 404 and the route passes that on. Every
@@ -686,6 +702,11 @@ two upload halves that run in the browser (`uploads/uploads.types.ts`, `uploads/
   /api/groups/{uid}` takes the group as it will then be, so `EditGroupForm` posts the uid the group
   already holds on every save that is not a removal, and never a blank one: `""` passes the
   backend's validation and then fails the lookup behind it as a 400. `optionalUidRule` enforces it.
+- **Saving a profile replaces it the same way, and its subject comes off the session.** `PUT
+  /api/users/{uid}` takes the profile as it will then be, so `ProfileForm` reposts the uid the
+  account already holds and `updateProfileAction` takes the user uid from the cookie rather than from
+  the form: only the subject may send a `photoUid`, and the backend refuses a body carrying one for
+  anybody else. The save then reseals the session, so the chrome's name and avatar follow it.
 - **The picture is the one JS-only field, and it cannot be set while creating a group.** The bytes
   must reach the bucket and come back as a uid before the form can be sent, so `EditGroupForm`
   intercepts its own submit, which is also why `SubmitButton` does, **which is why the press reports
@@ -794,8 +815,9 @@ layout.
 - **The display name rides in the session cookie**, carried by every auth response including
   refresh, so the chrome can greet by name without an API call per page. Display only, and may be
   stale.
-- **So does the avatar, but it costs one call at sign-in.** `AuthResponse` has no `photoUrl`, so
-  `startSession` reads `/api/users/me` once and seals it. Best effort: a failure costs an avatar,
+- **So does the avatar, but it costs one call at sign-in.** `AuthResponse` carries no picture of
+  either kind, so `startSession` reads `/api/users/me` once and seals both fields, leaving `Avatar`
+  the one place that picks. Best effort: a failure costs an avatar,
   never a login. Every sign-in path goes through `startSession`, never `setSession` directly.
 - **Sign-in caches the theme as well as the avatar.** `startSession` reads `/api/user-settings` and
   writes `tasklean_theme`, always, so a browser never keeps painting the theme of whoever used it
@@ -948,6 +970,12 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
 - **`assignedToId` / `createdById` / `groupMemberId` are GroupMember ids, a third namespace.** Name
   them `memberId`, never `userId`. Still numeric on the task and completion endpoints; the membership
   routes take the membership's own `uid`.
+- **A person carries a `photoUid` or a `photoUrl`, never both, and the uid is ours.** `photoUid` is
+  an upload read through `/api/image/{uid}`; `photoUrl` is only what Google provisioned the account
+  with, and clearing ours makes it reappear. Both fields ride on `/users/me`, `/users/{uid}`, every
+  roster user and the trail's actor, so a reader taking `photoUrl` alone shows nothing for anyone who
+  uploaded. **Only the subject may write one**: a `photoUid` in a body for somebody else is a 403
+  whatever the caller's platform role, so an admin editing another account must omit the field.
 - **All timestamps are UTC with no zone marker** and parse as local if handled naively. Everything
   goes through `time/api-date/api-date.ts`: `parseApiDate` in, `toApiDate` out. **Writing back takes
   no `Z`** (the backend parses `ISO_LOCAL_DATE_TIME`).

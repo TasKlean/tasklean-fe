@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
 
 import { requestUploadAction } from "@/app/(app)/uploads/actions/actions";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads/uploads.types";
-import { UPLOAD_REFUSED } from "@/lib/uploads/uploads";
+import { uploadRefusedMessage } from "@/lib/uploads/uploads";
 
 const BASE = "http://api.test";
 const UPLOADS = `${BASE}/api/uploads`;
@@ -79,7 +79,30 @@ describe("requestUploadAction", () => {
       ),
     );
 
-    expect(await requestUploadAction(REQUEST)).toEqual({ ok: false, message: UPLOAD_REFUSED });
+    expect(await requestUploadAction(REQUEST)).toEqual({
+      ok: false,
+      message: uploadRefusedMessage("GROUP_PHOTO"),
+    });
+  });
+
+  it("blames the account rather than a group when an avatar is refused", async () => {
+    server.use(
+      http.post(UPLOADS, () =>
+        HttpResponse.json(
+          { success: false, message: "Access Denied", data: null },
+          { status: 403 },
+        ),
+      ),
+    );
+
+    const refused = await requestUploadAction({
+      ...REQUEST,
+      purpose: "USER_PHOTO",
+      targetUid: "u1",
+    });
+
+    expect(refused).toEqual({ ok: false, message: uploadRefusedMessage("USER_PHOTO") });
+    expect(refused).not.toMatchObject({ message: expect.stringContaining("group") });
   });
 
   it("shows the window a 429 carries rather than asking again", async () => {

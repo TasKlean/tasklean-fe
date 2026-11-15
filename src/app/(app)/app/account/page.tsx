@@ -1,19 +1,29 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BadgeCheck, MailWarning, Settings } from "lucide-react";
+import { BadgeCheck, MailWarning, Pencil, Settings } from "lucide-react";
 import { Avatar } from "@/components/common/avatar/avatar";
 import { LoadError } from "@/components/common/load-error";
 import { MaskedEmail } from "@/components/common/masked-email/masked-email";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
-import { type CurrentUser, getCurrentUser } from "@/lib/users/me/me";
+import { getCurrentUser } from "@/lib/users/me/me";
+import type { CurrentUser } from "@/lib/users/me/me.types";
 import { fullName } from "@/lib/users/name/name";
 
 export const metadata: Metadata = {
   title: "Account",
 };
+
+const PRESS =
+  "text-label-lg px-space-lg gap-space-xs flex min-h-11 items-center rounded-full whitespace-nowrap transition-colors";
+
+// Editing is what the card is a way into, so it is the filled one; settings is
+// the whole list, which is a wider move than this screen is about.
+const PRIMARY_PRESS = `${PRESS} bg-primary text-primary-foreground hover:bg-primary-strong shadow-level-1`;
+
+const QUIET_PRESS = `${PRESS} text-foreground hover:bg-muted border-border/60 border`;
 
 // Placeholders until there is anything to count. Real metrics need tasks and
 // groups, neither of which exists yet.
@@ -57,7 +67,13 @@ export default async function AccountPage() {
       {failure ? <LoadError title="We could not load your profile." message={failure} /> : null}
 
       <section className="bg-card shadow-level-1 p-space-lg sm:p-space-xl gap-space-lg flex flex-col items-center rounded-xl text-center sm:flex-row sm:text-left">
-        <Avatar photoUrl={user.photoUrl} name={user.name} lastName={user.lastName} size="lg" />
+        <Avatar
+          photoUid={user.photoUid}
+          photoUrl={user.photoUrl}
+          name={user.name}
+          lastName={user.lastName}
+          size="lg"
+        />
 
         <div className="gap-space-xs flex min-w-0 flex-col">
           <h1 className="text-headline-md md:text-headline-lg text-foreground break-words">
@@ -87,13 +103,19 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <Link
-          href="/app/settings"
-          className="text-label-lg text-foreground hover:bg-muted border-border/60 px-space-lg gap-space-xs flex min-h-11 items-center rounded-full border transition-colors sm:ml-auto"
-        >
-          <Settings className="size-4" aria-hidden />
-          Settings
-        </Link>
+        {/* Wraps on a phone, where two pills side by side leave neither room
+            to read, and sits in the card's corner once there is width. */}
+        <div className="gap-space-sm flex shrink-0 flex-wrap justify-center sm:ml-auto sm:justify-end">
+          <Link href="/app/settings/profile" className={PRIMARY_PRESS}>
+            <Pencil className="size-4" aria-hidden />
+            Edit profile
+          </Link>
+
+          <Link href="/app/settings" className={QUIET_PRESS}>
+            <Settings className="size-4" aria-hidden />
+            Settings
+          </Link>
+        </div>
       </section>
 
       <section className="gap-gutter grid grid-cols-1 sm:grid-cols-3">

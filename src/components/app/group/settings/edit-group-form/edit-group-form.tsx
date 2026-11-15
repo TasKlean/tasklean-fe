@@ -24,7 +24,7 @@ import { SubmitButton } from "@/components/common/submit-button";
 import { TextArea } from "@/components/common/text-area/text-area";
 import { TextField } from "@/components/common/text-field/text-field";
 import { useImageUpload } from "@/hooks/use-image-upload/use-image-upload";
-import { groupPhotoSrc } from "@/lib/groups/photo/photo";
+import { uploadedImageSrc } from "@/lib/uploads/image-src/image-src";
 import {
   validateEditGroup,
   type EditGroupValues,
@@ -147,7 +147,7 @@ export function EditGroupForm({
 
         <ImagePicker
           label="Group picture"
-          preview={image.preview ?? groupPhotoSrc(kept)}
+          preview={image.preview ?? uploadedImageSrc(kept)}
           busy={image.busy}
           failure={image.failure}
           onPick={(file) => {

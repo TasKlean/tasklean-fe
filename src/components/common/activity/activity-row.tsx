@@ -57,6 +57,7 @@ export function ActivityRow({
 
       <div className="gap-space-xs flex flex-col items-center">
         <Avatar
+          photoUid={entry.actor?.photoUid}
           photoUrl={entry.actor?.photoUrl}
           name={entry.actor?.name}
           lastName={entry.actor?.lastName}

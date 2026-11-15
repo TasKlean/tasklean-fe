@@ -7,17 +7,18 @@ import * as z from "zod/mini";
 import { parseWith, type Parsed } from "@/lib/validation/parse/parse";
 import {
   emailRule,
+  firstNameRule,
+  lastNameRule,
+  middleNameRule,
   optionalTextRule,
   passwordRule,
-  requiredTextRule,
-  singleWordRule,
 } from "@/lib/validation/rules/rules";
 
 export const registerSchema = z
   .object({
-    name: singleWordRule("Enter your first name."),
-    lastName: requiredTextRule("Enter your last name."),
-    middleName: optionalTextRule,
+    name: firstNameRule("Enter your first name."),
+    lastName: lastNameRule("Enter your last name."),
+    middleName: middleNameRule,
     email: emailRule,
     password: passwordRule,
     confirmPassword: z

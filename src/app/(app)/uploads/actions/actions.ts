@@ -13,7 +13,7 @@
 
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { GENERIC_FAILURE, isApiError } from "@/lib/api/errors";
-import { requestUpload, UPLOAD_REFUSED } from "@/lib/uploads/uploads";
+import { requestUpload, uploadRefusedMessage } from "@/lib/uploads/uploads";
 import {
   parseUploadRequest,
   type UploadRequestErrors,
@@ -46,7 +46,9 @@ export async function requestUploadAction(fields: unknown): Promise<UploadTicket
   } catch (error) {
     // Never retried: the limit counts refusals too, so a second press would
     // cost a second token and the reader has to be told rather than waited for.
-    if (isApiError(error) && error.status === 403) return { ok: false, message: UPLOAD_REFUSED };
+    if (isApiError(error) && error.status === 403) {
+      return { ok: false, message: uploadRefusedMessage(parsed.values.purpose) };
+    }
     return { ok: false, message: actionFailureMessage(error) };
   }
 }

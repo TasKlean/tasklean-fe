@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/session/session", () => ({
   }),
 }));
 
-import { fetchProfile, getCurrentUser } from "@/lib/users/me/me";
+import { fetchProfile, getCurrentUser, updateProfile } from "@/lib/users/me/me";
 
 const BASE = "http://api.test";
 
@@ -77,5 +77,53 @@ describe("getCurrentUser", () => {
 
     await expect(getCurrentUser()).resolves.toMatchObject({ email: "ada@lovelace.test" });
     expect(seen.token).toBe("Bearer session-token");
+  });
+});
+
+describe("updateProfile", () => {
+  it("puts to the subject's own uid, never to /me, which takes no write", async () => {
+    const seen: { path?: string; body?: unknown } = {};
+    server.use(
+      http.put(`${BASE}/api/users/:uid`, async ({ request, params }) => {
+        seen.path = String(params.uid);
+        seen.body = await request.json();
+        return HttpResponse.json({ success: true, message: null, data: PROFILE });
+      }),
+    );
+
+    await expect(
+      updateProfile("u1", { name: "Ada", lastName: "Lovelace", photoUid: "up-1" }),
+    ).resolves.toMatchObject({ uid: "u1" });
+    expect(seen.path).toBe("u1");
+    expect(seen.body).toEqual({ name: "Ada", lastName: "Lovelace", photoUid: "up-1" });
+  });
+
+  it("sends no photoUid at all when there is none, which is how one is removed", async () => {
+    const seen: { body?: Record<string, unknown> } = {};
+    server.use(
+      http.put(`${BASE}/api/users/:uid`, async ({ request }) => {
+        seen.body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ success: true, message: null, data: PROFILE });
+      }),
+    );
+
+    await updateProfile("u1", { name: "Ada", lastName: "Lovelace" });
+
+    expect(Object.keys(seen.body ?? {})).not.toContain("photoUid");
+  });
+
+  it("throws the picture refusal through with its code, rather than a generic line", async () => {
+    server.use(
+      http.put(`${BASE}/api/users/:uid`, () =>
+        HttpResponse.json(
+          { success: false, message: "Upload not usable", code: "UPLOAD_NOT_USABLE", data: null },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    await expect(updateProfile("u1", { name: "Ada", lastName: "Lovelace" })).rejects.toMatchObject({
+      code: "UPLOAD_NOT_USABLE",
+    });
   });
 });

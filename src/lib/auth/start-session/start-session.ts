@@ -17,9 +17,10 @@ import { fetchProfile } from "@/lib/users/me/me";
  * Starts a session from a credential exchange.
  *
  * Both reads are best effort and deliberately swallowed. The auth response
- * carries no `photoUrl`, so the profile call is the only way the avatar reaches
- * the chrome without a request per page, and the theme has to be cached before
- * the first render; a failure must cost an avatar or a colour, never a login.
+ * carries no picture of either kind, so the profile call is the only way the
+ * avatar reaches the chrome without a request per page, and the theme has to be
+ * cached before the first render; a failure must cost an avatar or a colour,
+ * never a login.
  */
 export async function startSession(tokens: SignedInTokens): Promise<void> {
   // Read here rather than threaded from all eight callers: this module already
@@ -44,6 +45,9 @@ export async function startSession(tokens: SignedInTokens): Promise<void> {
     ...tokens,
     userUid,
     ...(name ? { name } : {}),
+    // Both, because the backend sends exactly one and `Avatar` is the one
+    // place that decides which of them to draw.
+    ...(profile?.photoUid ? { photoUid: profile.photoUid } : {}),
     ...(profile?.photoUrl ? { photoUrl: profile.photoUrl } : {}),
   });
 }
