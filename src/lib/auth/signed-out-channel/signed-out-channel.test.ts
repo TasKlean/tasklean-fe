@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { broadcastSignedOut, onSignedOut } from "@/lib/auth/signed-out-channel/signed-out-channel";
 
 const CHANNEL = "tasklean_signed_out";
@@ -46,5 +46,24 @@ describe("onSignedOut", () => {
 
     other.close();
     stop();
+  });
+});
+
+describe("without the API", () => {
+  const real = globalThis.BroadcastChannel;
+
+  afterEach(() => {
+    globalThis.BroadcastChannel = real;
+  });
+
+  it("posts nothing, and hands back a teardown that still works", () => {
+    globalThis.BroadcastChannel = undefined as unknown as typeof BroadcastChannel;
+    const handler = vi.fn();
+
+    expect(() => broadcastSignedOut()).not.toThrow();
+
+    const stop = onSignedOut(handler);
+    expect(() => stop()).not.toThrow();
+    expect(handler).not.toHaveBeenCalled();
   });
 });

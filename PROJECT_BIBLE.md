@@ -882,6 +882,13 @@ unchecked message would bounce every tab to login. The test posting a wrong mess
 on a hand-made channel is what keeps that honest: asserting only the wrong one would pass just as
 well if the channel name had drifted.
 
+**The API is feature-detected even though it is baseline**, Safari having had it since 15.4. Both
+ends are in the signed-in shell, so without the guard a browser that lacks it would throw inside an
+effect on every page behind the session, and the whole app would break for a feature that is only
+cosmetic. The test for the unsupported path pins exactly that, the teardown included: an
+`onSignedOut` returning nothing instead of a function breaks the effect cleanup rather than the
+effect.
+
 **Node ships a real `BroadcastChannel`, so the tests use it.** A jsdom stub was written first and
 turned out to be dead code, since `globalThis.BroadcastChannel ??=` never fires. Its delivery is a
 macrotask rather than a microtask, so every positive assertion polls with `vi.waitFor` and budgets
