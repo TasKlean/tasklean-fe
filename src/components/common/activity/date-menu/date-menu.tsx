@@ -16,7 +16,7 @@ import {
   TRIGGER_ARROW,
   TRIGGER_ON,
   TRIGGER_QUIET,
-} from "@/components/common/activity/filter-menu.styles";
+} from "@/components/common/filter-menu/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import { type DateChoice, rangeLabel } from "@/lib/audit/dates/dates";
 import { auditFilterParams } from "@/lib/audit/filter/filter";

@@ -20,7 +20,7 @@ import {
   TRIGGER_ARROW,
   TRIGGER_ON,
   TRIGGER_QUIET,
-} from "@/components/common/activity/filter-menu.styles";
+} from "@/components/common/filter-menu/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { MemberChoice } from "@/lib/audit/audit.types";
 import { pinnedLabel } from "@/lib/audit/filter/filter";

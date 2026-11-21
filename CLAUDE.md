@@ -18,8 +18,14 @@ Built: the API layer, the session, the public home page, `/login`, `/register`, 
 
 **Groups are partly built.** `/app` lists them behind a search, a role filter and a sort, all held in
 the URL and all answered by the backend. Creating one and joining by code work. `/app/groups/[uid]`
-is a shell: a rail that stands still beside a scrolling section. The group's own path is **Tasks**,
-which carries only a notice; **Labels beside it is built**.
+is a shell: a rail that stands still beside a scrolling section. The group's own path is the
+**board**, and **Labels beside it is built**.
+
+**The board reads; nothing on it writes yet.** `/app/groups/[uid]` lists a page of chores, as rows
+or as cards, behind a search and one `Filter & sort` panel holding every axis at once. The filter
+is the URL and the backend answers all of it; the layout is a cookie. The chore `?task=` names
+opens beside the list. Creating, editing, archiving and deleting a chore do not exist, nor do
+complete, skip and claim.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
@@ -158,8 +164,10 @@ src/
       app/             everything behind the session
         page.tsx       every group the caller is in, split admin / joined
         groups/        new/ and join/ (page.tsx + actions/ each), and [uid]/:
-                       layout.tsx (the rail), page.tsx (the tasks a group opens
-                       on), group.helpers.ts (the shared read)
+                       layout.tsx (the rail), page.tsx (the board a group opens
+                       on) + page.helpers.ts (its five reads),
+                       actions/ (the one press, the layout cookie),
+                       group.helpers.ts (the shared read)
           labels/      the household's categories and tags, with page.helpers.ts
                        for the two reads and actions/ for all six presses
           overview/    page.tsx redirects to information/; members/ is the
@@ -211,10 +219,16 @@ src/
                        signed-out-listener and signed-out-broadcast (the two
                        ends of the sign-out a tab tells the others about),
                        invite-code/ (invite-code-field, share-invite),
+                       filter-chip (one choice in a filter panel, a real
+                       checkbox or radio under the paint),
+                       filter-select (a dropdown that posts a value, the
+                       listbox contract LocaleSelect runs),
+                       filter-menu/ (what any filtered list shares:
+                       filter-menu-row (+ .helpers), filter-menu.styles,
+                       clear-filters),
                        activity/ (a trail, whichever one: activity-feed,
                        activity-timeline, activity-row, change-card, token-line,
-                       day-sections-toggle, activity-empty, clear-filters,
-                       filter-menu-row (+ .helpers, .styles), date-menu/
+                       day-sections-toggle, activity-empty, date-menu/
                        (+ preset-list, custom-range))
     app/               signed-in components, one directory per screen
       chrome/          app-header (+ header-bar), group-breadcrumb (+ crumb-pill),
@@ -223,6 +237,13 @@ src/
                        show-menu, sort-menu, no-matches), add-group,
                        add-group-bar, no-groups, create-group-form,
                        join-group-form
+      group/board/     the chores a group opens on: board.styles.ts, task-list
+                       (+ no-tasks) drawing either task-row (+ due-chip,
+                       priority-mark, assignee-chip) or task-card, task-pager,
+                       task-panel (+ task-facts), board-bar (+ view-pills,
+                       view-menu (the phone's dropdown, + view.labels),
+                       task-search, filter-panel (+ filter-fields: sort, then
+                       status, priority, due, assignee, category, tag))
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)
@@ -292,6 +313,12 @@ src/
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
+    tasks/             tasks/ (the six calls), tasks.types.ts, due/ (how a due
+                       date reads), filter/ (URL <-> query <-> endpoint params,
+                       and the hrefs the board's controls hang off),
+                       permissions/ (who may change one chore),
+                       refusals/ (the 403 and the 404 a press runs into),
+                       view/ (the list-or-cards cookie)
     time/              api-date/ (API timestamps <-> Date), day/ (a day's name,
                        its key, the clock and the instant a key starts at, in
                        one zone), zone/ (the zone cookie's name and shape, and
@@ -325,6 +352,11 @@ feature's knowledge, moves to `components/common/`. **Tests sit beside the code*
   `type FooProps` so one declaration serves anything composing the component.
 - **Server Components by default.** `'use client'` only for state, effects, handlers or browser
   APIs, pushed as far down the tree as possible.
+- **A component or a function cannot cross into a client component**, so a component built on a
+  client shell that takes either is itself a client component, state of its own or not. Neither the
+  build nor a jsdom test catches it, because jsdom renders the client component directly and never
+  crosses the boundary: it fails at render, in the running app. A shared disclosure taking an icon
+  and a render prop cost us the whole board screen once, with lint, build and six green tests.
 - **A client component never reads the environment.** A Server Component calls `getEnv()` and passes
   the value down as a prop. That is how the Google client id reaches the browser, and it keeps
   `config/env/env.ts` as the only gate.
@@ -340,7 +372,7 @@ feature's knowledge, moves to `components/common/`. **Tests sit beside the code*
 imports `server-only`**: `config/env`, `api/client`, `api/server`, `api/action-failure`,
 `auth/session`, `auth/device`, `auth/signin/*`, `auth/tokens/refresh`, `auth/two-factor-challenge`,
 `account/`, `audit/audit.ts`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`,
-`labels/categories`, `labels/tags`, `uploads/uploads.ts`,
+`labels/categories`, `labels/tags`, `tasks/tasks`, `tasks/view`, `uploads/uploads.ts`,
 `qr/qr-code` (not for a secret: it keeps the encoder out of the browser bundle),
 `notifications/settings`, `preferences/preferences.ts`, `preferences/theme-cookie`.
 
@@ -653,6 +685,82 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.
+
+### The board
+
+- **A group opens on its board, and the whole of what it shows is the URL.** `?q=`, `?status=`,
+  `?who=`, `?category=`, `?tag=`, `?priority=`, `?overdue=`, `?sort=` and `?page=`, so a filtered
+  board is a pasteable link and nothing is narrowed, ordered or paged on the client. `taskQuery`
+  reads them, `taskQueryParams` writes them and `taskApiQuery` is the one place they become the
+  endpoint's enums.
+- **Sending no status is what asks for the to-do list.** The endpoint reads an absent status as
+  `TaskStatus.OPEN`, so the default is written as nothing at all rather than as the pair it stands
+  for, and clearing the filters means a bare path. The menu offers three states, not four:
+  `IN_PROGRESS` is in the column's constraint and nothing ever sets it.
+- **`who` is one field because the endpoint refuses two.** `assignedToUid` with `unassigned` is a
+  400, so `?who=` is `me`, `free` or a membership uid and becomes one parameter or the other.
+  `me` resolves from `myMemberUid`, which rides on the group read rather than costing a roster call.
+- **A filter press returns to the first page.** `boardHref` resets `page` unless the page is what
+  changed, since narrowing a board while reading page four otherwise lands on a page that no longer
+  exists.
+- **Pages are one-based in the URL and zero-based on the wire**, and the pager counts rows from the
+  size the board answered with rather than from the backend's default written out again.
+- **The open chore is `?task=`, not state.** The page reads it by uid, so the panel is a link
+  somebody can send, survives a reload and closes with an ordinary navigation. Read by uid rather
+  than found in the page, because the filter or the page may not hold it; a uid that is gone opens
+  the board rather than an error. **The panel's column is declared only while one is open**, or a
+  closed board gives up 22rem to an empty track.
+- **One bar, in two shapes.** On a phone the search takes the top row and the layout and the
+  filter share the one under it; from `sm` it is a single row, the layout as pills on the left and
+  the search and the filter on the right. The layout is **two pills where there is room and a
+  dropdown where there is not**, `ViewPills` and `ViewMenu`, swapped by a wrapper's `hidden sm:block`
+  rather than by one control trying to be both. `view.labels` is the one place either reads a name
+  from. The pill shell is `w-fit`, or the column stretches it and leaves dead space inside its border. Six pills across the top were tried and dropped:
+  the row never fit a phone, and a reader setting three things paid three page loads.
+- **The panel is a GET form and applies in one press**, in two sections: the order first, then
+  everything that narrows. Every axis posts a plain form field to the board's own path, so the
+  panel needs no JavaScript beyond the press that opens it. **It never posts the page**, which is
+  how a new filter starts at the first one, and the trigger counts the axes it holds, leaving the
+  search out: that has its own box.
+- **A field is pills, a strip or a dropdown, by how many answers it has.** Status, priority and
+  overdue are pills; category and tag are **horizontal strips**, since a household with twenty
+  categories would stack five rows deep and push Apply off a phone; sort and assignee are
+  `FilterSelect`, our listbox rather than the platform's, posting through a hidden input.
+  **Overdue is its own field, not a priority**, which is the three levels alone.
+- **`min-w-0` on the fieldset is load-bearing.** A fieldset defaults to `min-width: min-content`,
+  so it grows past the panel rather than letting a strip scroll inside it. Measured.
+- **Only the fields scroll; the footer is pinned.** `overflow-y-auto` on a box makes its `overflow-x`
+  auto as well, which let the fields box swallow the scroll the strips wanted, so it says
+  `overflow-x-hidden` too. Apply is outside that box, or it falls below the fold on a short screen.
+- **The panel's pills are 36px, under the app's 44px floor**, deliberately: six fields of them at
+  full height scroll before a phone can reach Apply. Everything on the bar itself stays 44.
+- **The search replaces the URL; it never submits its form.** `requestSubmit()` on a GET form is a
+  document navigation, so every keystroke reloaded the page and the arriving document put its own
+  older `q` back in the box. The submit is cancelled and `router.replace` runs instead, which is
+  what the group list's search does. The form and its hidden fields stay, for a browser with no
+  JavaScript.
+- **A pill in a strip is `relative`.** Its checkbox is `sr-only`, so absolutely positioned, and
+  with no containing block of its own it escapes the strip's overflow and widens the whole page.
+  Measured: 85px of horizontal page scroll at 1280.
+- **The layout is a cookie, not the URL.** `tasklean_view` holds `list` or `cards`, because it is
+  the reader's own preference and should follow them to the next group where a filter should not.
+  Only an action may write a cookie, so the pills are a form with two submit buttons carrying the
+  value, which also makes them work with no JavaScript.
+- **A card is the photo, or the category's colour where there is none**, so a grid of chores
+  nobody has photographed still reads as a grid. The colour sits under the picture rather than
+  beside it, so a dead upload falls back with no handler and one request.
+- **A flex column stretches its children**, so a pill inside a card needs a row of its own or it
+  spans the card. Measured.
+- **Who may change a chore is a third permission model.** `canEdit` on the backend is the author or
+  a group admin, where every member may view, complete, skip and claim. `canEditTask` reads it from
+  `createdBy.memberUid` against `myMemberUid`, and it is UX: each press still handles its own 403.
+- **A due date is named rather than dated for the nearest days**, and `overdue` is the backend's own
+  verdict against its clock rather than one worked out again here. The whole board is measured
+  against one instant passed down from the page, so every row agrees and the browser hydrates to
+  what the server drew.
+- **Five reads, run together and reported separately.** Only the board's own failure costs the
+  reader anything they came for; a failed roster or label read costs a filter menu. The rows carry
+  their own tags and assignee, so the category list is the only one a row needs.
 
 ### Labels
 

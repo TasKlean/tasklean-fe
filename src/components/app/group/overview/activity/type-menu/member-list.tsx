@@ -9,9 +9,9 @@ import { Fragment } from "react";
 import type { RefObject } from "react";
 import { FormerDivider } from "@/components/app/group/overview/activity/former-divider";
 import { choiceHref } from "@/components/app/group/overview/activity/type-menu/type-menu.helpers";
-import { FilterMenuRow } from "@/components/common/activity/filter-menu-row";
-import { opensFormerBlock } from "@/components/common/activity/filter-menu-row.helpers";
-import { DIVIDER, ROW, ROW_OFF } from "@/components/common/activity/filter-menu.styles";
+import { FilterMenuRow } from "@/components/common/filter-menu/filter-menu-row";
+import { opensFormerBlock } from "@/components/common/filter-menu/filter-menu-row.helpers";
+import { DIVIDER, ROW, ROW_OFF } from "@/components/common/filter-menu/filter-menu.styles";
 import type { MemberChoice } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 

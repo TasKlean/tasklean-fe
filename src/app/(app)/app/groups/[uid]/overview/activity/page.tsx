@@ -9,7 +9,7 @@ import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/a
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
 import { ActivityEmpty } from "@/components/common/activity/activity-empty";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
-import { ClearFilters } from "@/components/common/activity/clear-filters";
+import { ClearFilters } from "@/components/common/filter-menu/clear-filters";
 import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { LoadError } from "@/components/common/load-error";
 import { dateChoices } from "@/lib/audit/dates/dates";
@@ -92,7 +92,7 @@ export default async function ActivityPage({
   );
   const dates = <DateMenu key="dates" path={path} filter={filter} choices={ranges} />;
   // Keyed like the other slots, since it reaches the feed as a named prop.
-  const clear = <ClearFilters key="clear" path={path} filter={filter} />;
+  const clear = <ClearFilters key="clear" path={path} narrowed={narrowsTrail(filter)} />;
 
   if (failure || page.entries.length === 0) {
     return (

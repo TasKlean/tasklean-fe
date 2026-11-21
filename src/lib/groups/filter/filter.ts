@@ -16,10 +16,7 @@ import {
   type GroupSort,
 } from "@/lib/groups/filter/filter.types";
 import type { GroupRole } from "@/lib/groups/groups.types";
-
-// `FieldLimits.SEARCH_TEXT` on the backend, which refuses a longer search as a
-// 400: this cap is what keeps a pasted one from ever becoming one.
-const QUERY_MAX_LENGTH = 100;
+import { QUERY_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
 export const DEFAULT_SORT: GroupSort = "name-asc";
 

@@ -2281,6 +2281,49 @@ and taken knowingly. Revealing the add form, a row that swaps into an editor and
 are all client state. The list reads first and the fields appear on a press, because a permanently
 open form at the head of each section is 250px of empty inputs above the thing a reader came to see.
 
+### The board is read from the URL, and the backend answers all of it
+
+`/app/groups/[uid]` is the chores. Nine parameters carry the whole of what it shows, so a narrowed
+board is a link somebody can paste and a reload lands on the same screen. Nothing is filtered,
+ordered or paged in the browser, which is the opposite of what phase 5 originally planned: the
+endpoint took every axis in the end, so a client-side pass would only be a second, disagreeing
+implementation. **React Query never earned its place here** for the same reason, the URL being the
+only state there is.
+
+**Sending no status is what asks for the to-do list.** The endpoint reads an absent status as
+`TaskStatus.OPEN`, so the default is written as nothing at all rather than as the pair it stands
+for, and clearing the filters is a bare path. Two of the endpoint's refusals are headed off in
+`taskApiQuery` rather than discovered at runtime: `assignedToUid` with `unassigned` is a 400, which
+is why `?who=` is one field, and `CUSTOM` recurrence is refused, so it is not offered.
+
+**The controls are one bar, not a row of pills.** Six pills were built first and dropped: the row
+never fit a phone, and setting three things cost three page loads. One `Filter & sort` panel holds
+every axis and applies in a single press, as a GET form posting to the board's own path, so the
+whole screen still works with no JavaScript. The panel never posts the page, which is how a new
+filter starts at the first one.
+
+**The layout is a cookie, the filter is the URL.** `tasklean_view` holds `list` or `cards` because
+it is the reader's own preference and should follow them into the next group, where a filter should
+not. Only an action may write a cookie, so the control is a form whose submit buttons carry the
+value, and it works without JavaScript in both of its shapes: pills where there is room, a dropdown
+on a phone.
+
+**The search replaces the URL and never submits its form.** `requestSubmit()` on a GET form is a
+document navigation, so every settled keystroke reloaded the page and the arriving document put its
+own older `q` back in the box. The group list's search avoided that by calling `router.replace` in a
+transition, and the board now does the same, keeping the form only for a browser with no
+JavaScript. Its debounce is 600ms against the group list's 300, a chore being searched for by
+phrase rather than by one word.
+
+**Who may change a chore is a third permission model.** `canEdit` on the backend is the author or a
+group admin, where every member may view, complete, skip and claim. It is read per row rather than
+per screen, and like every role check here it is UX: each press still handles its own 403.
+
+**Five reads, run together and reported separately.** Only the board's own failure costs the reader
+anything they came for; a failed roster or label read costs a filter field. The open chore is read
+by uid rather than found in the page, because `?task=` may name one the current filter or page does
+not hold, and a uid that is gone opens the board rather than an error.
+
 ### A group's picture is an uploaded file, and every piece of that is forced
 
 `GroupRequest` carries a `photoUid` naming an upload rather than the pasted `photoUrl` this section
@@ -2595,7 +2638,7 @@ workaround **before** the feature depending on it gets built.
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.
 10. ~~**A group's tasks, categories and tags cannot be listed from its uid.**~~ **Closed.** All
     three are uid-scoped now: `GET /api/groups/{uid}/categories`, `/tags` and `/tasks`. The two
-    label lists are consumed; the board is the next branch's. A **write** to a label carries no
+    label lists are consumed and the board reads from `/api/tasks`. A **write** to a label carries no
     group at all, addressing one by numeric id, and only a create names the group in its body.
     Completions stayed per task (`GET /api/tasks/{uid}/completions`), which is what the share
     endpoint exists for instead.
@@ -2749,8 +2792,8 @@ gap_ is still open does not get started; the gap gets raised with the backend in
 | **1** | **API layer and session** ✅ done | Envelope unwrapping, a typed API error, the UTC time module, the encrypted cookie session, single-flight refresh, the proxy that draws the auth boundary. | Everything sits on this, and it is where a mistake looks like a backend bug. Unit testing arrives here, on the code most worth testing. |
 | **2** | **Auth screens** ✅ done | Register, verify, login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime. CI is what this phase unblocks. |
 | 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
-| 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create, join by code, the no-group empty state, the header pill, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do, so nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state. |
-| 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete. | This is the product. The app is useful at the end of this phase and not before. Likely where React Query earns its place, since filters re-querying and optimistic completion are its problem. |
+| **4** | **Groups and members** ✅ done | `/app` as the group list split by role, create, join by code, the no-group empty state, the header pill, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do, so nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state. |
+| **5** | **Tasks, the core loop** ← _current_ | The board and its detail panel, read-only so far. Still owed: create, edit, archive, delete, and complete, skip and claim. | This is the product. The app is useful at the end of this phase and not before. The filters went to the backend and the URL, so **React Query did not earn its place**: there is no client cache to invalidate. |
 | 6     | ~~**Members and roles**~~  | Folded into phase 4: the roster, invite, role change, remove and the last-admin handling ship with the groups work. | It was only separate because a member's display name could not be resolved; the membership now carries its user. |
 | 7     | **Categories and tags** ✅ done | `/app/groups/[uid]/labels`: both lists on one screen, with the presses gated per control rather than per section. | Taken **before** phase 5, not after: the backend shipped labels and tasks together, and the chore form cannot offer a category or a tag that nothing manages. |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`. | A second view on data phase 5 already fetches: cheap once tasks exist, pointless before. |

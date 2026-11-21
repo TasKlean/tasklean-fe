@@ -46,6 +46,22 @@ export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
 // typing at the same number.
 export const LABEL_NAME_MAX_LENGTH = 100;
 
+// `FieldLimits.SEARCH_TEXT`, which the group list and the task board are both
+// refused a longer search by. Exported because each caps its own box with it.
+export const QUERY_MAX_LENGTH = 100;
+
+// `TaskCreateRequest.name`, which is longer than a label's.
+export const TASK_NAME_MAX_LENGTH = 255;
+
+// `TaskCreateRequest.description`, where the backend allows the full 2000 a
+// group's description is also capped at 500 for.
+export const TASK_DESCRIPTION_MAX_LENGTH = 2000;
+
+// The minutes a chore may be estimated at, which the backend bounds on both
+// sides: a day's worth is the ceiling.
+export const TASK_MINUTES_MIN = 1;
+export const TASK_MINUTES_MAX = 1440;
+
 // The icon column's own `@Size`. Shape only: which names the set holds is the
 // picker's business, and one it does not know draws nothing rather than failing.
 const LABEL_ICON_MAX_LENGTH = 50;

@@ -23,6 +23,10 @@ export type Group = {
   // Whatever the backend's enum holds, narrowed where it is read: a role we do
   // not recognise must not pass for an admin.
   myRole?: string;
+  // The reader's own membership here, which is a third id namespace and the
+  // one a task's assignee is named by. Riding on the group read is what saves
+  // the board a roster call to answer "mine".
+  myMemberUid?: string;
   memberCount?: number;
   isActive?: boolean;
   dateCreated?: string;

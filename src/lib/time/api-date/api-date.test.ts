@@ -4,6 +4,7 @@ import {
   parseApiDate,
   parseApiDateOrNull,
   toApiDate,
+  toApiOffsetDate,
 } from "@/lib/time/api-date/api-date";
 
 describe("test timezone pin", () => {
@@ -64,6 +65,28 @@ describe("parseApiDateOrNull", () => {
     expect(parseApiDateOrNull("2026-09-28T10:00:00")?.toISOString()).toBe(
       "2026-09-28T10:00:00.000Z",
     );
+  });
+});
+
+describe("toApiOffsetDate", () => {
+  it("marks the instant, which the field it is written for binds as an OffsetDateTime", () => {
+    expect(toApiOffsetDate(new Date("2026-09-28T10:00:00Z"))).toBe("2026-09-28T10:00:00Z");
+  });
+
+  it("differs from toApiDate by exactly the marker, which is what a 400 turns on", () => {
+    const due = new Date(2026, 6, 1, 12, 0, 0);
+
+    expect(toApiOffsetDate(due)).toBe(`${toApiDate(due)}Z`);
+  });
+
+  it("reads back as the same instant it was given", () => {
+    const due = new Date("2026-09-28T10:00:00Z");
+
+    expect(parseApiDate(toApiOffsetDate(due)).getTime()).toBe(due.getTime());
+  });
+
+  it("throws on an invalid Date", () => {
+    expect(() => toApiOffsetDate(new Date("nonsense"))).toThrow(InvalidApiDateError);
   });
 });
 

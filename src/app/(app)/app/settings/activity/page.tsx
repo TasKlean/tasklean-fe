@@ -4,7 +4,7 @@ import { loadAccountTrail } from "@/app/(app)/app/settings/activity/page.helpers
 import { BackLink } from "@/components/auth/back-link";
 import { ActivityEmpty } from "@/components/common/activity/activity-empty";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
-import { ClearFilters } from "@/components/common/activity/clear-filters";
+import { ClearFilters } from "@/components/common/filter-menu/clear-filters";
 import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { LoadError } from "@/components/common/load-error";
 import { dateChoices } from "@/lib/audit/dates/dates";
@@ -60,7 +60,7 @@ export default async function AccountActivityPage({
   const dates = (
     <DateMenu key="dates" path={PATH} filter={filter} choices={dateChoices(now, timeZone)} />
   );
-  const clear = <ClearFilters key="clear" path={PATH} filter={filter} />;
+  const clear = <ClearFilters key="clear" path={PATH} narrowed={narrowsTrail(filter)} />;
 
   if (failure || page.entries.length === 0) {
     return (

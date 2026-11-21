@@ -57,3 +57,16 @@ export function toApiDate(date: Date): string {
   if (Number.isNaN(date.getTime())) throw new InvalidApiDateError(String(date));
   return date.toISOString().slice(0, 19);
 }
+
+/**
+ * Formats a `Date` for the one field that binds to an `OffsetDateTime` rather
+ * than a naive one: a task's `nextDueDate`, which the same task answers with
+ * no marker at all. Sending it through `toApiDate` is a 400.
+ *
+ * @returns e.g. `"2026-09-28T10:00:00Z"`, always UTC, since the instant is
+ * what the backend stores and the reader's offset would not survive the trip.
+ * @throws InvalidApiDateError when given an invalid `Date`.
+ */
+export function toApiOffsetDate(date: Date): string {
+  return `${toApiDate(date)}Z`;
+}

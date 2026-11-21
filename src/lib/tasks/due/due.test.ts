@@ -1,0 +1,47 @@
+import { describe, expect, it } from "vitest";
+import { dueLabel } from "@/lib/tasks/due/due";
+import type { Task } from "@/lib/tasks/tasks/tasks.types";
+
+const ZONE = "Europe/Ljubljana";
+const NOW = new Date("2026-11-21T09:00:00Z");
+
+function task(fields: Partial<Task>): Task {
+  return { uid: "t1", ...fields };
+}
+
+describe("dueLabel", () => {
+  it("says nothing for a chore nobody put a date on", () => {
+    expect(dueLabel(task({}), NOW, ZONE)).toBeNull();
+  });
+
+  it("takes the backend's own verdict rather than comparing the dates again", () => {
+    const label = dueLabel(task({ nextDueDate: "2026-11-21T08:00:00", overdue: true }), NOW, ZONE);
+
+    expect(label).toMatchObject({ text: "Overdue", tone: "overdue" });
+  });
+
+  it("names today rather than dating it", () => {
+    const label = dueLabel(task({ nextDueDate: "2026-11-21T18:00:00" }), NOW, ZONE);
+
+    expect(label).toMatchObject({ text: "Due today", tone: "soon" });
+  });
+
+  it("names tomorrow", () => {
+    const label = dueLabel(task({ nextDueDate: "2026-11-22T07:00:00" }), NOW, ZONE);
+
+    expect(label).toMatchObject({ text: "Due tomorrow", tone: "soon" });
+  });
+
+  it("dates anything further off", () => {
+    const label = dueLabel(task({ nextDueDate: "2026-11-28T07:00:00" }), NOW, ZONE);
+
+    expect(label).toMatchObject({ tone: "later" });
+    expect(label?.text).toMatch(/^Due /);
+  });
+
+  it("reads 23:30 UTC on the 21st as the 22nd, the reader's day rather than the server's", () => {
+    const label = dueLabel(task({ nextDueDate: "2026-11-21T23:30:00" }), NOW, ZONE);
+
+    expect(label).toMatchObject({ text: "Due tomorrow" });
+  });
+});
