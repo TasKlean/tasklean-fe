@@ -403,3 +403,16 @@ button:not(:disabled),
 
   scrollbar-width: none;
 }
+
+/* A label's own colour, which is data rather than a token: the chip is tinted
+   from `--label-color`, so the recipe lives here and only the value is inline.
+   Dark takes a stronger mix, where the same percentage reads as no colour. */
+@utility label-tint {
+  background-color: color-mix(in srgb, var(--label-color) 16%, transparent);
+  border-color: color-mix(in srgb, var(--label-color) 38%, transparent);
+
+  @variant dark {
+    background-color: color-mix(in srgb, var(--label-color) 26%, transparent);
+    border-color: color-mix(in srgb, var(--label-color) 48%, transparent);
+  }
+}

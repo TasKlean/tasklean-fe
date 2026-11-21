@@ -41,6 +41,19 @@ export const GROUP_NAME_MAX_LENGTH = 255;
 // card, and a thousand characters of it is a wall nobody reads.
 export const GROUP_DESCRIPTION_MAX_LENGTH = 500;
 
+// CategoryCreateRequest and TagCreateRequest share one `@Size`, and both names
+// normalise identically. Exported because the forms that post them have to stop
+// typing at the same number.
+export const LABEL_NAME_MAX_LENGTH = 100;
+
+// The icon column's own `@Size`. Shape only: which names the set holds is the
+// picker's business, and one it does not know draws nothing rather than failing.
+const LABEL_ICON_MAX_LENGTH = 50;
+
+// The colour columns hold seven characters and nothing else, so this pattern is
+// the whole of the backend's own validation too.
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
 // Eight characters, generated upper-case from a UUID prefix.
 const INVITE_CODE = /^[A-Z\d]{8}$/;
 
@@ -245,6 +258,52 @@ export const inviteCodeRule = z.string({ error: "Enter an invite code." }).check
   z.minLength(1, "Enter an invite code."),
   z.overwrite((value) => value.replace(/[\s-]/g, "").toUpperCase()),
   z.regex(INVITE_CODE, "An invite code is 8 letters and numbers."),
+);
+
+/**
+ * A category's or a tag's name, normalised the way the backend stores it: it
+ * trims and collapses any run of whitespace inside, leaving the case alone.
+ *
+ * Capped before collapsing, which is the order the backend runs them in: its
+ * `@Size` sees the body as sent and the service normalises after.
+ */
+export const labelNameRule = (missing: string) =>
+  z.string({ error: missing }).check(
+    z.trim(),
+    z.minLength(1, missing),
+    z.maxLength(LABEL_NAME_MAX_LENGTH, `Use ${LABEL_NAME_MAX_LENGTH} characters or fewer.`),
+    z.overwrite((value) => value.replace(/\s+/g, " ")),
+  );
+
+/**
+ * A label's colour, which the picker always has one of, so this is required
+ * where the wire field is not. Lower-cased, so two labels given the same swatch
+ * hold the same string.
+ */
+export const colorRule = z.string({ error: "Pick a colour." }).check(
+  z.trim(),
+  z.minLength(1, "Pick a colour."),
+  z.overwrite((value) => value.toLowerCase()),
+  z.regex(HEX_COLOR, "Pick a colour."),
+);
+
+/**
+ * A category's icon, which it need not have.
+ *
+ * Blank becomes absent rather than staying an empty string, because an omitted
+ * field is how the backend is told to clear one.
+ */
+export const optionalIconRule = z.optional(
+  z.pipe(
+    z.string().check(z.trim(), z.maxLength(LABEL_ICON_MAX_LENGTH, "Pick an icon from the set.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** The label a press was about, as a hidden field, so it arrives as a string. */
+export const labelIdRule = z.pipe(
+  z.string().check(z.regex(/^\d+$/, "Pick a label.")),
+  z.transform(Number),
 );
 
 /** One of the two roles a membership can hold. */

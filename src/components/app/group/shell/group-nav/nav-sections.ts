@@ -100,7 +100,7 @@ function openArea(group: string, pathname: string, admin: boolean): GroupNavSect
       // The group's own path: tasks are what a group is for, so they are
       // what opening one shows, and the overview has a route of its own.
       { href: group, label: "Tasks", icon: CircleCheckBig },
-      { href: `${group}/tags`, label: "Tags & Categories", icon: Tags, soon: true },
+      { href: `${group}/labels`, label: "Labels", icon: Tags },
     ],
   };
 }

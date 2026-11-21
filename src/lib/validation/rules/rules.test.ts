@@ -2,7 +2,11 @@ import * as z from "zod/mini";
 import { describe, expect, it } from "vitest";
 import {
   codeRule,
+  colorRule,
   emailRule,
+  labelIdRule,
+  labelNameRule,
+  optionalIconRule,
   optionalTwoFactorCodeRule,
   passwordRule,
   firstNameRule,
@@ -149,5 +153,67 @@ describe("twoFactorCodeError", () => {
 
   it("reports the shape a half-typed code does not have", () => {
     expect(twoFactorCodeError("123")).toBe("Enter the 6 digits from your app, or a recovery code.");
+  });
+});
+
+describe("labelNameRule", () => {
+  it("collapses a run of whitespace, the way the backend normalises a name", () => {
+    const result = z.safeParse(labelNameRule("missing"), "  Deep   clean  ");
+
+    expect(result.success && result.data).toBe("Deep clean");
+  });
+
+  it("leaves the case alone, which is what the household reads back", () => {
+    const result = z.safeParse(labelNameRule("missing"), "Deep Clean");
+
+    expect(result.success && result.data).toBe("Deep Clean");
+  });
+
+  it.each(["", "   ", undefined])("asks for a name for %j", (value) => {
+    expect(check(labelNameRule("Enter a name for the tag."), value)).toBe(
+      "Enter a name for the tag.",
+    );
+  });
+
+  it("caps the name before collapsing it, which is the order the backend runs", () => {
+    const raw = `${"a".repeat(50)}  ${"a".repeat(49)}`;
+
+    expect(check(labelNameRule("missing"), raw)).toBe("Use 100 characters or fewer.");
+  });
+});
+
+describe("colorRule", () => {
+  it("lower-cases a colour, so two labels given the same swatch match", () => {
+    const result = z.safeParse(colorRule, "  #43AA8B  ");
+
+    expect(result.success && result.data).toBe("#43aa8b");
+  });
+
+  it.each(["", "   ", "43aa8b", "#43aa8", "#43aa8bb", "teal", undefined])("refuses %j", (value) => {
+    expect(check(colorRule, value)).toBe("Pick a colour.");
+  });
+});
+
+describe("optionalIconRule", () => {
+  it.each(["", "   ", undefined])("treats %j as no icon at all", (value) => {
+    const result = z.safeParse(optionalIconRule, value);
+
+    expect(result.success && result.data).toBeUndefined();
+  });
+
+  it("refuses more than the backend's column holds", () => {
+    expect(check(optionalIconRule, "a".repeat(51))).toBe("Pick an icon from the set.");
+  });
+});
+
+describe("labelIdRule", () => {
+  it("turns the hidden field's string into the number the path takes", () => {
+    const result = z.safeParse(labelIdRule, "7");
+
+    expect(result.success && result.data).toBe(7);
+  });
+
+  it.each(["", "7a", "-7", "abc"])("refuses %j", (value) => {
+    expect(check(labelIdRule, value)).toBe("Pick a label.");
   });
 });

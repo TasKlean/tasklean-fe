@@ -40,14 +40,17 @@ export function TextField({
   labelAction,
   ...input
 }: Readonly<TextFieldProps>) {
-  const errorId = `${name}-error`;
-  const hintId = `${name}-hint`;
+  // The name is the id unless a caller says otherwise, which a screen holding
+  // two fields of the same name has to: the labels page edits several rows.
+  const fieldId = input.id ?? name;
+  const errorId = `${fieldId}-error`;
+  const hintId = `${fieldId}-hint`;
   const describedBy = describedById(errorId, hintId, { error, success, hint });
 
   return (
     <div className="relative flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
-        <label htmlFor={name} className="text-label-md text-foreground font-semibold">
+        <label htmlFor={fieldId} className="text-label-md text-foreground font-semibold">
           {label}
         </label>
         {/* Outside the label and hidden: the input's own `required` is what tells
@@ -71,7 +74,7 @@ export function TextField({
 
         <input
           {...input}
-          id={name}
+          id={fieldId}
           name={name}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}

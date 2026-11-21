@@ -11,6 +11,7 @@ import { GroupNav } from "@/components/app/group/shell/group-nav/group-nav";
 
 const WORKSPACE = [
   ["Tasks", "/app/groups/g1"],
+  ["Labels", "/app/groups/g1/labels"],
   ["Overview", "/app/groups/g1/overview"],
   ["Group settings", "/app/groups/g1/settings"],
   ["Leave group", "/app/groups/g1/overview/members#leave-group"],
@@ -66,11 +67,10 @@ describe("GroupNav", () => {
     expect(screen.getByRole("heading", { name: "Administration" })).toBeInTheDocument();
   });
 
-  it("offers the sections still being built as dead entries, not links", () => {
+  it("leaves no dead entry behind, now that every section it names is built", () => {
     render(<GroupNav uid="g1" collapsed={false} admin />);
 
-    expect(screen.queryByRole("link", { name: /Tags & Categories/ })).toBeNull();
-    expect(screen.getByRole("button", { name: "Tags & Categories, coming soon" })).toBeDisabled();
+    expect(screen.queryAllByRole("button", { name: /coming soon/ })).toEqual([]);
   });
 
   it("links the sections that are built", () => {
@@ -102,9 +102,6 @@ describe("GroupNav", () => {
     for (const [label] of WORKSPACE) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
-    expect(
-      screen.getByRole("button", { name: "Tags & Categories, coming soon" }),
-    ).toBeInTheDocument();
   });
 
   it("puts the overview's own sections where the workspace sits", () => {
@@ -123,13 +120,6 @@ describe("GroupNav", () => {
     render(<GroupNav uid="g1" collapsed={false} admin />);
 
     expect(screen.getByRole("heading", { name: "Group settings" })).toBeInTheDocument();
-  });
-
-  it("says an unbuilt section is coming rather than linking into nothing", () => {
-    pathname.mockReturnValue("/app/groups/g1");
-    render(<GroupNav uid="g1" collapsed={false} admin />);
-
-    expect(screen.getByRole("button", { name: "Tags & Categories, coming soon" })).toBeDisabled();
   });
 
   it("marks the open sub-section, not the area it sits in", () => {

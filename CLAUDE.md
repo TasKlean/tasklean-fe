@@ -19,7 +19,7 @@ Built: the API layer, the session, the public home page, `/login`, `/register`, 
 **Groups are partly built.** `/app` lists them behind a search, a role filter and a sort, all held in
 the URL and all answered by the backend. Creating one and joining by code work. `/app/groups/[uid]`
 is a shell: a rail that stands still beside a scrolling section. The group's own path is **Tasks**,
-which carries only a notice.
+which carries only a notice; **Labels beside it is built**.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
@@ -29,7 +29,10 @@ which carries only a notice.
   with what an update moved behind a press.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
-- **Tags & Categories is the only dead entry left in the rail.**
+- `labels` is the household's categories and tags, two sections on one screen. Both lists are
+  everybody's and the presses are gated one at a time: a category is wholly an admin's, where any
+  member adds a tag and recolours one and only an admin renames or removes it. **Nothing in the
+  rail is a dead entry any more**, so `soon` on a nav item has no caller left.
 
 **`/app/settings/activity` is the account's own trail**, last under Security: sign-ins, credential
 changes, two-factor and device events, newest first, a page of 20 behind a Load more press. The same
@@ -157,6 +160,8 @@ src/
         groups/        new/ and join/ (page.tsx + actions/ each), and [uid]/:
                        layout.tsx (the rail), page.tsx (the tasks a group opens
                        on), group.helpers.ts (the shared read)
+          labels/      the household's categories and tags, with page.helpers.ts
+                       for the two reads and actions/ for all six presses
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
@@ -200,6 +205,9 @@ src/
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
                        zone-probe (the browser's own zone, into a cookie),
+                       label-chip (a category or tag, tinted from its own hex),
+                       category-icon (the icon set and what draws a stored name),
+                       swatch-select (a circle that opens a grid of them),
                        signed-out-listener and signed-out-broadcast (the two
                        ends of the sign-out a tab tells the others about),
                        invite-code/ (invite-code-field, share-invite),
@@ -222,6 +230,10 @@ src/
                        activity/ (what only a group's trail has: former-divider,
                        type-menu/ (+ kind-list, member-list, .helpers) and
                        actor-menu/)
+      group/labels/    label-section, add-label (the press that becomes a form),
+                       category-list (+ category-row, category-form), tag-list
+                       (+ tag-row, tag-form), color-picker, icon-picker (both
+                       one circle over swatch-select), labels.styles.ts
       group/settings/  settings-section, group-preferences, group-notifications,
                        edit-group-form, invite-code (+ rotate-invite-code),
                        delete-group
@@ -272,6 +284,9 @@ src/
                        unavailable.ts (the 403), last-admin.ts (the 409)
     images/            fit-box/ (the size drawn at), resize/ (decode, redraw,
                        re-encode in the browser)
+    labels/            categories/ and tags/ (four calls each, both lists
+                       scoped by the path), refusals/ (the two codeless 409s),
+                       palette/ (the colours a label may wear, as data)
     notifications/     settings.ts (GET, and a batch PUT answering with the
                        whole matrix), settings.types.ts
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
@@ -325,7 +340,7 @@ feature's knowledge, moves to `components/common/`. **Tests sit beside the code*
 imports `server-only`**: `config/env`, `api/client`, `api/server`, `api/action-failure`,
 `auth/session`, `auth/device`, `auth/signin/*`, `auth/tokens/refresh`, `auth/two-factor-challenge`,
 `account/`, `audit/audit.ts`, `devices/`, `users/`, `groups/groups.ts`, `groups/members`,
-`uploads/uploads.ts`,
+`labels/categories`, `labels/tags`, `uploads/uploads.ts`,
 `qr/qr-code` (not for a secret: it keeps the encoder out of the browser bundle),
 `notifications/settings`, `preferences/preferences.ts`, `preferences/theme-cookie`.
 
@@ -334,7 +349,9 @@ It must **not** be imported by anything a client component imports: all of `vali
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
 `groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
-(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), and the
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), the four
+label modules a row or a picker in the browser reads (`labels/categories.types.ts`,
+`labels/tags.types.ts`, `labels/refusals`, `labels/palette`), and the
 three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`,
 `uploads/image-src`), and `auth/signed-out-channel`, whose two ends are both browser side.
 
@@ -472,6 +489,8 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   make it work: the popup cancels `mousedown`, or the button blurs and the list closes before a
   press lands; and Enter and Space cancel the default, or the browser fires a second toggle. Each
   row is a `<button role="option">` with `tabIndex={-1}`. The cost is that it needs JavaScript.
+  **`SwatchSelect` is the same contract laid out as a grid**, for a choice with nothing to read:
+  five fixed columns, so up and down move by a row rather than by one cell.
 - **A tickbox is a real checkbox under the paint**: the input `sr-only` inside a `<label>`, the row
   carrying the focus ring with `has-[:focus-visible]:`. A button wearing `role="checkbox"`
   reimplements what the browser gives, and assistive tech treats the two differently.
@@ -531,7 +550,9 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   effect, and **a pressed filter carries whatever is in the box**; neither applies while a push of
   ours is in flight.
 - **A dropdown panel names the edge it hangs from.** `PANEL` sets no horizontal position: the show
-  menu adds `left-0`, the sort menu `right-0`.
+  menu adds `left-0`, the sort menu `right-0`. **One hanging off a narrow trigger also needs
+  `w-max`**: an absolute box shrinks to fit the width its containing block offers, so `SwatchSelect`'s
+  grid over a 44px circle came out one cell wide until it said otherwise. Measured.
 - **The two ways into a group are a bar on a phone and the title row on a desktop.** `AddGroup` is
   `hidden lg:flex`, `AddGroupBar` is `lg:hidden`. Each half of the bar is `flex-1 min-w-0` and
   **both carry the border**, colour apart. The list pays `pb-space-3xl` below `lg` so the bar clears
@@ -632,6 +653,41 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **The invite code is a field with its presses beside it.** `InviteCodeField` paints it like every
   other field with the copy press inside as an icon; the replacement and the disabled share are
   round icon presses at the field's height, which `CODE_ACTION` is the one place for.
+
+### Labels
+
+- **A category is the household's filing system; a tag is a member's label.** A task has one
+  category and up to five tags, a category is referenced by `categoryId` and a tag **by name**, and
+  a category cannot be deleted while tasks are filed under it where a tag can be deleted whenever.
+- **The permissions split per control, not per screen.** Both lists are everybody's. A category is
+  wholly an admin's. A tag is added and recoloured by any member and renamed or removed only by an
+  admin, and **the backend splits that one PUT by field**: the body is refused when a non-admin
+  sent a different name, compared exactly, so changing only the case is still a rename. A member's
+  save therefore reposts the stored name as a hidden field.
+- **A control the reader will never have is not drawn**, where one that is merely unbuilt stays a
+  disabled button. The role note in the section's heading says what they may do instead.
+- **Both PUTs replace the whole label**, so a save carries the colour and the icon it already holds.
+- **A deleted name stays taken.** Creating it again revives the original row, with its id, its
+  colour and the tasks still filed under it. Renaming onto that name is refused instead, since only
+  a create revives. **Nothing in the response says which happened**, so the screen cannot call it
+  restored rather than created, and a 409 on a create can therefore only be a live label.
+- **The taken-name refusal is one sentence, and says nothing about deleted labels.** A create
+  refused that way collided with a label the reader can see, and a rename never revives anything.
+- **A label's colour is data, not a token.** `labels/palette` holds the hex codes because the value
+  is stored on the label and has to outlive any change to the design. How it is painted is
+  `label-tint` in `globals.css`, which reads `--label-color` off an inline style and mixes it into
+  the background: 16% in light and 26% in dark, where the same percentage reads as no colour.
+- **The list reads first and the fields appear on a press.** `AddLabel` swaps itself for the form
+  and takes the same label as the form's own submit. **Nothing on this screen works without
+  JavaScript**: revealing the form, a row that swaps into an editor and the confirm step are all
+  client state, the same standing the roster's presses already have.
+- **A colour and an icon are one circle each, showing the choice and opening the rest.**
+  `SwatchSelect` is built on `LocaleSelect`'s mechanics rather than `useDisclosure`, because it
+  posts a value: focus stays on the button, `aria-activedescendant` names the active cell, the panel
+  cancels `mousedown` so a press is not preceded by the blur that closes it, Enter and Space cancel
+  the default, and the grid has a fixed five columns so up and down can move by a row.
+- **A name field is capped at `sm:max-w-xs`.** A name is 100 characters at most, so a field spanning
+  a desktop card is far wider than anything typed into it.
 
 ### The group shell
 
@@ -1010,7 +1066,9 @@ backend bugs. Reasoning in [the bible](PROJECT_BIBLE.md).
   the already-a-member refusal on join, which is a different thing with the same status.
 - **List endpoints need a scope parameter**: `?groupId=`, `?userId=`, `?taskId=`. Missing one is a
   `400`, not an empty list. **The group and membership routes are the exception**, carrying their
-  scope in the path, though tasks, categories, tags and audit logs still take `?groupId=`.
+  scope in the path, as do a group's categories and tags (`GET /api/groups/{uid}/categories`,
+  `/tags`), though tasks and audit logs still take `?groupId=`. **A write to a label carries no
+  group at all**: it addresses one by numeric id, and a create names the group in the body.
 - **No pagination exists, and only the group list filters, sorts and searches.** `GET
   /api/groups/mine` takes `q`, a repeatable `role` and a `sort`, and refuses a value it does not know
   with a `400` rather than falling back, so a query is normalised before it is sent. Every other

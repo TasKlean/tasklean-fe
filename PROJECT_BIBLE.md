@@ -1387,7 +1387,7 @@ wrong way round first and its own test caught it.
 Each form holding this resets `edited` when a new action state arrives, in render rather than in an
 effect, which is what React prescribes for state derived from a prop change.
 
-### The one dropdown in the app is ours
+### A dropdown is ours, not the platform's
 
 The language picker started as a native `select`, on the reasoning that it is the control a phone
 already knows how to present. That held until the screen was looked at: the OS menu cannot be
@@ -1395,6 +1395,9 @@ themed, so the one control on a settings page wore the platform's surfaces while
 it wore ours. `LocaleSelect` replaced it with a button and a `role="listbox"`, following the ARIA
 select-only combobox pattern: focus never leaves the button and `aria-activedescendant` names the
 active row, so there is no focus to move between options and no focus trap to build.
+
+`SwatchSelect` is the second control built this way and lays the same contract out as a grid, for a
+choice with nothing to read. The two details below are what both of them turn on.
 
 Two details are the whole implementation, and both look like noise until they are missing. The popup
 cancels `mousedown`, because a press on a row otherwise blurs the button first, which closes the
@@ -2213,6 +2216,71 @@ five lines that cannot be localized. `LOGIN` is phrased, which does lose whether
 password, by Google or behind a second factor: the backend writes all three as one action with a
 different sentence, and no field tells them apart.
 
+### Labels are one screen, and the permissions split per control
+
+A category and a tag are not the same kind of thing, which is why they share a screen rather than a
+component. A category is the household's filing system: a task has one, it is referenced by
+`categoryId`, and it cannot be deleted while tasks are filed under it. A tag is a member's label: a
+task carries up to five, they are referenced **by name**, and one can be deleted whenever, which
+quietly takes it off every task carrying it. Two sections, two lists, one route.
+
+**The gate is per press, not per screen.** Group settings redirects a member out of the sections
+that are not theirs, and that is wrong here: both lists are everybody's and only some of the presses
+are not. A category is wholly an admin's; a tag is added and recoloured by any member and renamed or
+removed only by an admin. So a member sees both lists in full, a Colour press on a tag, and nothing
+else. A control they will never have is **not drawn**, where one that is merely unbuilt stays a
+disabled button saying so: "coming soon" is a promise, and a permission is not one. The reason sits
+in the section's heading instead of beside a button that is not there.
+
+**One PUT is refused by its body rather than by the call.** `PUT /api/tags/{id}` is gated on
+membership, and `TagService` then compares the name: a non-admin who sent a different one gets a
+403, and the comparison is exact, so changing only the case is still a rename. A rule about one
+field of a body cannot be a `@PreAuthorize`, which is one boolean evaluated before the call. The
+consequence here is that a member's save **reposts the stored name as a hidden field** rather than
+omitting it, since the request replaces the whole tag either way.
+
+**Creating a taken name revives; renaming onto one is refused.** A deleted label keeps its name and
+its rows, so creating that name again brings the original back with its id, its colour and the tasks
+still filed under it, while a rename onto the same name is a 409. That asymmetry is why the refusal
+is **one sentence**, "That name is already taken", and says nothing about deleted labels: on a
+create the collision can only be with a live label a reader can see, and on a rename nothing is
+revived. Nothing in either response distinguishes a revival from a create, so the screen cannot call
+it restored; that would need a flag from the backend.
+
+### A label's colour is data, and only its recipe is a token
+
+Every other colour in the app is a token named by role. A label's is a `#RRGGBB` stored on the row,
+chosen by a person and sent to the backend, so it has to stay exactly what it was when it was picked
+even if the design moves underneath it. `labels/palette` therefore holds ten hex codes as data, and
+that is a deliberate exception to the no-hex-outside-`globals.css` rule rather than an oversight.
+
+What is still a token is how the colour is **painted**. `label-tint` in `globals.css` reads
+`--label-color` off an inline style and mixes it into the background, 16% in light and 26% in dark
+where the same percentage reads as no colour at all. That keeps the recipe in the one place colours
+are defined while the value stays dynamic, and it is why the chip tints rather than fills: the text
+stays the normal foreground, so no swatch can come out unreadable in either scheme. The palette is
+ten mid-tones for the same reason, since a 16% mix of anything near black or white is no colour.
+
+### The pickers are listboxes, and an absolute panel needs a width
+
+A colour and an icon are each one circle that opens a grid. A popup that **posts a value** is a
+listbox by the same reasoning `LocaleSelect` settled, not a disclosure: focus stays on the button,
+`aria-activedescendant` names the active cell, the panel cancels `mousedown` so a press is not
+preceded by the blur that closes it, and Enter and Space cancel the default or the browser fires a
+second toggle. `useDisclosure` is for a popup that navigates, and it carries none of that contract.
+The grid has five **fixed** columns so the up and down arrows can move by a row, which a wrapping
+row could not offer: the column count would depend on the viewport and the keyboard cannot read it.
+
+The trap, measured in a browser rather than reasoned about: an absolutely positioned box shrinks to
+fit the width its **containing block** offers, and that block is the 44px trigger, so the grid came
+out one cell wide until it said `w-max`. The panel's padding is what the chosen cell's ring and its
+offset need, or the ring is clipped at the edge.
+
+**Nothing on this screen works without JavaScript**, which is a step down from the rest of the app
+and taken knowingly. Revealing the add form, a row that swaps into an editor and the confirm step
+are all client state. The list reads first and the fields appear on a press, because a permanently
+open form at the head of each section is 250px of empty inputs above the thing a reader came to see.
+
 ### A group's picture is an uploaded file, and every piece of that is forced
 
 `GroupRequest` carries a `photoUid` naming an upload rather than the pasted `photoUrl` this section
@@ -2525,12 +2593,12 @@ workaround **before** the feature depending on it gets built.
 9. ~~**No group photo upload.**~~ **Closed.** `GroupRequest.photoUid` names an upload and
    `/api/uploads` signs one. The user's own `photoUrl` is still Google's URL and is not covered:
    there is no `AVATAR` purpose, so changing a profile photo remains unbuildable.
-10. **A group's tasks, categories and tags cannot be listed from its uid.** All three list endpoints
-    take `@RequestParam Long groupId`, and `GroupResponse` exposes `uid` only: the numeric id appears
-    nowhere in the API but inside those same responses, which need the number to fetch. So the trail's
-    entity picker offers Members and Group alone, and phase 5 needs either uid-scoped routes (`GET
-    /api/groups/{uid}/tasks` and friends) or the numeric id on `GroupResponse`. Completions are worse:
-    they list by `?taskId=` or `/member/{groupMemberId}` only, so a group cannot ask for its own.
+10. ~~**A group's tasks, categories and tags cannot be listed from its uid.**~~ **Closed.** All
+    three are uid-scoped now: `GET /api/groups/{uid}/categories`, `/tags` and `/tasks`. The two
+    label lists are consumed; the board is the next branch's. A **write** to a label carries no
+    group at all, addressing one by numeric id, and only a create names the group in its body.
+    Completions stayed per task (`GET /api/tasks/{uid}/completions`), which is what the share
+    endpoint exists for instead.
 
 ---
 
@@ -2684,7 +2752,7 @@ gap_ is still open does not get started; the gap gets raised with the backend in
 | 4     | **Groups and members** ← _current_ | `/app` as the group list split by role, create, join by code, the no-group empty state, the header pill, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do, so nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state. |
 | 5     | **Tasks, the core loop**  | List with client-side filters, detail, create, edit, complete. | This is the product. The app is useful at the end of this phase and not before. Likely where React Query earns its place, since filters re-querying and optimistic completion are its problem. |
 | 6     | ~~**Members and roles**~~  | Folded into phase 4: the roster, invite, role change, remove and the last-admin handling ship with the groups work. | It was only separate because a member's display name could not be resolved; the membership now carries its user. |
-| 7     | **Categories and tags**    | Management screens for both. | Task-tagging within it is _blocked on API gap 2_. |
+| 7     | **Categories and tags** ✅ done | `/app/groups/[uid]/labels`: both lists on one screen, with the presses gated per control rather than per section. | Taken **before** phase 5, not after: the backend shipped labels and tasks together, and the chore form cannot offer a category or a tag that nothing manages. |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`. | A second view on data phase 5 already fetches: cheap once tasks exist, pointless before. |
 | 9     | **Notifications**          | Inbox, unread badge, mark read. | Pinging a member is _blocked on API gap 4_. |
 | 10    | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell. | Deliberately late: a capability layered onto a working app, and an offline shell for screens that do not exist yet is wasted work. |
