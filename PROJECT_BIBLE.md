@@ -1498,8 +1498,9 @@ uses, so "which group is this path about" has one answer.
 `grid-cols-1 grid-rows-[auto_minmax(0,1fr)]` around a plain `<main>`, and the group shell asks for
 `lg:min-h-full`, which carries the rail's `border-r` from the header to the bottom of the window. A
 flex column was the first attempt and it was wrong twice over, both measured in gotcha 29. The
-section inside the row keeps its own `max-w-app` column, so prose never stretches across a 2560px
-display.
+section inside the row applies its own `max-w-app` column, so prose never stretches across a 2560px
+display. It applies it rather than inheriting it because the board's cards layout is the one screen
+that wants the whole width.
 
 **The pill is two controls in one border.** Its left half is a link into the group you are in, its
 right half the button that opens the list, with a rule between them. Pressing the name is the move
@@ -2232,6 +2233,20 @@ else. A control they will never have is **not drawn**, where one that is merely 
 disabled button saying so: "coming soon" is a promise, and a permission is not one. The reason sits
 in the section's heading instead of beside a button that is not there.
 
+**The add press is in the heading, not under the list.** It sat at the foot of the card, which is
+the order the screen is read in but means a household with forty labels scrolls the whole list to
+add the forty-first and then scrolls back to see it. The press moved to the top right of the
+section and the form it opens to the top of the card, so neither is below the list. That puts the
+two halves of one disclosure in the section's heading and in its card, which is why `LabelSection`
+owns the state and builds the two forms itself: a Server Component cannot hand a client form the
+`onCancel` that closes it.
+
+**Only the reader who may not press something is told why.** Each section carried a line naming what
+the reader could do, in both roles. For an admin that line restated the presses next to it, so it is
+gone: a note is now a member's only, explaining an absence rather than announcing a permission. The
+press itself moved onto the title's row and wears the brand colour, being the thing the section is
+for.
+
 **One PUT is refused by its body rather than by the call.** `PUT /api/tags/{id}` is gated on
 membership, and `TagService` then compares the name: a non-admin who sent a different one gets a
 403, and the comparison is exact, so changing only the case is still a rename. A rule about one
@@ -2297,10 +2312,79 @@ for, and clearing the filters is a bare path. Two of the endpoint's refusals are
 is why `?who=` is one field, and `CUSTOM` recurrence is refused, so it is not offered.
 
 **The controls are one bar, not a row of pills.** Six pills were built first and dropped: the row
-never fit a phone, and setting three things cost three page loads. One `Filter & sort` panel holds
+never fit a phone, and setting three things cost three page loads. One `Filter and sort` panel holds
 every axis and applies in a single press, as a GET form posting to the board's own path, so the
 whole screen still works with no JavaScript. The panel never posts the page, which is how a new
 filter starts at the first one.
+
+**The cards layout gives up the app's column, and the list keeps it.** 1200px is the width the whole
+app is framed at, which leaves a 1920px display about 336px of the content area unused. A card is
+worth about 300px, so that space is another column of chores, where a list row spanning 1536px is
+only harder to read. The cap therefore moved off the shell's wrapper and onto each section as
+`SECTION_COLUMN`, which the board drops in the cards layout and nothing else does. The shell still
+owns the padding, so a section only chooses its own ceiling.
+
+**The columns are a container query, not a breakpoint.** A window breakpoint cannot see that an open
+chore has taken 22rem of the board, so four columns at 1920 would have been squeezed into 1168px
+rather than dropped to three. The list's wrapper is an `@container` and the steps read the board's
+own inline size, which also means nothing has to be threaded down to say whether a chore is open.
+The steps are 576, 1024 and 1280px, chosen to keep a card near 300px and wider: that is what fits
+its priority mark and due chip on one line rather than stacking them.
+
+**The board carries no heading.** It had an `h2` and a line under it saying what a board is, which
+is a sentence a reader reads once. The rail's card already holds the group's name as the `h1`, and
+the screen opens on the chores instead.
+
+**The assignee dropdown names the reader once.** It offered `Me` and then the whole roster, the
+reader included, so two rows meant the same board and the second one won on nothing. The two answers
+that name nobody now sit above a rule and the people below it, the reader first as `Me (their name)`.
+The row keeps posting `me` rather than their membership uid: that token is what makes a filtered
+board a link anybody can open as themselves. A typed URL may still name their own uid, which means
+the same board, so `whoValue` folds it onto that row rather than showing Anyone for a filter that is
+on. The rule is a property of the row below it rather than an option of its own, so the listbox's
+keyboard arithmetic is untouched, and it is drawn as decoration rather than as a `separator`,
+because a listbox may own nothing but options and a row it cannot own is a row screen readers may
+report wrongly.
+
+**One declaration for what the controls offer.** `WhoChoice` and `LabelChoice` existed four times,
+once in the page helper and once in each of three components, and they had already drifted: the
+page's `LabelChoice` had no `color`, so the tag strip drew every swatch in the default colour while
+the component that drew it declared a field the page never filled. They live in
+`tasks/filter/filter.types` now, which is the one module both the page and the controls can import.
+
+**Each field collapses, and a collapsed one is hidden rather than unmounted.** Six axes open at
+once made the panel a wall that scrolled before Apply on a phone, so the legend became the press
+that shows and hides its own choices. The trap is that unmounting the choices takes their inputs out
+of the form, so tidying the panel would silently clear whatever was already filtered: the body is
+`display: none` instead, which a form submission ignores. A field opens on arrival only where
+something is picked, read from `appliedAxes`, which is also what the trigger counts, so no applied
+filter is ever hidden behind a plus. The hiding itself cannot be tested here, jsdom loading no CSS,
+so the tests pin `aria-expanded` and the fact that a collapsed field still posts, and the collapse
+is measured in a browser: all six closed, the panel fits a 390x844 phone without scrolling.
+
+**The panel writes the URL itself, because a native GET posts empty fields.** Every axis is a form
+field, and a field nobody touched still posts: applying a filter on priority alone left
+`?category=&tag=&who=` on the URL, narrowing nothing and saying it did. So the submit is taken over,
+the form read back through `taskQuery` and written out through `boardHref`, which is the one place
+the board's URL is composed. Stripping the empty values on the way would have worked too and was
+rejected: it would be a second implementation of what is a default and what is not, and it would
+drift from every link the board already builds. The native post stays for a browser with no
+JavaScript, where an empty parameter is read as absent anyway.
+
+**The panel is a sheet where the phone's bar is, and a dropdown where it is not.** `GroupBar` is
+`fixed` over the end of the page below `lg`, so a panel hanging off its trigger put its own footer
+under the bar on a short phone, with Apply unreachable. No cap fixes that: the panel's distance to
+the bar depends on where the page is scrolled, which CSS cannot read. Pinning it above the bar
+instead is correct at any scroll position, and it puts the controls where a thumb is. The band the
+bar reserves is `--spacing-shelf`, written once beside `--spacing-header`. The one trap is that
+`container-type` makes an element the containing block for a fixed descendant, so the cards grid's
+`@container` has to stay off this panel's ancestors; it sits in the sibling below the bar.
+
+**A dropdown inside a scrolling panel goes in flow.** `FilterSelect`'s list was absolute, which the
+fields box clipped: most of it was drawn under the panel's footer with no way to scroll to it. An
+in-flow list extends the box's scroll content instead, so it is always reachable, and the fields
+below it being pushed down costs nothing when every answer is one line. The ARIA contract is
+unchanged, the list being a listbox either way.
 
 **The layout is a cookie, the filter is the URL.** `tasklean_view` holds `list` or `cards` because
 it is the reader's own preference and should follow them into the next group, where a filter should

@@ -18,7 +18,7 @@
 }
 
 /*
- * Design tokens — the single source of truth for colour, type, radius, spacing
+ * Design tokens: the single source of truth for colour, type, radius, spacing
  * and elevation. The values come from DESIGN.md ("Domestic Serenity"); that file
  * is the design authority and this one is its implementation, so change it there
  * first.
@@ -29,8 +29,8 @@
  * mapping is recorded beside each value, because translating a pasted Stitch
  * screen means walking it backwards.
  *
- * Tokens are named by ROLE, never by appearance — `muted`, not `grey`. That is
- * what lets light and dark share one set of component classes.
+ * Tokens are named by ROLE, never by appearance, so `muted` and never `grey`.
+ * That is what lets light and dark share one set of component classes.
  */
 
 @theme inline {
@@ -65,7 +65,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
 
-  /* `accent` is the sky-blue wash — selected cards, subtle highlights. */
+  /* `accent` is the sky-blue wash: selected cards, subtle highlights. */
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
 
@@ -161,7 +161,7 @@
   --text-label-sm--letter-spacing: 0.03em;
   --text-label-sm--font-weight: 600;
 
-  /* Generous radii on purpose — DESIGN.md rejects mechanical corners. */
+  /* Generous radii on purpose: DESIGN.md rejects mechanical corners. */
   --radius-sm: 0.25rem;
   /* DESIGN.md's `DEFAULT`. Named `base` because `rounded` with no suffix is a
    * Tailwind built-in we would be shadowing. */
@@ -180,6 +180,10 @@
    * and what the group rail subtracts from the viewport to stand still beside a
    * scrolling page. */
   --spacing-header: 5rem;
+  /* The band a group's bottom bar reserves at the foot of a phone: its own
+   * `min-h-13` plus the `space-md` it floats above. What anything else drawn
+   * over the end of the page has to clear. */
+  --spacing-shelf: 4.25rem;
   --spacing-space-xs: 0.25rem;
   --spacing-space-sm: 0.5rem;
   --spacing-space-md: 1rem;
@@ -233,9 +237,9 @@
    * brand colour. The prose wins. */
   --primary: #355872; /* prose "Slate Blue"; the screens' `primary-container` */
   --primary-foreground: #ffffff; /* on-primary */
-  --primary-strong: #1c415a; /* the screens' `primary` — CTA hover, brand text */
+  --primary-strong: #1c415a; /* the screens' `primary`: CTA hover, brand text */
 
-  --link: #316384; /* the screens' `secondary` — links and accent text */
+  --link: #316384; /* the screens' `secondary`: links and accent text */
 
   --secondary: #a7d7fd; /* secondary-container */
   --secondary-foreground: #2b5e7f; /* on-secondary-container */
@@ -315,7 +319,7 @@
 
     --primary: #a7cbe9; /* inverse-primary */
     --primary-foreground: #002f4a;
-    --primary-strong: #cae6ff; /* primary-fixed — lighter, not darker, in dark */
+    --primary-strong: #cae6ff; /* primary-fixed: lighter, not darker, in dark */
 
     --link: #9cccf2; /* secondary-fixed-dim */
 

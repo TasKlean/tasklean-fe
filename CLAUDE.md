@@ -22,7 +22,7 @@ is a shell: a rail that stands still beside a scrolling section. The group's own
 **board**, and **Labels beside it is built**.
 
 **The board reads; nothing on it writes yet.** `/app/groups/[uid]` lists a page of chores, as rows
-or as cards, behind a search and one `Filter & sort` panel holding every axis at once. The filter
+or as cards, behind a search and one `Filter and sort` panel holding every axis at once. The filter
 is the URL and the backend answers all of it; the layout is a cookie. The chore `?task=` names
 opens beside the list. Creating, editing, archiving and deleting a chore do not exist, nor do
 complete, skip and claim.
@@ -222,7 +222,8 @@ src/
                        filter-chip (one choice in a filter panel, a real
                        checkbox or radio under the paint),
                        filter-select (a dropdown that posts a value, the
-                       listbox contract LocaleSelect runs),
+                       listbox contract LocaleSelect runs; a row may carry a
+                       rule above it),
                        filter-menu/ (what any filtered list shares:
                        filter-menu-row (+ .helpers), filter-menu.styles,
                        clear-filters),
@@ -243,17 +244,19 @@ src/
                        task-panel (+ task-facts, fact), board-bar (+ view-pills,
                        view-menu (the phone's dropdown, + view.labels),
                        task-search, filter-panel (+ filter-fields: sort, then
-                       status, priority, due, assignee, category, tag; field,
-                       swatch, filter-panel.styles))
+                       assignee, category, tag, priority, status, due; field
+                       (one axis, as a disclosure), swatch))
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
-                       nav-entry, item-tone, open-group-area)
+                       nav-entry, item-tone, open-group-area),
+                       shell.styles (the column every section applies)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
                        activity/ (what only a group's trail has: former-divider,
                        type-menu/ (+ kind-list, member-list, .helpers) and
                        actor-menu/)
-      group/labels/    label-section, add-label (the press that becomes a form),
-                       category-list (+ category-row, category-form), tag-list
+      group/labels/    label-section (the heading, the card, and the add press
+                       that opens a form at the top of it), category-list
+                       (+ category-row, category-form), tag-list
                        (+ tag-row, tag-form), color-picker, icon-picker (both
                        one circle over swatch-select), labels.styles.ts
       group/settings/  settings-section, group-preferences, group-notifications,
@@ -316,7 +319,8 @@ src/
     qr/                qr-code.ts (the encoder, server only) + types
     tasks/             tasks/ (the six calls), tasks.types.ts, due/ (how a due
                        date reads), filter/ (URL <-> query <-> endpoint params,
-                       and the hrefs the board's controls hang off),
+                       the hrefs the board's controls hang off, and what those
+                       controls offer),
                        permissions/ (who may change one chore),
                        refusals/ (the 403 and the 404 a press runs into),
                        view/ (the list-or-cards cookie)
@@ -408,7 +412,8 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **Two utilities for one property fight in the stylesheet, not in the class list.** `items-end`
   beside `items-center`, or `font-bold` beside a `text-label-*` token that carries a weight,
   resolves by Tailwind's output order and the class attribute has no say. Set each property in one
-  place.
+  place. **Every `text-label-*` token carries `font-weight: 600`**, so a
+  `font-semibold` beside one is that same fight and is simply deleted.
 - **Images are static imports from `src/assets/`**, rendered with `next/image`, never a bare `<img>`
   and never `public/`, which costs the intrinsic size and the blur placeholder. The logo has a
   dark-mode twin, so render `BrandMark`. **A remote profile photo is the exception**: it has no
@@ -689,6 +694,17 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 
 ### The board
 
+- **The shell gives a section the width, and the section applies it.**
+  `SECTION_COLUMN` in `group/shell/shell.styles` is the app's 1200px column, worn by every group
+  screen rather than by the shell's own wrapper, because the **cards layout drops it** and takes
+  the whole content area so a wide screen fits more of them. The list keeps it: a row spanning
+  1536px reads badly. The shell still owns the padding.
+- **The cards count their columns off the board, not the window.** The list's wrapper is an
+  `@container`, so `@xl`, `@5xl` and `@7xl` step 1 to 4 columns at 576, 1024 and 1280px of the
+  board's **own** width, which keeps a card near 300px and wider. An open chore takes 22rem of that
+  width and the grid drops a column by itself, with nothing threaded down to say so.
+- **The board has no heading of its own.** The rail's card carries the group's name, which is this
+  screen's `h1`, and a second line saying what a board is told a reader nothing they came for.
 - **A group opens on its board, and the whole of what it shows is the URL.** `?q=`, `?status=`,
   `?who=`, `?category=`, `?tag=`, `?priority=`, `?overdue=`, `?sort=` and `?page=`, so a filtered
   board is a pasteable link and nothing is narrowed, ordered or paged on the client. `taskQuery`
@@ -719,15 +735,54 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   from. The pill shell is `w-fit`, or the column stretches it and leaves dead space inside its border. Six pills across the top were tried and dropped:
   the row never fit a phone, and a reader setting three things paid three page loads.
 - **The panel is a GET form and applies in one press**, in two sections: the order first, then
-  everything that narrows. Every axis posts a plain form field to the board's own path, so the
-  panel needs no JavaScript beyond the press that opens it. **It never posts the page**, which is
-  how a new filter starts at the first one, and the trigger counts the axes it holds, leaving the
-  search out: that has its own box.
-- **A field is pills, a strip or a dropdown, by how many answers it has.** Status, priority and
-  overdue are pills; category and tag are **horizontal strips**, since a household with twenty
-  categories would stack five rows deep and push Apply off a phone; sort and assignee are
-  `FilterSelect`, our listbox rather than the platform's, posting through a hidden input.
-  **Overdue is its own field, not a priority**, which is the three levels alone.
+  everything that narrows, as Assigned to, Category, Tag, Priority, Status, Due. Every axis posts a
+  plain form field to the board's own path, so the panel needs no JavaScript beyond the press that
+  opens it. **It never posts the page**, which is how a new filter starts at the first one, and the
+  trigger counts the axes it holds, leaving the search out: that has its own box.
+- **With JavaScript the submit is taken over, so an untouched axis is not in the URL.** A native GET
+  posts every field it holds, and an untouched one posts empty, which left `?category=&tag=` on a
+  board they narrow nothing on. The handler reads the form back through `taskQuery` and writes it
+  out through `boardHref`, so a press here and a link anywhere else cannot disagree, and the native
+  post stays for a browser with no JavaScript.
+- **The panel is a sheet wherever the phone's bar is, and a dropdown where it is not.** Below `lg`
+  `GroupBar` is fixed over the end of the page, so a panel hanging off the trigger put its own
+  footer underneath it on a short phone: there it is `fixed` above the bar instead, which is also
+  where a thumb reaches. `--spacing-shelf` is the one place the band that bar reserves is written.
+  Measured: 25px clear at 390x667, 390x844 and 768x1024.
+- **`FilterSelect`'s list is in flow, not an overlay.** It opens inside a box that scrolls its own
+  fields, and an absolutely positioned list is clipped by that box, which put most of it under the
+  panel's footer. In flow it extends the scroll content instead, and pushing the fields below it
+  down costs nothing where every answer is one line.
+- **Every field is a disclosure, and a collapsed one is hidden rather than unmounted.** The legend
+  is the whole press at `text-label-lg`, plus or minus at its end. A form posts a field it cannot
+  see, so a collapsed axis keeps the choice already on it; unmounting would clear the filter the
+  moment a reader tidied the panel. **jsdom loads no CSS, so the hiding itself is a browser
+  check**; what a test pins is `aria-expanded` and that a collapsed field still posts. Measured:
+  six 36px rows 4px apart, the whole block 381px, no scrolling on a 390x844 phone.
+- **Which fields are open lives in `FilterFields`, not in each one**, because one press in the
+  Filter heading sets them all: it reads "Expand all" until every field is open and "Close all"
+  after. `Field` is controlled, so the press and a field's own legend write the same state.
+- **A field opens on arrival only where something is picked.** `appliedAxes` is the one place that
+  says which axes hold something back, which the trigger counts and each field reads its own flag
+  from, so what is applied is never hidden behind a plus.
+- **A field is pills, a strip or a dropdown, by how many answers it has.** `Field`'s `layout` names
+  which: status, priority and overdue are pills; category and tag are **strips**, since a household
+  with twenty categories would stack five rows deep and push Apply off a phone; sort and assignee
+  are `FilterSelect`, our listbox rather than the platform's, posting through a hidden input. The
+  assignee is a `block`, since a full-width control collapses inside a flex row. **Overdue is its
+  own field, not a priority**, which is the three levels alone.
+- **Each section's name carries a rule under it**, so Sort and Filter read as two blocks rather
+  than one list with two labels in it, with the expand press at the right-hand end of Filter's.
+- **The assignee dropdown offers the reader once, and `who=me` is what it posts.** Anyone and
+  Unassigned come first, then a rule, then `Me (their name)` and everybody else: a second row under
+  the reader's own name was the same board twice. The row keeps `me` rather than their membership
+  uid, which is what makes a filtered board a link anybody can open as themselves, and `whoValue`
+  folds a URL naming their own uid onto that row, since a typed URL may say either and they mean one
+  board. The rule is a `divider` flag on the row below it, drawn as decoration rather than a
+  `separator`, since a listbox may own nothing but options.
+- **`WhoChoice` and `LabelChoice` are declared once**, in `tasks/filter/filter.types`. Four copies
+  had drifted: the page's `LabelChoice` carried no `color`, so every tag swatch in the filter was
+  drawing the default instead of the tag's own.
 - **`min-w-0` on the fieldset is load-bearing.** A fieldset defaults to `min-width: min-content`,
   so it grows past the panel rather than letting a strip scroll inside it. Measured.
 - **Only the fields scroll; the footer is pinned.** `overflow-y-auto` on a box makes its `overflow-x`
@@ -774,7 +829,11 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   sent a different name, compared exactly, so changing only the case is still a rename. A member's
   save therefore reposts the stored name as a hidden field.
 - **A control the reader will never have is not drawn**, where one that is merely unbuilt stays a
-  disabled button. The role note in the section's heading says what they may do instead.
+  disabled button. **Only a member is told why**: an admin is drawn every press there is, so a line
+  listing them says nothing, which is why `note` is optional and passed for a member alone.
+- **The add press shares the title's line and wears the brand colour.** It is the thing each section
+  is for, so it is the filled pill rather than the quiet one, on the `h2`'s own row at every width
+  with the description running the full width below it.
 - **Both PUTs replace the whole label**, so a save carries the colour and the icon it already holds.
 - **A deleted name stays taken.** Creating it again revives the original row, with its id, its
   colour and the tasks still filed under it. Renaming onto that name is refused instead, since only
@@ -786,10 +845,14 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   is stored on the label and has to outlive any change to the design. How it is painted is
   `label-tint` in `globals.css`, which reads `--label-color` off an inline style and mixes it into
   the background: 16% in light and 26% in dark, where the same percentage reads as no colour.
-- **The list reads first and the fields appear on a press.** `AddLabel` swaps itself for the form
-  and takes the same label as the form's own submit. **Nothing on this screen works without
-  JavaScript**: revealing the form, a row that swaps into an editor and the confirm step are all
-  client state, the same standing the roster's presses already have.
+- **The list reads first and the fields appear on a press.** The press sits at the top right of the
+  section's heading and opens the form at the **top of the card**, so a household with forty labels
+  scrolls to neither. It takes the same label as the form's own submit and is drawn only while the
+  form is closed, so one label never names two controls. `LabelSection` owns that state, and builds
+  the two forms itself, because the press and the form sit in its two halves and a Server Component
+  cannot hand a client form its `onCancel`. **Nothing on this screen works without JavaScript**:
+  revealing the form, a row that swaps into an editor and the confirm step are all client state, the
+  same standing the roster's presses already have.
 - **A colour and an icon are one circle each, showing the choice and opening the rest.**
   `SwatchSelect` is built on `LocaleSelect`'s mechanics rather than `useDisclosure`, because it
   posts a value: focus stays on the button, `aria-activedescendant` names the active cell, the panel

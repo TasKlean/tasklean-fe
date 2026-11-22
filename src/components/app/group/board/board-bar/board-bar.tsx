@@ -12,11 +12,8 @@ import { FilterPanel } from "@/components/app/group/board/filter-panel/filter-pa
 import { TaskSearch } from "@/components/app/group/board/task-search/task-search";
 import { ViewMenu } from "@/components/app/group/board/view-menu/view-menu";
 import { ViewPills } from "@/components/app/group/board/view-pills/view-pills";
-import type { TaskQuery } from "@/lib/tasks/filter/filter.types";
+import type { LabelChoice, TaskQuery, WhoChoice } from "@/lib/tasks/filter/filter.types";
 import type { BoardView } from "@/lib/tasks/view/view.types";
-
-type LabelChoice = { id: number; name: string; color?: string };
-type WhoChoice = { memberUid: string; name: string; former: boolean };
 
 type BoardBarProps = {
   path: string;

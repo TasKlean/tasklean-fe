@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { LeaveGroup } from "@/components/app/group/overview/leave-group/leave-group";
 import { MemberRow } from "@/components/app/group/overview/member-row/member-row";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
@@ -84,7 +85,7 @@ export default async function MembersPage({
   }
 
   return (
-    <section className="gap-space-md flex flex-col">
+    <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
       <div className="gap-space-xs flex flex-col">
         <h2 className="text-headline-sm text-foreground">Members</h2>
         <p className="text-body-md text-muted-foreground">

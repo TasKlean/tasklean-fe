@@ -16,6 +16,7 @@ import {
   TASK_PRIORITIES,
   TASK_SORTS,
   TASK_STATES,
+  type FilterAxis,
   type TaskPriorityToken,
   type TaskQuery,
   type TaskSearchParams,
@@ -235,21 +236,31 @@ export function carriedFields(query: TaskQuery): { name: string; value: string }
 }
 
 /**
+ * Which axes the query is holding something back on.
+ *
+ * @returns One flag per axis. The trigger counts them and each of the panel's
+ * fields reads its own, opening on arrival only where something is picked.
+ */
+export function appliedAxes(query: TaskQuery): Record<FilterAxis, boolean> {
+  return {
+    status: !isDefaultStatus(query.status),
+    who: query.who.kind !== "anyone",
+    category: query.categoryId !== null,
+    tag: query.tagId !== null,
+    priority: query.priority.length > 0,
+    overdue: query.overdue,
+    sort: query.sort !== DEFAULT_SORT,
+  };
+}
+
+/**
  * How many axes the filter panel is holding something back on.
  *
  * @returns The count the trigger shows. The search is not one of them: it has
  * its own box on the bar, where the reader can already see it.
  */
 export function activeFilterCount(query: TaskQuery): number {
-  return [
-    !isDefaultStatus(query.status),
-    query.who.kind !== "anyone",
-    query.categoryId !== null,
-    query.tagId !== null,
-    query.priority.length > 0,
-    query.overdue,
-    query.sort !== DEFAULT_SORT,
-  ].filter(Boolean).length;
+  return Object.values(appliedAxes(query)).filter(Boolean).length;
 }
 
 /**

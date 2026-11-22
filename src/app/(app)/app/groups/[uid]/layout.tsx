@@ -8,15 +8,17 @@
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { GroupBar } from "@/components/app/group/shell/group-bar/group-bar";
 import { GroupSidebar } from "@/components/app/group/shell/group-sidebar/group-sidebar";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { BackLink } from "@/components/auth/back-link";
 import { LoadError } from "@/components/common/load-error";
 import { groupLabel } from "@/lib/groups/labels/labels";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 
-const COLUMN =
-  "max-w-app px-margin md:px-margin-tablet lg:px-margin-desktop gap-space-lg mx-auto flex flex-col";
+// The cap is not here: a section applies `SECTION_COLUMN` itself, so the board
+// can give it up in the cards layout.
+const COLUMN = "px-margin md:px-margin-tablet lg:px-margin-desktop gap-space-lg flex flex-col";
 
-const PAGE = `${COLUMN} py-space-xl`;
+const PAGE = `${COLUMN} ${SECTION_COLUMN} py-space-xl`;
 
 // The strip sits right above the section on a phone and the pill floats over
 // the end of it, so neither the usual top margin nor the usual bottom one fits.

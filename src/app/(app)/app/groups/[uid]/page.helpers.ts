@@ -19,23 +19,10 @@ import type { Category } from "@/lib/labels/categories/categories.types";
 import { getTags } from "@/lib/labels/tags/tags";
 import type { Tag } from "@/lib/labels/tags/tags.types";
 import { taskApiQuery } from "@/lib/tasks/filter/filter";
-import type { TaskQuery } from "@/lib/tasks/filter/filter.types";
+import type { LabelChoice, TaskQuery, WhoChoice } from "@/lib/tasks/filter/filter.types";
 import { getBoard, getTask } from "@/lib/tasks/tasks/tasks";
 import type { Task, TaskBoard } from "@/lib/tasks/tasks/tasks.types";
 import { fullName } from "@/lib/users/name/name";
-
-/** Somebody the board can be narrowed to, in the roster's own order. */
-export type WhoChoice = {
-  memberUid: string;
-  name: string;
-  former: boolean;
-};
-
-/** A label a filter row names, which is all the menu needs of one. */
-export type LabelChoice = {
-  id: number;
-  name: string;
-};
 
 export type LoadedBoard = {
   board: TaskBoard;
@@ -88,14 +75,22 @@ async function readBoard(
 }
 
 /** Narrows a roster into the people a filter row can name. */
-function whoChoices(roster: Awaited<ReturnType<typeof listGroupMembers>>): WhoChoice[] {
+function whoChoices(
+  roster: Awaited<ReturnType<typeof listGroupMembers>>,
+  myMemberUid: string | null,
+): WhoChoice[] {
   const choices: WhoChoice[] = [];
 
   for (const member of roster) {
     const name = fullName(member.user?.name, member.user?.lastName);
     if (!member.uid || !name) continue;
 
-    choices.push({ memberUid: member.uid, name, former: member.isActive === false });
+    choices.push({
+      memberUid: member.uid,
+      name,
+      former: member.isActive === false,
+      self: member.uid === myMemberUid,
+    });
   }
 
   return choices;
@@ -106,7 +101,7 @@ function labelChoices(tags: Tag[]): LabelChoice[] {
   const choices: LabelChoice[] = [];
 
   for (const tag of tags) {
-    if (tag.id && tag.name) choices.push({ id: tag.id, name: tag.name });
+    if (tag.id && tag.name) choices.push({ id: tag.id, name: tag.name, color: tag.color });
   }
 
   return choices;
@@ -137,7 +132,7 @@ export async function loadBoard(
   return {
     board: result.board,
     failure: result.failure,
-    members: whoChoices(roster),
+    members: whoChoices(roster, myMemberUid),
     categories,
     tags: labelChoices(tags),
     open,

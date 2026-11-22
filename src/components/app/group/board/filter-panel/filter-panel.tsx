@@ -6,13 +6,20 @@
  * needs any.
  *
  * The page is deliberately not posted, so a new filter starts at page one.
+ *
+ * With JavaScript the submit is taken over, because a native GET posts every
+ * field it holds and an untouched one posts empty: `?category=&tag=` narrows
+ * nothing and says it does. The form data goes back through `taskQuery` and out
+ * through `boardHref`, the one place the board's URL is written, so a press
+ * here and a link elsewhere cannot disagree.
  */
 
 "use client";
 
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import Link from "next/link";
-import { useId } from "react";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useId } from "react";
 import { FilterFields } from "@/components/app/group/board/filter-panel/filter-fields";
 import {
   TRIGGER,
@@ -21,11 +28,13 @@ import {
   TRIGGER_QUIET,
 } from "@/components/common/filter-menu/filter-menu.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
-import { activeFilterCount } from "@/lib/tasks/filter/filter";
-import type { TaskQuery } from "@/lib/tasks/filter/filter.types";
-
-type LabelChoice = { id: number; name: string; color?: string };
-type WhoChoice = { memberUid: string; name: string; former: boolean };
+import { activeFilterCount, boardHref, taskQuery } from "@/lib/tasks/filter/filter";
+import type {
+  LabelChoice,
+  TaskQuery,
+  TaskSearchParams,
+  WhoChoice,
+} from "@/lib/tasks/filter/filter.types";
 
 type FilterPanelProps = {
   path: string;
@@ -35,15 +44,13 @@ type FilterPanelProps = {
   tags: readonly LabelChoice[];
 };
 
-// Hangs off the right edge and is capped at the viewport: it holds every axis,
-// so on a short screen it has to scroll rather than run off the bottom.
+// A sheet above the phone's bottom bar, a dropdown off the trigger from `lg`:
+// hanging off the trigger put the footer under that fixed bar on a short phone.
 const PANEL =
-  "bg-card border-border/60 shadow-level-3 p-space-md absolute top-full right-0 z-30 mt-2 flex max-h-[70svh] w-[min(22rem,calc(100vw-2rem))] flex-col rounded-xl border";
+  "bg-card border-border/60 shadow-level-3 p-space-md right-margin bottom-[calc(var(--spacing-shelf)+var(--spacing-space-sm))] fixed left-auto z-30 flex max-h-[calc(100svh-var(--spacing-header)-var(--spacing-shelf)-var(--spacing-space-lg))] w-[min(22rem,calc(100vw-2rem))] flex-col rounded-xl border lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:mt-2 lg:max-h-[70svh]";
 
-// Only the fields scroll, so Apply is never below the fold on a short screen.
-// `min-h-0` is what lets a flex child shrink past its content and scroll, and
-// `overflow-x-hidden` is required: one axis set to auto makes the other auto
-// too, which let this box swallow the horizontal scroll the strips want.
+// Only the fields scroll, so Apply never falls below the fold. `min-h-0` lets a
+// flex child shrink past its content, and auto on one axis makes both auto.
 const FIELDS = "scrollbar-slim -mr-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1";
 
 const FOOTER =
@@ -66,9 +73,30 @@ export function FilterPanel({
   categories,
   tags,
 }: Readonly<FilterPanelProps>) {
+  const router = useRouter();
   const { open, toggle, close, root, trigger } = useDisclosure();
   const panelId = useId();
   const count = activeFilterCount(query);
+
+  /** Applies the panel as a URL holding only the axes something was picked on. */
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const asked: TaskSearchParams = {};
+    for (const [name, value] of new FormData(event.currentTarget).entries()) {
+      if (typeof value !== "string") continue;
+
+      const held = asked[name];
+      // A name repeats for a checkbox group, where the last box would win.
+      if (held === undefined) asked[name] = value;
+      else asked[name] = Array.isArray(held) ? [...held, value] : [held, value];
+    }
+
+    close();
+    // Read as if it had arrived in the URL and written back out, so an empty
+    // field and a default both come out as nothing rather than as a parameter.
+    router.push(boardHref(path, taskQuery(asked), {}));
+  }
 
   return (
     <div ref={root} className="relative shrink-0">
@@ -93,7 +121,7 @@ export function FilterPanel({
       </button>
 
       {open ? (
-        <form id={panelId} action={path} method="get" className={PANEL}>
+        <form id={panelId} action={path} method="get" onSubmit={onSubmit} className={PANEL}>
           {/* The search has its own box on the bar, so it rides along rather
               than being cleared by a press that says nothing about it. */}
           {query.q ? <input type="hidden" name="q" value={query.q} /> : null}

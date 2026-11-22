@@ -67,3 +67,25 @@ export const SORT_FOR_TOKEN: Record<TaskSort, string> = {
 // What Next hands a page as `searchParams`, which is caller-controlled: a key
 // repeated in the URL arrives as a list, and anything may be missing.
 export type TaskSearchParams = Record<string, string | string[] | undefined>;
+
+// The axes the filter panel offers, which is every field it holds plus the
+// order. `page` is not one: it moves nothing out of sight.
+export type FilterAxis = "status" | "who" | "category" | "tag" | "priority" | "overdue" | "sort";
+
+/** Somebody the board can be narrowed to, in the roster's own order. */
+export type WhoChoice = {
+  memberUid: string;
+  name: string;
+  former: boolean;
+  // The reader themselves, whom the dropdown offers once as `who=me` rather
+  // than a second time under their own name.
+  self: boolean;
+};
+
+/** A label a filter row names, which is all a control needs of one. */
+export type LabelChoice = {
+  id: number;
+  name: string;
+  // The label's own stored hex, drawn as the dot beside its name.
+  color?: string;
+};

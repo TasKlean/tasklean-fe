@@ -27,9 +27,9 @@ type TaskListProps = {
 
 const LIST = "gap-space-sm flex flex-col";
 
-// Two columns from `sm`, which is where a card stops being a full-width band.
-// The panel takes the third, so the grid never asks for more than two.
-const GRID = "gap-space-sm grid grid-cols-1 sm:grid-cols-2";
+// Counted off the board's own width, not the window's, so an open chore drops a
+// column rather than squeezing one in. The steps keep a card near 300px and up.
+const GRID = "gap-space-sm grid grid-cols-1 @xl:grid-cols-2 @5xl:grid-cols-3 @7xl:grid-cols-4";
 
 /** Renders the chores on this page of the board. */
 export function TaskList({

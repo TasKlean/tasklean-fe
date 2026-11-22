@@ -6,16 +6,24 @@
  *
  * The ARIA select-only pattern, the same contract `LocaleSelect` runs: focus
  * stays on the button and `aria-activedescendant` names the active row.
+ *
+ * **The list is in flow, not an overlay.** It opens inside a panel that scrolls
+ * its own fields, and an absolutely positioned list is clipped by that box: it
+ * came out under the panel's footer with most of it cut off. Pushing the fields
+ * below it down costs nothing here, where every answer is one line.
  */
 
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { type KeyboardEvent, useId, useState } from "react";
+import { Fragment, type KeyboardEvent, useId, useState } from "react";
 
 export type SelectOption = {
   value: string;
   label: string;
+  // Draws a rule above this row, splitting the list into blocks. Decoration,
+  // because a listbox may own nothing but options, so the keyboard steps past it.
+  divider?: boolean;
 };
 
 type FilterSelectProps = {
@@ -31,7 +39,7 @@ const TRIGGER =
   "bg-card border-border/60 text-body-md text-foreground focus-visible:ring-ring px-space-sm gap-space-sm flex min-h-10 w-full items-center justify-between rounded-full border text-left focus-visible:ring-2 focus-visible:outline-none";
 
 const LIST =
-  "bg-card border-border/60 shadow-level-2 p-space-xs gap-space-xs mt-space-xs scrollbar-slim absolute z-10 flex max-h-60 w-full flex-col overflow-y-auto rounded-xl border";
+  "bg-card border-border/60 p-space-xs gap-space-xs mt-space-xs scrollbar-slim flex max-h-60 w-full flex-col overflow-y-auto rounded-xl border";
 
 const OPTION =
   "px-space-sm gap-space-sm text-body-md text-foreground flex min-h-10 items-center justify-between rounded-full text-left";
@@ -103,7 +111,7 @@ export function FilterSelect({ label, name, options, value }: Readonly<FilterSel
   }
 
   return (
-    <div className="relative">
+    <div>
       <input type="hidden" name={name} value={picked} />
 
       <button
@@ -140,23 +148,28 @@ export function FilterSelect({ label, name, options, value }: Readonly<FilterSel
           className={LIST}
         >
           {options.map((option, index) => (
-            <button
-              key={option.value}
-              type="button"
-              id={`${baseId}-${index}`}
-              role="option"
-              aria-selected={option.value === picked}
-              tabIndex={-1}
-              onClick={() => commit(index)}
-              onMouseEnter={() => setActiveIndex(index)}
-              className={`${OPTION} ${index === activeIndex ? "bg-accent/40" : ""}`}
-            >
-              <span className="truncate">{option.label}</span>
-
-              {option.value === picked ? (
-                <Check className="text-primary size-4 shrink-0" aria-hidden />
+            <Fragment key={option.value}>
+              {option.divider ? (
+                <span aria-hidden className="bg-border/60 mx-space-sm my-0.5 h-px" />
               ) : null}
-            </button>
+
+              <button
+                type="button"
+                id={`${baseId}-${index}`}
+                role="option"
+                aria-selected={option.value === picked}
+                tabIndex={-1}
+                onClick={() => commit(index)}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`${OPTION} ${index === activeIndex ? "bg-accent/40" : ""}`}
+              >
+                <span className="truncate">{option.label}</span>
+
+                {option.value === picked ? (
+                  <Check className="text-primary size-4 shrink-0" aria-hidden />
+                ) : null}
+              </button>
+            </Fragment>
           ))}
         </div>
       ) : null}

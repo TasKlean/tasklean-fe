@@ -7,6 +7,7 @@ import {
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import { ActorMenu } from "@/components/app/group/overview/activity/actor-menu/actor-menu";
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { ActivityEmpty } from "@/components/common/activity/activity-empty";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
 import { ClearFilters } from "@/components/common/filter-menu/clear-filters";
@@ -96,7 +97,7 @@ export default async function ActivityPage({
 
   if (failure || page.entries.length === 0) {
     return (
-      <section className="gap-space-md flex flex-col">
+      <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
         {heading}
         <div className="gap-space-xs flex flex-col">
           <div className="gap-space-sm flex flex-col sm:flex-row sm:items-center sm:justify-end">
@@ -118,7 +119,7 @@ export default async function ActivityPage({
   }
 
   return (
-    <section className="gap-space-md flex flex-col">
+    <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
       <ActivityFeed
         // Keyed on the filter, so changing it mounts a feed holding the new
         // first page: React would otherwise keep the pages the old one had.

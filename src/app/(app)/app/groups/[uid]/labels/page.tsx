@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { loadLabels } from "@/app/(app)/app/groups/[uid]/labels/page.helpers";
-import { AddLabel } from "@/components/app/group/labels/add-label/add-label";
 import { CategoryList } from "@/components/app/group/labels/category-list/category-list";
 import { LabelSection } from "@/components/app/group/labels/label-section/label-section";
-import { ADD_BLOCK } from "@/components/app/group/labels/labels.styles";
 import { TagList } from "@/components/app/group/labels/tag-list/tag-list";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { LoadError } from "@/components/common/load-error";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 
@@ -13,17 +12,11 @@ export const metadata: Metadata = {
   title: "Labels",
 };
 
-// What each section says the reader may do, which is the whole of the role
-// gate a reader sees: a control they will never have is not drawn at all.
-const CATEGORY_NOTE = {
-  admin: "You can add, rename and remove these.",
-  member: "Only an admin can add, rename or remove a category.",
-} as const;
+// Said to a member only. An admin is drawn every press there is, so a line
+// listing them tells that reader nothing they cannot already see.
+const CATEGORY_NOTE = "Only an admin can add, rename or remove a category.";
 
-const TAG_NOTE = {
-  admin: "You can add, rename, recolour and remove these.",
-  member: "You can add a tag and change its colour. Renaming or removing one is an admin's.",
-} as const;
+const TAG_NOTE = "You can add a tag and change its colour. Renaming or removing one is an admin's.";
 
 /**
  * Renders a household's categories and tags, in two sections on one screen.
@@ -41,45 +34,36 @@ export default async function GroupLabelsPage({ params }: PageProps<"/app/groups
 
   const admin = isGroupAdmin(group.myRole);
   const { categories, tags } = await loadLabels(uid);
-  const role = admin ? "admin" : "member";
 
   return (
-    <div className="gap-space-xl flex flex-col">
+    <div className={`gap-space-xl flex flex-col ${SECTION_COLUMN}`}>
       <LabelSection
         title="Categories"
-        description="What a task is filed under. A task has one at most, and the list is the household's own filing system."
-        note={CATEGORY_NOTE[role]}
+        description="Manage your group's categories."
+        note={admin ? undefined : CATEGORY_NOTE}
+        groupUid={uid}
+        kind="category"
+        canAdd={admin && !categories.failure}
       >
         {categories.failure ? (
           <LoadError title="Categories would not load" message={categories.failure} />
         ) : (
-          <>
-            <CategoryList groupUid={uid} categories={categories.items} canManage={admin} />
-
-            {admin ? (
-              <div className={ADD_BLOCK}>
-                <AddLabel groupUid={uid} kind="category" />
-              </div>
-            ) : null}
-          </>
+          <CategoryList groupUid={uid} categories={categories.items} canManage={admin} />
         )}
       </LabelSection>
 
       <LabelSection
         title="Tags"
-        description="Loose labels anybody can put on a task. A task carries up to five, and a tag can be taken off whenever."
-        note={TAG_NOTE[role]}
+        description="Manage your group's tags."
+        note={admin ? undefined : TAG_NOTE}
+        groupUid={uid}
+        kind="tag"
+        canAdd={!tags.failure}
       >
         {tags.failure ? (
           <LoadError title="Tags would not load" message={tags.failure} />
         ) : (
-          <>
-            <TagList groupUid={uid} tags={tags.items} admin={admin} />
-
-            <div className={ADD_BLOCK}>
-              <AddLabel groupUid={uid} kind="tag" />
-            </div>
-          </>
+          <TagList groupUid={uid} tags={tags.items} admin={admin} />
         )}
       </LabelSection>
     </div>

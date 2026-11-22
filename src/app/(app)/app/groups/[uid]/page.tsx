@@ -3,6 +3,7 @@ import { BoardBar } from "@/components/app/group/board/board-bar/board-bar";
 import { TaskList } from "@/components/app/group/board/task-list/task-list";
 import { TaskPager } from "@/components/app/group/board/task-pager/task-pager";
 import { TaskPanel } from "@/components/app/group/board/task-panel/task-panel";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { LoadError } from "@/components/common/load-error";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { loadBoard } from "@/app/(app)/app/groups/[uid]/page.helpers";
@@ -73,14 +74,11 @@ export default async function GroupTasksPage({
   const closeHref = boardHref(path, query, { page: query.page });
 
   return (
-    <section className="gap-space-md flex flex-col">
-      <div className="gap-space-xs flex flex-col">
-        <h2 className="text-headline-sm text-foreground">Tasks</h2>
-        <p className="text-body-md text-muted-foreground">
-          The chores this group shares, and who is doing them.
-        </p>
-      </div>
-
+    // The cards layout gives up the app's column so a wide screen fits more
+    // across. The group's name in the rail is this screen's heading.
+    <section
+      className={`gap-space-md flex flex-col ${view === "cards" ? "w-full" : SECTION_COLUMN}`}
+    >
       <BoardBar
         path={path}
         query={query}
@@ -102,7 +100,9 @@ export default async function GroupTasksPage({
         <div
           className={`gap-space-md grid grid-cols-1 items-start ${open ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : ""}`}
         >
-          <div className="gap-space-md flex flex-col">
+          {/* A container, so the cards count their columns off the width the
+              board actually has: an open chore takes 22rem of it. */}
+          <div className="gap-space-md @container flex flex-col">
             <TaskList
               tasks={items}
               categories={categories}

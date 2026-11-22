@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { History } from "lucide-react";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 import { auditFilterParams } from "@/lib/audit/filter/filter";
 import type { Group } from "@/lib/groups/groups.types";
@@ -57,7 +58,7 @@ export default async function GroupInformationPage({
   const name = groupLabel(group.name);
 
   return (
-    <section className="gap-space-md flex flex-col">
+    <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
       <div className="gap-space-xs flex flex-col">
         <h2 className="text-headline-sm text-foreground">Information</h2>
         <p className="text-body-md text-muted-foreground">

@@ -4,18 +4,33 @@
  * needs no JavaScript beyond the press that opens it and the two dropdowns.
  *
  * The page is deliberately not a field: a new filter starts at the first page.
+ *
+ * Which fields are open lives here rather than in each one, because the press
+ * in the Filter heading sets them all at once.
  */
 
+"use client";
+
+import { useState } from "react";
 import { Field } from "@/components/app/group/board/filter-panel/field";
-import { LEGEND } from "@/components/app/group/board/filter-panel/filter-panel.styles";
 import { Swatch } from "@/components/app/group/board/filter-panel/swatch";
 import { FilterChip } from "@/components/common/filter-chip/filter-chip";
 import { FilterSelect, type SelectOption } from "@/components/common/filter-select/filter-select";
-import { PRIORITY_OPTIONS, SORT_OPTIONS, STATE_OPTIONS } from "@/lib/tasks/filter/filter";
-import type { TaskQuery } from "@/lib/tasks/filter/filter.types";
+import {
+  appliedAxes,
+  PRIORITY_OPTIONS,
+  SORT_OPTIONS,
+  STATE_OPTIONS,
+} from "@/lib/tasks/filter/filter";
+import type {
+  FilterAxis,
+  LabelChoice,
+  TaskQuery,
+  WhoChoice,
+} from "@/lib/tasks/filter/filter.types";
 
-type LabelChoice = { id: number; name: string; color?: string };
-type WhoChoice = { memberUid: string; name: string; former: boolean };
+// Every axis but the order, which is a single dropdown and never collapses.
+type FieldKey = Exclude<FilterAxis, "sort">;
 
 type FilterFieldsProps = {
   query: TaskQuery;
@@ -24,34 +39,86 @@ type FilterFieldsProps = {
   tags: readonly LabelChoice[];
 };
 
-const SECTION = "text-label-lg text-foreground font-semibold";
+// A rule under each name, so Sort and Filter read as two blocks rather than as
+// one list with two labels in it.
+const SECTION_ROW =
+  "gap-space-sm border-border/60 pb-space-xs mb-space-xs flex min-h-9 items-center justify-between border-b";
 
-/** Turns a label list into the rows a dropdown offers. */
+// The weight is already in the token, so `font-semibold` would be a second
+// rule for one property.
+const SECTION = "text-label-lg text-foreground";
+
+const ALL_PRESS =
+  "text-label-md px-space-xs text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring flex min-h-9 shrink-0 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none";
+
+/**
+ * Turns a roster into the rows the assignee dropdown offers.
+ *
+ * @returns The two answers that name nobody, then a rule, then the reader and
+ * everyone else. The reader is one row carrying `me`, never a second row under
+ * their own name: `who=me` is what makes a filtered board a link anybody can
+ * open as themselves.
+ */
 function whoOptions(members: readonly WhoChoice[]): SelectOption[] {
+  const me = members.find((member) => member.self);
+  const others = members.filter((member) => !member.self);
+
   return [
     { value: "", label: "Anyone" },
-    { value: "me", label: "Me" },
-    { value: "free", label: "Nobody yet" },
-    ...members.map((member) => ({
+    { value: "free", label: "Unassigned" },
+    { value: "me", label: me ? `Me (${me.name})` : "Me", divider: true },
+    ...others.map((member) => ({
       value: member.memberUid,
       label: member.former ? `${member.name} (left)` : member.name,
     })),
   ];
 }
 
-/** Reads the posted value the reader's current `who` stands for. */
-function whoValue(who: TaskQuery["who"]): string {
-  if (who.kind === "member") return who.memberUid;
+/** Every field at once, which the one press in the heading sets. */
+function allFields(open: boolean): Record<FieldKey, boolean> {
+  return { who: open, category: open, tag: open, priority: open, status: open, overdue: open };
+}
+
+/**
+ * Reads the posted value the reader's current `who` stands for.
+ *
+ * @returns `me` for the reader's own membership as well as for `who=me`: a
+ * typed URL may name either, they mean one board, and only one row offers it.
+ */
+function whoValue(who: TaskQuery["who"], members: readonly WhoChoice[]): string {
   if (who.kind === "anyone") return "";
-  return who.kind;
+  if (who.kind !== "member") return who.kind;
+
+  return members.some((member) => member.self && member.memberUid === who.memberUid)
+    ? "me"
+    : who.memberUid;
 }
 
 /** Renders every field the panel posts. */
 export function FilterFields({ query, members, categories, tags }: Readonly<FilterFieldsProps>) {
+  const applied = appliedAxes(query);
+  const [shown, setShown] = useState<Record<FieldKey, boolean>>(() => ({
+    who: applied.who,
+    category: applied.category,
+    tag: applied.tag,
+    priority: applied.priority,
+    status: applied.status,
+    overdue: applied.overdue,
+  }));
+
+  const allOpen = Object.values(shown).every(Boolean);
+
+  /** Shows or hides one field, leaving the rest as they are. */
+  function toggle(key: FieldKey) {
+    setShown((open) => ({ ...open, [key]: !open[key] }));
+  }
+
   return (
     <div className="gap-space-md flex flex-col">
-      <section className="gap-space-xs flex min-w-0 flex-col">
-        <h2 className={SECTION}>Sort</h2>
+      <section className="flex min-w-0 flex-col">
+        <div className={SECTION_ROW}>
+          <h2 className={SECTION}>Sort</h2>
+        </div>
 
         <FilterSelect
           label="Sort the board by"
@@ -61,58 +128,31 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
         />
       </section>
 
-      <section className="gap-space-md flex min-w-0 flex-col">
-        <h2 className={SECTION}>Filter</h2>
+      <section className="gap-space-xs flex min-w-0 flex-col">
+        <div className={SECTION_ROW}>
+          <h2 className={SECTION}>Filter</h2>
 
-        <Field legend="Status">
-          {STATE_OPTIONS.map((option) => (
-            <FilterChip
-              key={option.value}
-              name="status"
-              kind="checkbox"
-              value={option.value}
-              label={option.label}
-              defaultChecked={query.status.includes(option.value)}
-            />
-          ))}
-        </Field>
+          <button type="button" onClick={() => setShown(allFields(!allOpen))} className={ALL_PRESS}>
+            {allOpen ? "Close all" : "Expand all"}
+          </button>
+        </div>
 
-        <Field legend="Priority">
-          {PRIORITY_OPTIONS.map((option) => (
-            <FilterChip
-              key={option.value}
-              name="priority"
-              kind="checkbox"
-              value={option.value}
-              label={option.label}
-              defaultChecked={query.priority.includes(option.value)}
-            />
-          ))}
-        </Field>
-
-        <Field legend="Due">
-          <FilterChip
-            name="overdue"
-            kind="checkbox"
-            value="1"
-            label="Overdue only"
-            defaultChecked={query.overdue}
-          />
-        </Field>
-
-        <div>
-          <p className={LEGEND}>Assigned to</p>
-
+        <Field legend="Assigned to" layout="block" open={shown.who} onToggle={() => toggle("who")}>
           <FilterSelect
             label="Show chores assigned to"
             name="who"
             options={whoOptions(members)}
-            value={whoValue(query.who)}
+            value={whoValue(query.who, members)}
           />
-        </div>
+        </Field>
 
         {categories.length > 0 ? (
-          <Field legend="Category" strip>
+          <Field
+            legend="Category"
+            layout="strip"
+            open={shown.category}
+            onToggle={() => toggle("category")}
+          >
             <FilterChip
               name="category"
               kind="radio"
@@ -135,7 +175,7 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
         ) : null}
 
         {tags.length > 0 ? (
-          <Field legend="Tag" strip>
+          <Field legend="Tag" layout="strip" open={shown.tag} onToggle={() => toggle("tag")}>
             <FilterChip
               name="tag"
               kind="radio"
@@ -156,6 +196,42 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
             ))}
           </Field>
         ) : null}
+
+        <Field legend="Priority" open={shown.priority} onToggle={() => toggle("priority")}>
+          {PRIORITY_OPTIONS.map((option) => (
+            <FilterChip
+              key={option.value}
+              name="priority"
+              kind="checkbox"
+              value={option.value}
+              label={option.label}
+              defaultChecked={query.priority.includes(option.value)}
+            />
+          ))}
+        </Field>
+
+        <Field legend="Status" open={shown.status} onToggle={() => toggle("status")}>
+          {STATE_OPTIONS.map((option) => (
+            <FilterChip
+              key={option.value}
+              name="status"
+              kind="checkbox"
+              value={option.value}
+              label={option.label}
+              defaultChecked={query.status.includes(option.value)}
+            />
+          ))}
+        </Field>
+
+        <Field legend="Due" open={shown.overdue} onToggle={() => toggle("overdue")}>
+          <FilterChip
+            name="overdue"
+            kind="checkbox"
+            value="1"
+            label="Overdue only"
+            defaultChecked={query.overdue}
+          />
+        </Field>
       </section>
     </div>
   );

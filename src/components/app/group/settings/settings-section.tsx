@@ -5,6 +5,7 @@
  */
 
 import type { ReactNode } from "react";
+import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 
 type SettingsSectionProps = {
   title: string;
@@ -30,7 +31,7 @@ export function SettingsSection({
   children,
 }: Readonly<SettingsSectionProps>) {
   return (
-    <section className="gap-space-md flex flex-col">
+    <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
       <div className="gap-space-xs flex flex-col">
         <h2
           className={`text-headline-sm ${tone === "destructive" ? "text-destructive" : "text-foreground"}`}

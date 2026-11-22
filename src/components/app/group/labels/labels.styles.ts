@@ -34,9 +34,9 @@ export const SPINNER = "size-4 motion-safe:animate-spin";
 // failure: an empty list is the normal state of a household that just started.
 export const EMPTY_NOTE = "text-body-md text-muted-foreground";
 
-// The add control's own rule, which separates it from the list above it. On the
-// block rather than on the list, because a member sees the list and no control.
-export const ADD_BLOCK = "pt-space-md border-border/60 flex flex-col border-t";
+// The add form's own rule, which separates it from the list below it. It sits
+// above the list rather than under it, so a long one is not scrolled past.
+export const ADD_FORM = "pb-space-md border-border/60 flex flex-col border-b";
 
 // A name is at most 100 characters, so a field spanning a desktop card is far
 // wider than anything typed into it.
