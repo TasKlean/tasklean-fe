@@ -240,10 +240,11 @@ src/
       group/board/     the chores a group opens on: board.styles.ts, task-list
                        (+ no-tasks) drawing either task-row (+ due-chip,
                        priority-mark, assignee-chip) or task-card, task-pager,
-                       task-panel (+ task-facts), board-bar (+ view-pills,
+                       task-panel (+ task-facts, fact), board-bar (+ view-pills,
                        view-menu (the phone's dropdown, + view.labels),
                        task-search, filter-panel (+ filter-fields: sort, then
-                       status, priority, due, assignee, category, tag))
+                       status, priority, due, assignee, category, tag; field,
+                       swatch, filter-panel.styles))
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area)

@@ -6,6 +6,7 @@
  * chore shows a short list rather than a column of blanks.
  */
 
+import { Fact } from "@/components/app/group/board/task-panel/fact";
 import { fullName } from "@/lib/users/name/name";
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
 import { shortDate } from "@/lib/time/day/day";
@@ -38,16 +39,6 @@ function minutesLabel(minutes: number): string {
   const hoursSaid = `${hours} ${hours === 1 ? "hour" : "hours"}`;
 
   return rest === 0 ? hoursSaid : `${hoursSaid} ${rest} min`;
-}
-
-/** Renders one labelled fact. */
-function Fact({ label, children }: Readonly<{ label: string; children: string }>) {
-  return (
-    <div className="gap-space-xs flex items-baseline justify-between">
-      <dt className="text-label-md text-muted-foreground shrink-0">{label}</dt>
-      <dd className="text-label-md text-foreground min-w-0 text-right break-words">{children}</dd>
-    </div>
-  );
 }
 
 /** Renders whatever the chore carries beyond its name and its labels. */

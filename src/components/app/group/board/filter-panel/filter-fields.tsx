@@ -6,10 +6,11 @@
  * The page is deliberately not a field: a new filter starts at the first page.
  */
 
-import type { ReactNode } from "react";
+import { Field } from "@/components/app/group/board/filter-panel/field";
+import { LEGEND } from "@/components/app/group/board/filter-panel/filter-panel.styles";
+import { Swatch } from "@/components/app/group/board/filter-panel/swatch";
 import { FilterChip } from "@/components/common/filter-chip/filter-chip";
 import { FilterSelect, type SelectOption } from "@/components/common/filter-select/filter-select";
-import { DEFAULT_SWATCH } from "@/lib/labels/palette/palette";
 import { PRIORITY_OPTIONS, SORT_OPTIONS, STATE_OPTIONS } from "@/lib/tasks/filter/filter";
 import type { TaskQuery } from "@/lib/tasks/filter/filter.types";
 
@@ -24,41 +25,6 @@ type FilterFieldsProps = {
 };
 
 const SECTION = "text-label-lg text-foreground font-semibold";
-
-const LEGEND = "text-label-sm text-muted-foreground mb-1.5 font-semibold";
-
-const WRAP = "gap-space-xs flex flex-wrap";
-
-// A strip rather than a wrap: a household with twenty categories would
-// otherwise stack five rows deep and push Apply off a phone.
-const STRIP = "gap-space-xs scrollbar-slim -mx-1 flex overflow-x-auto px-1 pb-1";
-
-/** A dot in a label's own colour, so a long strip is scannable. */
-function Swatch({ color }: Readonly<{ color?: string }>) {
-  return (
-    <span
-      aria-hidden
-      style={{ backgroundColor: color ?? DEFAULT_SWATCH }}
-      className="size-2.5 shrink-0 rounded-full"
-    />
-  );
-}
-
-/** Renders one axis under its own name. */
-function Field({
-  legend,
-  children,
-  strip = false,
-}: Readonly<{ legend: string; children: ReactNode; strip?: boolean }>) {
-  return (
-    // `min-w-0` is load-bearing: a fieldset defaults to `min-width: min-content`
-    // and would grow past the panel rather than let a strip scroll. Measured.
-    <fieldset className="min-w-0">
-      <legend className={LEGEND}>{legend}</legend>
-      <div className={strip ? STRIP : WRAP}>{children}</div>
-    </fieldset>
-  );
-}
 
 /** Turns a label list into the rows a dropdown offers. */
 function whoOptions(members: readonly WhoChoice[]): SelectOption[] {
