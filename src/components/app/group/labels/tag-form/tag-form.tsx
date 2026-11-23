@@ -138,12 +138,14 @@ export function TagForm({
           <input type="hidden" name="name" value={fields.name} />
           {/* The editor replaces the row, so without this nothing on screen
               says which tag is being recoloured. */}
-          <LabelChip name={fields.name} color={fields.color} />
+          <div className="flex">
+            <LabelChip name={fields.name} color={fields.color} />
+          </div>
         </>
       )}
 
       <div className={FORM_CONTROLS}>
-        <ColorPicker value={fields.color} onChange={(color) => change({ color })} />
+        <ColorPicker name="color" value={fields.color} onChange={(color) => change({ color })} />
 
         <div className={FORM_PRESSES}>
           <button type="submit" disabled={pending} aria-busy={pending} className={PRIMARY_BUTTON}>

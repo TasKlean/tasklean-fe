@@ -6,7 +6,6 @@
  * UX only. Spring is the authority, so every press still handles its own 403.
  */
 
-import type { GroupRole } from "@/lib/groups/groups.types";
 import { isGroupAdmin } from "@/lib/groups/role/role";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
@@ -24,7 +23,7 @@ import type { Task } from "@/lib/tasks/tasks/tasks.types";
 export function canEditTask(
   task: Task,
   myMemberUid: string | null,
-  myRole: GroupRole | undefined,
+  myRole: string | undefined,
 ): boolean {
   if (isGroupAdmin(myRole)) return true;
 

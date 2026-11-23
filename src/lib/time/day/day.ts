@@ -70,6 +70,21 @@ export function shortDate(date: Date, timeZone: string): string {
 }
 
 /**
+ * Dates an instant in digits, for a column with room for nothing else.
+ *
+ * @param now What counts as this year, passed in like every other reading of
+ * the clock here so a whole board agrees and a test can fix it.
+ * @returns Day and month, and the year too where it is not the one being read
+ * in: a yearly chore due next January must not read as one due this month.
+ */
+export function numericDate(date: Date, now: Date, timeZone: string): string {
+  const [year, month, day] = dayKey(date, timeZone).split("-");
+  const here = `${Number(day)}/${Number(month)}`;
+
+  return year === dayKey(now, timeZone).slice(0, 4) ? here : `${here}/${year.slice(2)}`;
+}
+
+/**
  * Spells an instant out in full, for the title on a time that shows less.
  *
  * @returns The date and the clock time, with no zone named: every time on the
@@ -104,19 +119,29 @@ function offsetMinutes(at: Date, timeZone: string): number {
 }
 
 /**
- * Finds the instant a day begins in one zone, which is `dayKey` backwards.
+ * Finds the instant a wall clock reads a given time on a given day in one zone.
  *
  * @param key A day as `YYYY-MM-DD`, which carries no zone of its own.
- * @returns Midnight that morning where the reader is. Invalid for a key that is
- * not a real date, which the caller checks.
+ * @param time That day's clock time as `HH:mm`.
+ * @returns The instant meant where the reader is. Invalid for a key that is not
+ * a real date, which the caller checks.
  */
-export function dayStart(key: string, timeZone: string): Date {
-  const asUtc = new Date(`${key}T00:00:00Z`);
+export function instantOn(key: string, time: string, timeZone: string): Date {
+  const asUtc = new Date(`${key}T${time}:00Z`);
   // Twice, because the offset that applies is the one at the instant we are
   // looking for, not the one at that clock time in UTC.
   const near = new Date(asUtc.getTime() - offsetMinutes(asUtc, timeZone) * 60_000);
 
   return new Date(asUtc.getTime() - offsetMinutes(near, timeZone) * 60_000);
+}
+
+/**
+ * Finds the instant a day begins in one zone, which is `dayKey` backwards.
+ *
+ * @returns Midnight that morning where the reader is.
+ */
+export function dayStart(key: string, timeZone: string): Date {
+  return instantOn(key, "00:00", timeZone);
 }
 
 /**

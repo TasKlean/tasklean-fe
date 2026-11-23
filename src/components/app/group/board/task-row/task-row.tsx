@@ -1,17 +1,30 @@
 /**
- * One chore on the board. A link rather than a button: the open chore is a URL
- * (`?task=`), so it is shareable, works with no JavaScript and leaves the back
- * button meaning what a reader expects.
+ * One chore on the board, in two lines: when it is wanted at the head of the
+ * row, what it is on the upper line and how it behaves on the lower. A link
+ * rather than a button, since the open chore is a URL (`?task=`).
+ *
+ * The marks are written once and placed twice, because no one container can
+ * be both the line under the name and the end of the row of pills, which is
+ * where a phone has the room for them.
  */
 
 import Link from "next/link";
-import { META, ROW, ROW_TITLE } from "@/components/app/group/board/board.styles";
+import {
+  ROW_DUE,
+  ROW_MAIN,
+  ROW_META,
+  ROW_SIDE,
+  ROW_TITLE,
+} from "@/components/app/group/board/board.styles";
 import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assignee-chip";
-import { DueChip } from "@/components/app/group/board/due-chip/due-chip";
+import { DueDigits } from "@/components/app/group/board/due-digits/due-digits";
 import { PriorityMark } from "@/components/app/group/board/priority-mark/priority-mark";
+import { RowPress } from "@/components/app/group/board/task-row/row-press";
+import { StatusPill } from "@/components/app/group/board/status-pill/status-pill";
+import { TaskMarks } from "@/components/app/group/board/task-marks/task-marks";
 import { CategoryIcon } from "@/components/common/category-icon/category-icon";
 import { LabelChip } from "@/components/common/label-chip/label-chip";
-import { dueLabel } from "@/lib/tasks/due/due";
+import { dueDigits } from "@/lib/tasks/due/due";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 import type { Category } from "@/lib/labels/categories/categories.types";
 
@@ -21,47 +34,80 @@ type TaskRowProps = {
   // the list is read once for the whole board rather than once per row.
   category: Category | undefined;
   href: string;
+  // The same chore with the editor already open, which the menu's Edit leads
+  // to. Editing is the panel's own state, and a row cannot reach it.
+  editHref: string;
+  groupUid: string;
+  // False where the chore is not the reader's to change, which leaves the
+  // menu with View alone. UX only: each press handles its own 403.
+  canEdit: boolean;
   now: Date;
   timeZone: string;
 };
 
 /** Renders one chore as a row on the board. */
-export function TaskRow({ task, category, href, now, timeZone }: Readonly<TaskRowProps>) {
-  const due = dueLabel(task, now, timeZone);
-  const tags = task.tags ?? [];
+export function TaskRow({
+  task,
+  category,
+  href,
+  editHref,
+  groupUid,
+  canEdit,
+  now,
+  timeZone,
+}: Readonly<TaskRowProps>) {
+  const due = dueDigits(task, now, timeZone);
+  const marks = { recurrence: task.recurrenceType, photoProof: Boolean(task.requiresPhotoProof) };
 
   return (
-    <li>
-      <Link href={href} className={ROW}>
-        <span className="min-w-0 flex-1">
-          <span className={`${ROW_TITLE} block truncate`}>{task.name}</span>
+    <RowPress
+      actions={{
+        groupUid,
+        taskUid: task.uid ?? "",
+        name: task.name ?? "this chore",
+        viewHref: href,
+        editHref,
+        canEdit,
+      }}
+    >
+      <span className={ROW_DUE}>{due ? <DueDigits due={due} /> : null}</span>
 
-          <span className={META}>
-            {task.priority ? <PriorityMark priority={task.priority} /> : null}
-            {due ? <DueChip due={due} /> : null}
+      <Link href={href} className={ROW_MAIN}>
+        <span className={`${ROW_TITLE} min-w-0 truncate`}>{task.name}</span>
 
-            {category?.name ? (
+        {/* Its own line on a phone, which is what `w-full` buys: the name
+            keeps the line above to itself. */}
+        <span className="gap-space-xs flex w-full min-w-0 flex-wrap items-center gap-y-1 sm:w-auto sm:flex-nowrap">
+          {/* A chip is `max-w-full` and truncates inside, which needs a flex
+              parent that may shrink: a long category would push the rest out. */}
+          {category?.name ? (
+            <span className="flex min-w-0">
               <LabelChip
                 name={category.name}
                 color={category.color}
                 size="sm"
                 icon={<CategoryIcon name={category.icon} />}
               />
-            ) : null}
+            </span>
+          ) : null}
 
-            {tags.map((tag) => (
-              <LabelChip
-                key={tag.id ?? tag.name}
-                name={tag.name ?? ""}
-                color={tag.color}
-                size="sm"
-              />
-            ))}
+          <StatusPill status={task.status} />
+
+          {task.priority ? <PriorityMark priority={task.priority} /> : null}
+
+          <span className="gap-space-xs flex items-center sm:hidden">
+            <TaskMarks {...marks} words={false} />
           </span>
         </span>
-
-        <AssigneeChip member={task.assignedTo} />
       </Link>
-    </li>
+
+      <span className={ROW_SIDE}>
+        <AssigneeChip member={task.assignedTo} compact />
+      </span>
+
+      <span className={ROW_META}>
+        <TaskMarks {...marks} />
+      </span>
+    </RowPress>
   );
 }

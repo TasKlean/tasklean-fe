@@ -52,7 +52,7 @@ export function TaskCard({ task, category, href, now, timeZone }: Readonly<TaskC
         </span>
 
         <span className="p-space-md gap-space-xs flex min-w-0 flex-1 flex-col">
-          <span className="text-title-sm text-foreground line-clamp-2">{task.name}</span>
+          <span className="text-body-lg text-foreground line-clamp-2">{task.name}</span>
 
           <span className="gap-space-xs mt-auto flex flex-wrap items-center">
             {task.priority ? <PriorityMark priority={task.priority} /> : null}

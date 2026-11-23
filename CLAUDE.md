@@ -21,11 +21,14 @@ the URL and all answered by the backend. Creating one and joining by code work. 
 is a shell: a rail that stands still beside a scrolling section. The group's own path is the
 **board**, and **Labels beside it is built**.
 
-**The board reads; nothing on it writes yet.** `/app/groups/[uid]` lists a page of chores, as rows
+**The board reads, creates, edits and deletes.** `/app/groups/[uid]` lists a page of chores, as rows
 or as cards, behind a search and one `Filter and sort` panel holding every axis at once. The filter
-is the URL and the backend answers all of it; the layout is a cookie. The chore `?task=` names
-opens beside the list. Creating, editing, archiving and deleting a chore do not exist, nor do
-complete, skip and claim.
+is the URL and the backend answers all of it; the layout is a cookie. **One full-height panel on the
+right serves every job**: `?task=<uid>` reads a chore and `?task=new` creates one, each a link
+somebody can send, and **editing one is the panel's own state** rather than a URL of its own.
+Deleting is in the editor's footer and in **a row's own menu**, which the three dots open at a
+desk and a long press on a phone. Archiving does not exist, nor do complete, skip and claim:
+Complete is drawn as a disabled press, the backend having no endpoint behind it.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
@@ -203,7 +206,8 @@ src/
   assets/              images components import; next/image reads their size
   proxy.ts             the auth boundary (Next 16 renamed Middleware -> Proxy)
   hooks/               use-disclosure (a popup's open state and the ways out),
-                       use-image-upload (a picked image on its way to the bucket)
+                       use-image-upload (a picked image on its way to the bucket),
+                       use-long-press (a held finger, and the click it ends in)
   components/
     common/            primitives and what more than one screen shares: avatar,
                        account-menu, logout-button, masked-email, load-error,
@@ -212,15 +216,21 @@ src/
                        submit-button, or-divider, greeting, copy-button,
                        qr-image, google-mark, busy-overlay, text-area,
                        switch-track, group-avatar, image-picker, recovery-codes,
+                       side-panel (a dialog anchored right, the page usable
+                       behind it),
                        zone-probe (the browser's own zone, into a cookie),
                        label-chip (a category or tag, tinted from its own hex),
+                       label-tint (that hex on its way into CSS, with the
+                       fallback, for every control that wears one),
                        category-icon (the icon set and what draws a stored name),
+                       swatch (a dot in a label's own colour),
                        swatch-select (a circle that opens a grid of them),
                        signed-out-listener and signed-out-broadcast (the two
                        ends of the sign-out a tab tells the others about),
                        invite-code/ (invite-code-field, share-invite),
                        filter-chip (one choice in a filter panel, a real
-                       checkbox or radio under the paint),
+                       checkbox or radio under the paint, wearing a label's own
+                       colour where it is one),
                        filter-select (a dropdown that posts a value, the
                        listbox contract LocaleSelect runs; a row may carry a
                        rule above it),
@@ -238,14 +248,29 @@ src/
                        show-menu, sort-menu, no-matches), add-group,
                        add-group-bar, no-groups, create-group-form,
                        join-group-form
-      group/board/     the chores a group opens on: board.styles.ts, task-list
-                       (+ no-tasks) drawing either task-row (+ due-chip,
-                       priority-mark, assignee-chip) or task-card, task-pager,
-                       task-panel (+ task-facts, fact), board-bar (+ view-pills,
-                       view-menu (the phone's dropdown, + view.labels),
+      group/board/     the chores a group opens on: board.styles.ts, label-mark
+                       (a category's icon, or the dot that stands in), status-pill
+                       (where a chore has got to, read by a row and by the open
+                       chore), task-list (+ no-tasks) drawing either task-row
+                       (+ row-press (the element, its long press and its menu),
+                       due-digits, due-chip, task-marks (repeat and photo
+                       proof), priority-mark, assignee-chip, task-menu (view,
+                       edit and delete, + .types)) or task-card, task-pager,
+                       task-panel/ (task-panel, the state the reader and the
+                       editor are picked by, task-reader, task-editor,
+                       complete-button, task-view/ (task-view, .helpers,
+                       fact-card, fact-row, description-block) and
+                       task-form/ (category-pills, priority-pills, due-fields,
+                       estimate-field, photo-proof-card, tag-editor/ (+
+                       add-tag-panel), create-header and edit-header (a bar
+                       each, and the words both own), delete-task, form-row,
+                       .styles, .helpers (the stretches both the field and the
+                       editor read))), board-bar (+ view-picker (one pill on a
+                       track of two, at every width, + view.labels),
                        task-search, filter-panel (+ filter-fields: sort, then
                        assignee, category, tag, priority, status, due; field
-                       (one axis, as a disclosure), swatch))
+                       (one axis, as a disclosure), strip (the sideways row and
+                       the two ways to move it)))
       group/shell/     group-sidebar (+ group-summary, group-description),
                        group-bar (+ invite-control), group-nav (+ nav-sections,
                        nav-entry, item-tone, open-group-area),
@@ -322,11 +347,18 @@ src/
                        the hrefs the board's controls hang off, and what those
                        controls offer),
                        permissions/ (who may change one chore),
+                       recurrence/ (how often one comes back, in words),
+                       status/ (where one has got to, in words),
                        refusals/ (the 403 and the 404 a press runs into),
-                       view/ (the list-or-cards cookie)
-    time/              api-date/ (API timestamps <-> Date), day/ (a day's name,
-                       its key, the clock and the instant a key starts at, in
-                       one zone), zone/ (the zone cookie's name and shape, and
+                       view/ (the list-or-cards cookie),
+                       write/ (form fields <-> the write body, and the due
+                       date's two halves <-> one instant)
+    text/              humanise/ (wording a backend constant nothing has words
+                       for, which a trail's lines and a chore's panel both read)
+    time/              api-date/ (API timestamps <-> Date), since/ (how long ago,
+                       in words), day/ (a day's name, its key, the clock, the
+                       date in digits, and the instant a wall time reads in one
+                       zone), zone/ (the zone cookie's name and shape, and
                        zone-cookie.ts, the read)
     uploads/           uploads.ts (the presigns), uploads.types.ts (caps the
                        browser reads too), put-object/ (the browser's PUT),
@@ -447,6 +479,12 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   last box, so those fields are read with `getAll`.
 - **A field shows only its first unmet rule**, so the order in `rules.ts` is the order a user is
   asked to fix things.
+- **A rule for an optional field must accept the empty string**, because that is what a form posts
+  for a field nobody filled. `dayRule` and `timeOfDayRule` fold it into their own pattern, where
+  checking the shape first made the `|| undefined` after it unreachable.
+- **A rule a component also runs must take the shape the component holds.** `validateTask` runs the
+  same schema on live state, so `flagRule` takes a boolean as well as the `"on"` a tickbox posts: a
+  schema that only reads form text refuses the form's own component.
 - **A field complains on blur, but only once it has content.** Empty fields wait for submit. The
   password is never echoed back through server state; other values are.
 - **A required field is marked with a `*`, and nothing marks an optional one.** `TextField` renders
@@ -588,9 +626,10 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   effect, and **a pressed filter carries whatever is in the box**; neither applies while a push of
   ours is in flight.
 - **A dropdown panel names the edge it hangs from.** `PANEL` sets no horizontal position: the show
-  menu adds `left-0`, the sort menu `right-0`. **One hanging off a narrow trigger also needs
-  `w-max`**: an absolute box shrinks to fit the width its containing block offers, so `SwatchSelect`'s
-  grid over a 44px circle came out one cell wide until it said otherwise. Measured.
+  menu adds `left-0`, the sort menu `right-0`, and `SwatchSelect` takes an `align` because a circle
+  at the right of its row opened a 246px grid off the screen. **One hanging off a narrow trigger
+  also needs `w-max`**: an absolute box shrinks to fit the width its containing block offers, so
+  `SwatchSelect`'s grid over a 44px circle came out one cell wide until it said otherwise. Measured.
 - **The two ways into a group are a bar on a phone and the title row on a desktop.** `AddGroup` is
   `hidden lg:flex`, `AddGroupBar` is `lg:hidden`. Each half of the bar is `flex-1 min-w-0` and
   **both carry the border**, colour apart. The list pays `pb-space-3xl` below `lg` so the bar clears
@@ -701,8 +740,8 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   1536px reads badly. The shell still owns the padding.
 - **The cards count their columns off the board, not the window.** The list's wrapper is an
   `@container`, so `@xl`, `@5xl` and `@7xl` step 1 to 4 columns at 576, 1024 and 1280px of the
-  board's **own** width, which keeps a card near 300px and wider. An open chore takes 22rem of that
-  width and the grid drops a column by itself, with nothing threaded down to say so.
+  board's **own** width, which keeps a card near 300px and wider. The panel is an overlay, so an
+  open chore takes none of that width and the grid is the same whether one is open.
 - **The board has no heading of its own.** The rail's card carries the group's name, which is this
   screen's `h1`, and a second line saying what a board is told a reader nothing they came for.
 - **A group opens on its board, and the whole of what it shows is the URL.** `?q=`, `?status=`,
@@ -722,18 +761,114 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   exists.
 - **Pages are one-based in the URL and zero-based on the wire**, and the pager counts rows from the
   size the board answered with rather than from the backend's default written out again.
-- **The open chore is `?task=`, not state.** The page reads it by uid, so the panel is a link
-  somebody can send, survives a reload and closes with an ordinary navigation. Read by uid rather
-  than found in the page, because the filter or the page may not hold it; a uid that is gone opens
-  the board rather than an error. **The panel's column is declared only while one is open**, or a
-  closed board gives up 22rem to an empty track.
-- **One bar, in two shapes.** On a phone the search takes the top row and the layout and the
-  filter share the one under it; from `sm` it is a single row, the layout as pills on the left and
-  the search and the filter on the right. The layout is **two pills where there is room and a
-  dropdown where there is not**, `ViewPills` and `ViewMenu`, swapped by a wrapper's `hidden sm:block`
-  rather than by one control trying to be both. `view.labels` is the one place either reads a name
-  from. The pill shell is `w-fit`, or the column stretches it and leaves dead space inside its border. Six pills across the top were tried and dropped:
-  the row never fit a phone, and a reader setting three things paid three page loads.
+- **The open chore is `?task=`, and whether it is being edited is not.** The page reads the chore by
+  uid, so the panel is a link somebody can send, survives a reload and closes with an ordinary
+  navigation. Read by uid rather than found in the page, because the filter or the page may not
+  hold it; a uid that is gone opens the board rather than an error. `?task=new` is the form for one
+  that does not exist yet, safe as a reserved value because a uid is a UUID. **Editing is
+  `TaskPanel`'s own state**, so Discard puts the facts straight back and leaves no history entry.
+  **`?edit=1` is the one thing that may ask for it from outside**, which is what a row's own menu
+  does: the panel starts on the form, and a discard or a save `replace`s the URL back to the plain
+  chore, so a reload does not reopen a form nobody is in any more. The panel resets that state when
+  the pair the URL names changes, or Edit on a second row would open the first one's facts.
+- **Creating stays in the URL because it crosses a navigation, where editing never does.** Both Add
+  task presses are in the chrome, a subtree the board cannot reach, so the request has to survive
+  the trip to the board: `addTaskHref` takes the group's uid and points at its board, carrying the
+  filter only where the press already sits there. A context flag in the shell was tried and
+  **cannot work**: the App Router runs Strict Mode in dev, whose mount, unmount, remount cycle
+  fires the panel's own cleanup and clears the request before the remount reads it.
+- **Nothing behind the panel is dimmed, so it is not modal.** `SidePanel` is `role="dialog"` with
+  **no `aria-modal`, no scrim and no focus trap**, and it never freezes the page: a trap behind a
+  page that looks usable is worse than no trap, and a transparent full-screen link would swallow
+  every press on the board. It takes focus **on arrival only**, tying that to the close href having
+  fired on every render and taken focus off whatever was being typed into. **Escape and a press
+  outside close the reader and not the editor**, which `dismissable` is the one flag for: neither
+  must throw away a half-typed chore, where a chore being read has nothing to lose, and Escape is
+  also the key that closes the colour grid inside the form, which does not stop it bubbling. The
+  press is `pointerdown`, so one on a row behind the panel closes this chore and opens that one.
+  **The leading control is a link or a press, by `close`**: a link where the URL names what is
+  open, so it works with no JavaScript, and a press where nothing but state does. **Only a panel
+  the URL holds wears a cross**: the editor's press leads back to the facts rather than out, so it
+  is an arrow, where a chore being created has no facts behind it and keeps the cross and the
+  board's own link.
+- **The panel is the full height of the page, covering the chrome, and wears no shadow.** 32rem
+  from `sm`, 40rem from `lg`, a sheet below that. Its top bar carries the close press, then
+  whatever the mode puts there, which is why `SidePanel` takes a `header` slot rather than a title.
+- **A chore just created opens as facts, not as the form it was typed into.** The save hands the
+  panel the new uid, which it replaces the URL with, and the form stays up until those facts
+  arrive: `editing || creating` is the condition, since a reader with no chore to draw is a blank
+  panel.
+- **Reading a chore goes: pills, name, words, picture, card, tags, byline.** Status, priority and
+  category as pills; the name as the body's own `h2`; the description capped at 260 characters
+  behind a Read more; the picture under a `Reference image` heading; then one card of what it is
+  set to (assigned to, due date, repeat, estimated time, photo proof); then its tags; then who
+  added it and how long ago, which `sinceLabel` words. Complete and Edit sit in the header and
+  again in the footer at three quarters to one.
+- **Each form has its own top bar.** A chore being created carries its name and the one press that
+  writes it down; one being edited carries its name, who wrote it and when, Discard and Save. There
+  is nothing to discard a new chore back to, so `CreateHeader` and `EditHeader` are two components
+  rather than one with a mode, and each owns the two words the panel's name and the footer's press
+  read from it. **The footer's Cancel splits the same way**: a press that puts the facts back while
+  editing, and a link out of the panel while creating, as that header's own close already is.
+- **Editing goes: title, category, description, assignee, repeat and priority, due date and time,
+  estimate, picture, tags, photo proof.** Repeat beside priority and the two due fields are half
+  rows; everything else is whole. Only the title is marked required, and nothing says "optional",
+  the absence of a `*` being what says it.
+- **Priority is one pill moving along a track of three, low to high, and none of them where nobody
+  said**, where the filter menu leads with High. A radio cannot be unticked, so **the press on the
+  one already on is what clears it**, hanging off the click because a value that has not moved
+  fires no change. **The estimate is one row of five**, four stretches and a box that is the fifth pill
+  rather than a field under them. The stretches are `aria-pressed` buttons rather than radios
+  because the field that posts is a single input: the box carries the name while it holds the
+  answer, and a hidden input carries a chosen stretch. Two controls sharing the name would post
+  twice.
+- **A tag is added from the chore, and it is created the moment it is added.** The box holds the
+  chore's tags and one `Add tag` press, which opens a name, the household's own tags to attach
+  straight off, and a colour. A save posts names alone, so a colour can only be kept by the tag
+  existing: `createTaskTagAction` writes it before the chore is saved and the household keeps it
+  even if the edit is then discarded. **The box remembers the colour it was told**, the household's
+  list being a render old, or a tag made here would wear the fallback until the board was read
+  again. A name the household already holds comes back from a 409 as
+  itself rather than as a failure.
+- **Deleting is permanent and confirms in place**, in the editor's footer, swapping the press for
+  the question. **Complete is a disabled press in both the header and the footer**, the backend
+  having no endpoint for it, with the reason in its name and its brand colour kept.
+
+- **One form creates and saves, and it posts every field.** `PUT /api/tasks/{uid}` takes the chore
+  as it will then be, so a field the form left out would be cleared on every edit: the two modes
+  differ only by which action runs and whether a `taskUid` rides along. The submit is intercepted
+  for the same reason a group's picture is, and **`TASK_PHOTO` presigns against the group**, not
+  the chore, so a picture can be attached while creating one where a group's cannot.
+- **A repeating chore needs a date, and the schema is where that is settled.** The endpoint refuses
+  the pair with a 400 carrying no code, so `taskSchema` carries an object-level refine reporting it
+  on `dueDate`.
+- **The due date is two fields here and one instant on the wire.** A day and an optional clock
+  time, which `taskWriteRequest` turns into an offset instant in the reader's own zone, passed in
+  like every other zone-aware call. **An empty time means the end of that day**, so a chore due
+  Tuesday is overdue on Wednesday rather than at Tuesday midnight, and `dueFields` reads 23:59 back
+  as a blank time because nobody typed it.
+- **The form's assignee posts a membership uid, where the filter's posts `me`.** A filter is a link
+  anybody opens as themselves; an assignment names one person. People who have left are not offered
+  at all, a chore having nowhere to go to somebody who is gone.
+- **Tags are free text the backend creates on the way through, capped at five.** Every picked name
+  is a real checkbox, so ticking the household's own works with no JavaScript, and a typed one is a
+  checked box too since nothing else would carry it. Folded case-insensitively before the cap,
+  because the backend matches that way and `Weekly` must not cost two of the five.
+- **The two Add task presses are links, drawn only inside a group**: the header's renders nothing
+  elsewhere, a chore having no group to belong to.
+- **One bar, in two shapes, and one tree.** On a phone it is a two-column grid: the search takes
+  the top row and the layout and the filter take the corners of the one under it; from `sm` it is a
+  single flex row, the layout on the left and the search and the filter on the right. The grid's
+  placement classes do nothing once it is a flex row, so the corners are written once with no
+  `sm:` undoing them. Six pills across the top were tried and dropped: the row never fit a phone,
+  and a reader setting three things paid three page loads.
+- **The layout is one picker at every width: a pill that moves along a track of two.** The chosen
+  one carries its name, the other is its icon alone with the name still read out, so the control
+  fits a phone without becoming a second component. Two shapes were tried and the phone's
+  **could not work**: its rows closed the menu on the press that submitted them, and a form taken
+  out of the document during a click never submits, so the cookie was never written. `view.labels`
+  is the one place a layout's name and icon are read from, and the track is `w-fit`, or its column
+  stretches it and leaves dead space inside its border.
 - **The panel is a GET form and applies in one press**, in two sections: the order first, then
   everything that narrows, as Assigned to, Category, Tag, Priority, Status, Due. Every axis posts a
   plain form field to the board's own path, so the panel needs no JavaScript beyond the press that
@@ -771,6 +906,22 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   are `FilterSelect`, our listbox rather than the platform's, posting through a hidden input. The
   assignee is a `block`, since a full-width control collapses inside a flex row. **Overdue is its
   own field, not a priority**, which is the three levels alone.
+- **A pill that names a label wears that label's colour, and a category its icon.** `label-pill`
+  tints it from the stored hex and **deepens the same colour when the input inside it is checked**,
+  so the strip reads as colours whether or not one is picked and no pill is ever filled with a hex
+  the text would disappear into. One utility rather than a second behind `has-[:checked]:`, which
+  would set the same two properties and leave the stylesheet's order to settle it. `LabelMark`
+  draws the icon, falling back to the dot for a tag and for an icon name the set does not hold, so
+  a pill never loses its mark. **A tag's dot waits for the pick**, which `markOn` is the flag for:
+  the pill already wears the colour, so the dot confirms the one that is on rather than repeating
+  on all of them. A category keeps its icon drawn throughout, that being what names it. The same
+  pill is the chore form's category row, and the chore's own tag chips carry the dot too.
+- **A strip takes the wheel and a drag, not just its scrollbar**, which is 6px at the foot of a
+  panel. `Strip` translates a vertical wheel sideways through a listener of its own, React's
+  `onWheel` being passive and unable to stop the panel scrolling too, and hands the wheel back at
+  either end so a reader is never stuck on it. A drag is **a mouse only**, a finger already
+  scrolling it, and it swallows the click it ends with: the press would otherwise tick the pill it
+  started on. Five pixels of slack, so a press with a twitch in it is still a press.
 - **Each section's name carries a rule under it**, so Sort and Filter read as two blocks rather
   than one list with two labels in it, with the expand press at the right-hand end of Filter's.
 - **The assignee dropdown offers the reader once, and `who=me` is what it posts.** Anyone and
@@ -789,7 +940,9 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   auto as well, which let the fields box swallow the scroll the strips wanted, so it says
   `overflow-x-hidden` too. Apply is outside that box, or it falls below the fold on a short screen.
 - **The panel's pills are 36px, under the app's 44px floor**, deliberately: six fields of them at
-  full height scroll before a phone can reach Apply. Everything on the bar itself stays 44.
+  full height scroll before a phone can reach Apply. Everything on the bar itself stays 44. **The
+  chore form's own choices are the same 36px**, so a pill in the panel and a pill in the filter
+  measure alike, and its footer presses and the panel's close stay 44.
 - **The search replaces the URL; it never submits its form.** `requestSubmit()` on a GET form is a
   document navigation, so every keystroke reloaded the page and the arriving document put its own
   older `q` back in the box. The submit is cancelled and `router.replace` runs instead, which is
@@ -802,6 +955,51 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   the reader's own preference and should follow them to the next group where a filter should not.
   Only an action may write a cookie, so the pills are a form with two submit buttons carrying the
   value, which also makes them work with no JavaScript.
+- **A row is a grid of four columns and two lines, and the same tree draws both shapes.** The due
+  date leads, the name and its pills come next, then the assignee and the menu; the repeat and the
+  photo proof go on the line below. The date, the assignee and the menu **span both lines and are
+  centred** down them, the date answering for the whole chore rather than for its upper line. On a
+  phone the pills drop under the name, the assignee is its avatar alone, the menu's column is not
+  drawn at all and the marks ride at the end of the pills. Measured at 360, 390, 768 and 1280:
+  nothing scrolls sideways.
+- **The date is digits in a fixed slot, and the slot is kept on a chore with no date**, so every
+  name down a board starts on one line. It is drawn like the chore's own name, `text-body-lg`, and
+  `dueDigits` carries the tone the worded label has as ink rather than as a pill, an ordinary date
+  reading in the name's own colour and only overdue and due-soon colouring. The wording is the
+  title: `11/3`, with the year only where it is not the one being read in.
+- **The marks are written once and placed twice**, since no one container is both the line under
+  the name and the end of the row of pills. One copy is `sm:hidden` and icon-only, the other
+  `hidden sm:flex` with the words; a hidden copy is out of the accessible tree, so neither is read
+  twice.
+- **A row's own menu views, edits and deletes, and every reader has one.** View is the row's own
+  link, so the menu is never empty; Edit and Delete are drawn for the author or an admin alone.
+  Edit carries `?edit=1`, since the editor is the panel's state and a row cannot reach it; Delete
+  asks in the panel it opened and reports a refusal there rather than taking the board. Nothing
+  navigates on a success: the action revalidates the board and the row goes away with it.
+- **The menu hangs under whatever opened it**: the three dots where they are drawn, and the row
+  itself on a phone, where the hold was, the wrapper being positioned from `sm` only so the row is
+  what the panel resolves against below it. **It flips above that where the screen has no room
+  underneath**, measured off the wrapper as it opens, since a row near the foot of the page
+  otherwise puts its panel under the group bar, which is fixed there up to `lg`. **The wrapper is
+  raised to `z-30` while it is open**: the next row's menu is positioned at the same level and
+  later in the document, so at `z-10` it painted over the panel. **The press wears the hover's own
+  fill while the menu is open**, a hover not surviving the press that opened it and never having
+  been there on a touch screen.
+- **On a phone the menu is a long press on the row, and the three dots are not drawn.** A control
+  per row costs width a phone has not got, and nothing is lost to anybody who cannot hold a finger
+  down: the open chore carries Edit and Delete of its own. `useLongPress` is touch and pen only, a
+  mouse having the dots and meaning to select, gives up on a finger that moves and **swallows the
+  click it ends in**, which would otherwise open the chore over the menu. The row is `select-none`
+  below `sm` for the same press.
+- **The row is a client component for those two things alone.** `RowPress` holds the disclosure and
+  the handlers and takes the cells as `children`, so everything in a row is still rendered on the
+  server.
+- **The row's link is stretched over the whole row with `after:inset-0`**, which is what lets the
+  menu be a real button beside it rather than a control nested in an anchor. The row carries the
+  focus ring for it with `has-[a:focus-visible]:`, and the menu sits above it on `z-10`.
+- **An unassigned chore is drawn exactly like an assigned one**, down to the circle: `Avatar` falls
+  back to a person where it is given no name and no picture, so a column of assignees reads as one
+  column rather than as two kinds of thing.
 - **A card is the photo, or the category's colour where there is none**, so a grid of chores
   nobody has photographed still reads as a grid. The colour sits under the picture rather than
   beside it, so a dead upload falls back with no handler and one request.
@@ -845,6 +1043,8 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   is stored on the label and has to outlive any change to the design. How it is painted is
   `label-tint` in `globals.css`, which reads `--label-color` off an inline style and mixes it into
   the background: 16% in light and 26% in dark, where the same percentage reads as no colour.
+  `label-pill` is the same recipe for a label that is a choice, deepened to 38% and 52% once the
+  input inside it is checked. `labelTint` is the one place the value and its fallback are written.
 - **The list reads first and the fields appear on a press.** The press sits at the top right of the
   section's heading and opens the form at the **top of the card**, so a household with forty labels
   scrolls to neither. It takes the same label as the form's own submit and is drawn only while the
@@ -909,6 +1109,9 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 
 ### Images and uploads
 
+- **`TASK_PHOTO` is signed against the group, not the chore**, so unlike a group's own picture one
+  can be attached while the chore is still being created. `COMPLETION_PHOTO` is in the backend's
+  enum and we sign for nothing of it yet.
 - **An uploaded picture is addressed by uid and painted as a background.** The bucket is private, so
   `photoUid` is an upload rather than a URL and `uploads/image-src` turns any uid into
   `/api/image/{uid}`, whatever the picture is of. A group's is a square with its first letter where a
@@ -921,6 +1124,10 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   `next/image`: the optimizer allows that host and is worth having, where our own route is behind the
   session and may legitimately 404. `isRenderable` and `next.config.ts`'s `remotePatterns` therefore
   guard only the URL half.
+- **The picker is a bordered block, and the border is the drop target.** It is dashed at all times
+  and only its colour changes, a border appearing on a drag having shifted everything inside it:
+  the form's own edge colour at rest, the brand's over a dragged file. The dashes are what say the
+  block takes a file.
 - **The picker previews the shape the picture will be saved in.** `ImagePicker` takes a `shape`,
   square for a group and `circle` for a person, so what is chosen is seen as it will be drawn. Each
   shape names its own radius in `previewBox`, since two radius utilities in one class list resolve in

@@ -2324,16 +2324,95 @@ only harder to read. The cap therefore moved off the shell's wrapper and onto ea
 `SECTION_COLUMN`, which the board drops in the cards layout and nothing else does. The shell still
 owns the padding, so a section only chooses its own ceiling.
 
-**The columns are a container query, not a breakpoint.** A window breakpoint cannot see that an open
-chore has taken 22rem of the board, so four columns at 1920 would have been squeezed into 1168px
-rather than dropped to three. The list's wrapper is an `@container` and the steps read the board's
-own inline size, which also means nothing has to be threaded down to say whether a chore is open.
+**The columns are a container query, not a breakpoint.** A window breakpoint cannot see the rail
+standing beside the board, so four columns at 1920 would have been squeezed into the width the rail
+leaves rather than dropped to three. The list's wrapper is an `@container` and the steps read the
+board's own inline size, so a collapsed rail is answered without anything being threaded down.
 The steps are 576, 1024 and 1280px, chosen to keep a card near 300px and wider: that is what fits
 its priority mark and due chip on one line rather than stacking them.
 
 **The board carries no heading.** It had an `h2` and a line under it saying what a board is, which
 is a sentence a reader reads once. The rail's card already holds the group's name as the `h1`, and
 the screen opens on the chores instead.
+
+**One panel does every job, and the URL says which chore and whether it is a new one.** Reading a
+chore, editing it and creating one are the same shape of thing in the same place, so they are one
+panel rather than a panel plus a route plus a modal. `?task=<uid>` reads and `?task=new` creates,
+which keeps the board's rule that what is on screen is the URL: each is a link somebody can send,
+each survives a reload, and the way out of either is an ordinary navigation. `new` is safe as a
+reserved value for the same reason the `new` and `join` group segments are, a uid being a UUID.
+
+**Editing is state, though, and that is a reversal.** `?edit=1` was the URL's job until it was not
+worth what it cost: editing is something the reader is doing rather than a place they are, and every
+press of Discard was a navigation, a server round trip and a history entry to walk back through. As
+state it is instant, the facts come straight back, and the chore's own link still means the chore.
+The two things it gives up are a link that opens the editor and an editor that survives a reload,
+neither of which anybody asked for.
+
+**Creating is not state, and the reason is the navigation it crosses.** Taking it out of the URL was
+tried, for the symmetry: a flag in a provider in the signed-in shell, set by either Add task press
+and read by the board, since the presses are in the chrome and cannot reach the panel. It does not
+work, and not for a reason tuning would fix. The flag has to be cleared when the panel is done with
+it, and clearing it on unmount is what the App Router's Strict Mode turns against you: in dev it
+mounts, unmounts and remounts, so the cleanup clears the request between the two mounts and the
+remount reads nothing. Not clearing it leaves an empty form springing open on the next visit to the
+board, and clearing it in an effect on arrival is the cascading render React's own lint rules refuse
+outright. The URL has none of these problems, which is rather the point of it: a request that has to
+outlive a navigation is what a URL is for. Editing crosses no navigation, so it keeps none of the
+cost.
+
+**A created chore's facts arrive with the URL that names them.** The save answers with a uid, which
+the panel replaces `?task=new` with, so `creating` and the chore's facts change in the same render:
+the form stays up until they are there and nothing flashes in between.
+
+**Only a panel the URL holds wears a cross.** The editor's leading press was a cross too, and it
+read as a lie: it put the facts back and then navigated away from them, so a reader saw the chore
+they had been editing appear and vanish. It leads back into the panel rather than out of it, so it is
+an arrow, and the facts behind it keep the one cross. A chore being created has nothing behind it,
+so there it is a cross again, and a real link, the URL being what holds it.
+
+**The panel is an overlay, not a column.** It was in flow beside the list, which cost the board
+22rem and left the cards grid reasoning about a width it could not see. As an overlay it costs
+nothing, and the grid is the same whether a chore is open.
+
+**The form posts every field, because the endpoint replaces the chore.** `PUT /api/tasks/{uid}` takes
+the chore as it will then be, so a form holding ten of its eleven fields would quietly clear the
+eleventh on every save. That is the whole reason creating and editing are one component: a create
+form missing a field is merely incomplete, where an edit form missing one is destructive. The two
+modes differ by which action runs and whether a `taskUid` rides along, and nothing else.
+
+**The due date is two fields for the reader and one instant on the wire.** A chore due Tuesday needs
+no time, and asking for one makes everybody type a number they do not mean. So the form holds a day
+and an optional clock time, and an empty time means the end of that day, which is also what makes
+overdue read correctly: due Tuesday is overdue on Wednesday, not at Tuesday midnight. Turning that
+into the offset instant the endpoint wants needs the reader's zone, which only a cookie knows, so the
+action reads it and `taskWriteRequest` takes it as an argument like every other zone-aware call here.
+Reading it back blanks a 23:59 time, because nobody typed it and showing it would invite them to
+change a value that means "no time".
+
+**A repeating chore needs a date, settled in the schema.** The backend refuses that pair with a 400
+carrying no code, which is indistinguishable from any other malformed request, so the rule is a
+refine on the object reporting itself on `dueDate` rather than a line the reader only sees after a
+round trip.
+
+**A chore no longer has to carry a priority, and a radio is what makes that awkward.** The backend
+dropped it from the fields a write requires, leaving the name as the only one, so the schema takes
+an empty value and the form starts a new chore with nothing on the track rather than defaulting it
+to Medium, which was only ever there because the write would have been refused without it. A radio
+group has no way back to nothing, so the press on the one already ticked clears it, which hangs
+off the click rather than the change, a value that has not moved firing none. A fourth pill for
+nothing was the alternative and reads as a fourth priority.
+
+**Neither write redirects.** An action that redirected would have to be handed a path by the request,
+which is an open redirect waiting to happen, or build one itself and lose the board's filter. The
+form already holds the path and the query, so it navigates to the chore it saved; without JavaScript
+the panel simply reports the save, and the chore is saved either way.
+
+**Two rules about optional fields came out of this.** A rule for a field nobody filled has to accept
+the empty string, which `dayRule` did not: it checked the shape first, so the `|| undefined` written
+after it could never run for an empty value. And a rule a component also runs has to take the shape
+the component holds, not only the text a form posts, since `validateTask` runs the same schema on
+live state where a tickbox is a real boolean.
 
 **The assignee dropdown names the reader once.** It offered `Me` and then the whole roster, the
 reader included, so two rows meant the same board and the second one won on nothing. The two answers
@@ -2351,6 +2430,36 @@ once in the page helper and once in each of three components, and they had alrea
 page's `LabelChoice` had no `color`, so the tag strip drew every swatch in the default colour while
 the component that drew it declared a field the page never filled. They live in
 `tasks/filter/filter.types` now, which is the one module both the page and the controls can import.
+
+**A label's pill wears its own colour, and picking one deepens it.** A dot beside a name made a
+strip of categories read as words with punctuation, where a household picks a colour and an icon
+per category precisely so it can be recognised without reading. Filling the picked pill with the
+stored hex was rejected for the reason `LabelChip` was never filled either: the palette is chosen
+for labels, not for text to sit on, and any hex a member picks would eventually make a word
+disappear. So the same mix goes from 16% to 38%, the border goes to the colour itself, and the
+text keeps the foreground token, which leaves the picked pill obvious and readable in both
+schemes. It is one utility with `:has(:checked)` inside it rather than two behind a variant,
+because two utilities setting the same two properties are settled by the stylesheet's order rather
+than by the class list. Rendered in both schemes before it was kept.
+
+**The dot comes back for a tag, on the picked pill alone.** A tag carries no icon, so the dot is
+the only mark it could have, and on every pill at once it is the punctuation the category strip
+was rid of. On the picked one it earns its place: it says which pill is on outright, rather than
+asking the reader to tell two strengths of one mix apart, which is all the deepened tint says by
+itself. `markOn` gates it, the input being the `peer` and the mark hidden until it is checked, so
+the panel still needs no JavaScript for it. The wrapper is `flex` and not `block`, a block one
+laying the sized dot out inline and drawing it at no size at all. The chore's own tag chips wear
+the dot unconditionally, their tint being the pale 16% one and no pick to speak of.
+
+**A strip is scrolled by the wheel and by hand, because its scrollbar is 6px at the foot of a
+panel.** A trackpad already swipes it; a mouse had nothing but that bar. The wheel listener is
+ours rather than React's `onWheel`, which is registered passive and so cannot stop the panel
+scrolling vertically at the same time, and it hands the wheel back at either end so the reader is
+never stuck on a strip that has no further to go. The drag is a mouse only, a finger having
+scrolled it natively all along, and it costs the click it ends with: a pill sits under the cursor
+the whole way, so without swallowing that click a drag would also change the filter. Five pixels
+of slack keeps an ordinary press a press, and the click is cancelled in the capture phase, the one
+phase that runs before a label hands the press to the input inside it.
 
 **Each field collapses, and a collapsed one is hidden rather than unmounted.** Six axes open at
 once made the panel a wall that scrolled before Apply on a phone, so the legend became the press
@@ -2403,10 +2512,168 @@ phrase rather than by one word.
 group admin, where every member may view, complete, skip and claim. It is read per row rather than
 per screen, and like every role check here it is UX: each press still handles its own 403.
 
+**A row carries two lines, because one line could not hold the answers a reader scans for.** When
+a chore is wanted leads the row, what it is goes on the upper line and how it behaves on the
+lower: the date, then the name, the category, the status and the priority; the repeat and the
+photo proof below. One flex row had already run out of width at a desk once a category's full name
+was in it, and a phone had nothing left for the assignee. A grid is what lets one tree draw both
+shapes, the pills riding beside the name where there is room and dropping under it where there is
+not. The date, the assignee and the menu **span both lines and are centred down them**, each
+answering for the whole chore rather than for its upper line.
+
+**The date is digits in a fixed slot, kept even where there is no date.** A column this narrow
+cannot also say "tomorrow", so the wording went to the title and the urgency to the colour, which
+is the tone the pill elsewhere already wears. It is drawn in the chore's own name's size and
+colour, overdue and due-soon apart: a muted date beside a full-strength name read as a footnote to
+it rather than as the first thing on the row. The width is fixed rather than the content's, or
+every name down the board starts at a different left edge, and the year is left off unless it is
+not the one being read in, which only a yearly chore reaches. The camera that led the row before
+now sits with the repeat on the lower line, where there is room for its word.
+
+**The open menu has to outrank the rows under it, and a sheet on a phone.** Every row is
+positioned, so the rows below paint later: the menu's own wrapper is raised from `z-10` to `z-30`
+while it is open, or the next row's three dots sit on top of the panel hanging over them. Pinning
+it to the foot of the screen was tried twice, first below `lg` and then on the phone alone, and
+was wrong both times: a menu belongs under the thing that opened it, which is the dots where they
+are drawn and the row itself where the hold is. What the foot of the screen was protecting against
+is real, the group bar being fixed over it up to `lg`, so the panel measures the room under itself
+as it opens and hangs upwards where there is not enough, which is the one part of this CSS cannot
+answer.
+
+**The marks are written once and placed twice, which is the one duplication here.** They belong at
+the end of the pills on a phone and on a line of their own at a desk, and no single container can
+be both: the pills are nowrap at a desk so a long name truncates beside them, where a wrapping
+container pushes the pills onto a line of their own instead. One copy is `sm:hidden` and icon
+only, the other `hidden sm:flex` with the words, and a hidden copy leaves the accessible tree, so
+nothing is announced twice.
+
+**The three dots are a desktop control, and a phone holds the row instead.** A 44px press on every
+row is width a phone has not got, and keeping it for assistive tech alone would leave a focus ring
+on something invisible. Nothing is lost by dropping it, because the open chore carries Edit and
+Delete of its own, which is the path for anybody who cannot hold a finger down. `useLongPress` is
+touch and pen only, a mouse having the dots and a held mouse meaning to select; it gives up once
+the finger moves, every scroll starting as a press, and it **swallows the click the press ends
+in**, which would land on the stretched link and open the chore over the menu just asked for.
+
+**The row became a client component for that hold alone.** The handlers belong on the row's own
+element and cannot be pushed further down, so `RowPress` takes the cells as `children` instead and
+every one of them is still rendered on the server. It holds the menu's state too, two things
+opening it.
+
+**Every reader gets the menu, so View is in it.** Drawn for the author or an admin alone, a hold
+would do nothing on most rows of most boards. View is the row's own link, so the menu is never
+empty, while Edit and Delete stay gated.
+
+**An unassigned chore is drawn exactly like an assigned one.** A small "Anyone" pill beside a
+column of avatars read as a different kind of thing and the eye stopped on it. `Avatar` already
+falls back to a person where it is given no name and no picture, so the pool wears the same
+circle.
+
+**A row's Edit is the one thing allowed to ask for the editor from outside, and it needs the
+URL.** Editing is the panel's own state precisely because it crosses no navigation, but a press on
+the board does cross one: the panel is not open yet. `?edit=1` is that request, the same reasoning
+`?task=new` already rests on, and it is taken back out of the URL on a discard or a save, so a
+reload never reopens a form nobody is in. The panel resets that state when the chore or the flag
+changes, or Edit on a second row would show the first one's facts, which is what the plain
+`useState` did.
+
+**A whole-row link and a menu inside it cannot both be elements.** A button nested in an anchor is
+invalid, and a menu outside the anchor leaves most of the row unclickable. The link is therefore
+stretched over the row with `after:inset-0` and the menu sits above it on `z-10`, which is the one
+arrangement where the row opens the chore, the menu opens the menu, and there is still exactly one
+link per row. The row wears the focus ring on the link's behalf with `has-[a:focus-visible]:`.
+
+**The layout picker had to become one control, because the phone's could never have worked.** Two
+shapes shared the choice: pills from `sm`, a dropdown below it. The dropdown's rows were the
+submit buttons of a form inside the panel, and each one closed the panel as it was pressed. React
+flushes a discrete event's state update before the browser performs the click's default action, so
+the form was out of the document by then, and **a form taken out of the document during a click
+never submits**. Verified against Chrome on a page of plain HTML doing the same thing: the
+navigation never starts. The cookie was therefore never written, and the phone's picker did
+nothing at all. One picker replaces both: a pill that moves along a track of two, the chosen
+layout carrying its name and the other drawn as its icon alone, with the name still read out. It
+fits a phone, it is the same control everywhere, and nothing in it closes anything.
+
 **Five reads, run together and reported separately.** Only the board's own failure costs the reader
 anything they came for; a failed roster or label read costs a filter field. The open chore is read
 by uid rather than found in the page, because `?task=` may name one the current filter or page does
 not hold, and a uid that is gone opens the board rather than an error.
+
+**The panel is not modal, because nothing behind it is dimmed.** A dimmed page is what makes an
+overlay modal in fact, and the panel started that way; without the dim the board behind is plainly
+usable, so every piece of modality had to go with it. A focus trap behind a page that looks
+interactive is worse than no trap, since nothing on screen explains why Tab will not leave. A
+transparent full-screen link would swallow presses on a board the reader can see. Freezing the
+page's scroll stops them reading the list the chore came from, which is the point of leaving it
+visible. What is left is a named `role="dialog"` that takes focus on arrival, because it arrives by
+navigation, and closes on the one press in its header, on Escape, or on a press anywhere outside
+it.
+
+**The last two are the reader's only, because the editor has work to lose.** A press outside is how
+an overlay is dismissed, and nothing behind this one is dimmed, so a reader pressing the board
+plainly means to leave the chore. The same press over a half-typed chore would throw it away with
+no warning, which is why `dismissable` is a flag the caller sets rather than something the panel
+does. It listens on `pointerdown` rather than `click`, so a press on a row behind the panel closes
+the chore it holds and still follows the link to the one pressed.
+
+**Escape is the same flag, because in the editor the key already means something else.** It was
+bound unconditionally at first, which read as the standard for a dialog. Inside the form it is the
+key that closes the colour grid and the tag box, and neither stops it bubbling to the document, so
+one press closed the picker and discarded the whole chore with it. Nor is there an undo: the form
+is state, and what was typed is gone. A dialog with visible ways out and no scrim loses little by
+leaving Escape to the panel that has nothing unsaved, and the two dismissals then say one thing
+rather than disagreeing.
+
+**Taking focus is tied to arrival, not to the close href.** The effect that focuses the panel also
+held the Escape listener, so its dependencies were the href and the router, and it ran again on
+every render: each keystroke in the editor moved focus back to the panel and the next character
+went nowhere. Only the first letter of a chore's name ever landed. Splitting the two effects is the
+fix, and it is the right shape anyway, since focus belongs to opening rather than to the target of
+a press. A test caught it only because the router mock returned a fresh object per render, which is
+what the real one must never do.
+
+**The header carries the way out and what the mode puts beside it.** A title there had about 300px
+on a 390px phone next to a 44px press, where a chore's name runs to 100 characters, so the name is
+the body's own heading instead and the bar holds the presses: Complete and Edit while reading,
+Discard and Save while editing. That the editor's Save sits outside its `<form>` is what `form=`
+exists for, and it beats lifting the whole form's state up a level to reach it.
+
+**The facts are one card, and the chore's own state is pills above the name.** Status, priority and
+category are what a reader checks first and they fit on one line, where assigned to, due date,
+repeat, estimated time and photo proof are five labelled rows that only make sense read down. Tiles
+in a row were tried for all of it and dropped: four of them need about 120px each, which a phone
+cannot give, so half the panel's facts reflowed to two by two and the grouping stopped meaning
+anything.
+
+**A new tag is written before the chore is.** A chore's save posts tag names alone, so a colour can
+only be kept by the tag existing in the household, and the choice was between creating it on the
+press or creating it on save. The press wins because the reader sees the tag in its colour straight
+away, and the cost is honest: a discard leaves the tag behind, exactly as adding it on the labels
+screen would. A name the household already holds needs no call at all, and the 409 that says it was
+taken is treated as the tag being there rather than as a failure, a create being the only thing
+that revives a deleted label.
+
+**Deleting is permanent, and Complete is not built.** The backend has both a delete and an archive,
+and archive was turned down because nothing in the UI brings an archived chore back, so it would
+read as a delete that lies. The press confirms in place, the way every other destructive press
+here does. Complete has no endpoint at all yet, so it is a disabled button in both the header and
+the footer rather than a press that does nothing: it keeps its brand colour, since a greyed primary
+action reads as a bug, and the reason rides in its name where there is no room beside it.
+
+**Five reads, run together and reported separately.** Only the board's own failure costs the reader
+anything they came for; a failed roster or label read costs a filter field. The open chore is read
+by uid rather than found in the page, because `?task=` may name one the current filter or page does
+not hold, and a uid that is gone opens the board rather than an error.
+
+**The author is a pill, like the assignee.** Who added the chore and who it is for are both a
+membership with a picture, so `MemberChip` draws them and `AssigneeChip` keeps only its own empty
+state. The line reads "Added by X, 2 days ago", which `sinceLabel` words against the one instant
+the whole screen is measured against.
+
+**An empty box in a scrolling flex column needs `shrink-0`.** The picture asks for 176px and was
+drawn at 63 on a 390x844 phone: a flex item's automatic minimum is its content, and a background
+image is not content, so the box absorbed the overflow instead of the column scrolling. The
+editor's own picker never showed this because its preview carries `shrink-0` already. Measured.
 
 ### A group's picture is an uploaded file, and every piece of that is forced
 
@@ -2632,7 +2899,7 @@ The full catalog is the spec. This is what a _client_ needs that the spec can't 
 | Users             | `/api/users`                   | `GET /me` is the caller's own profile and **the source of their numeric `id`**, needed for `?userId=` filters. `GET /api/users` is platform-ADMIN only. `PUT /{uid}/role` is SUPER_ADMIN only and has no place in the product UI. |
 | Groups            | `/api/groups`                  | `GET /mine` is the one to build on: it returns `myRole`, `memberCount` and `dateJoined` per group, takes `q`, a repeatable `role` and a `sort`, and refuses an unknown value with a `400`. `GET /{uid}` carries the first two as well. `POST /join` takes `{ inviteCode }`. `POST /{uid}/invite-code` rotates and **invalidates every outstanding invite**. `inviteCode` is sent only to that group's admin. |
 | Group members     | `/api/group-members`           | The roster is `GET /api/groups/{uid}/members`, not here: `?groupId=` is gone. Addressed by the membership's own `uid`. Role change is `PATCH /{memberUid}/role` with `{ role }` in the **body**. `DELETE /{memberUid}` is both "remove" and "leave". `POST` is SUPER_ADMIN-only platform tooling, so a group admin cannot add anyone. |
-| Tasks             | `/api/tasks`                   | `GET` needs `?groupId=`. Addressed by `uid`. Creating one requires `groupId`, `createdById` (a GroupMember id), `name`, `priority`, `status`. |
+| Tasks             | `/api/tasks`                   | `GET` needs `?groupId=`. Addressed by `uid`. Creating one requires `groupId`, `createdById` (a GroupMember id), `name`, `status`. `priority` was required and is not any more. |
 | Task completions  | `/api/task-completions`        | `GET` needs `?taskId=`, or `/member/{groupMemberId}`. Append-only, so "undo a completion" is not available. |
 | Categories / Tags | `/api/categories`, `/api/tags` | Group-scoped, `?groupId=`, numeric ids. Duplicate name in a group is a `409`. |
 | Notifications     | `/api/notifications`           | Read-only plus `PATCH /{id}/read`. All GETs need `?userId=`. `/unread/count` is cheap enough to poll for a badge. |

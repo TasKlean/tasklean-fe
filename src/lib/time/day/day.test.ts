@@ -5,6 +5,7 @@ import {
   dayStart,
   fullTime,
   isDayKey,
+  numericDate,
   shiftDays,
   shortDate,
   timeOfDay,
@@ -71,6 +72,22 @@ describe("shortDate and fullTime", () => {
 
   it("spells the whole thing out for a title", () => {
     expect(fullTime(new Date("2026-11-08T13:05:00Z"), "UTC")).toBe("8 Nov 2026, 13:05");
+  });
+});
+
+describe("numericDate", () => {
+  const now = new Date("2026-03-10T09:00:00Z");
+
+  it("leaves the year off a date in the year being read in", () => {
+    expect(numericDate(new Date("2026-03-11T18:00:00Z"), now, "Europe/Ljubljana")).toBe("11/3");
+  });
+
+  it("puts the year on one outside it, which a yearly chore reaches", () => {
+    expect(numericDate(new Date("2027-01-02T18:00:00Z"), now, "Europe/Ljubljana")).toBe("2/1/27");
+  });
+
+  it("dates the day the reader's zone is on", () => {
+    expect(numericDate(new Date("2026-03-11T23:30:00Z"), now, "Pacific/Auckland")).toBe("12/3");
   });
 });
 

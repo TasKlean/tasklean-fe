@@ -13,7 +13,7 @@ const BEFORE = [
 ];
 
 const AFTER = [
-  "Today's tasks, each with a name and a priority on it",
+  "Today's tasks in one list, with a priority where it matters",
   "Repeating tasks that come back on their own",
   "A record of what was done, without asking",
   "A shared view, so noticing is not one person's job",

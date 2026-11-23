@@ -70,7 +70,7 @@ export type TaskBoard = {
 
 export type TaskWriteRequest = {
   name: string;
-  priority: TaskPriority;
+  priority?: TaskPriority;
   description?: string;
   categoryId?: number;
   tagNames?: string[];

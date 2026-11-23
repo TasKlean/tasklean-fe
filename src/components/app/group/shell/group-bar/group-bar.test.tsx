@@ -4,15 +4,21 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/app/groups/g1" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/app/groups/g1",
+  useSearchParams: () => new URLSearchParams("priority=high"),
+}));
 
 import { GroupBar } from "@/components/app/group/shell/group-bar/group-bar";
 
 describe("GroupBar", () => {
-  it("offers adding a task, which is not built yet", () => {
+  it("opens the new-chore form over the board the reader is on, filter and all", () => {
     render(<GroupBar uid="g1" admin inviteCode={null} />);
 
-    expect(screen.getByRole("button", { name: "Add task, coming soon" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Add task" })).toHaveAttribute(
+      "href",
+      "/app/groups/g1?priority=high&task=new",
+    );
   });
 
   it("keeps the group's sections behind a press", async () => {

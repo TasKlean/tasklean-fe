@@ -17,32 +17,16 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import { Fragment, type KeyboardEvent, useId, useState } from "react";
-
-export type SelectOption = {
-  value: string;
-  label: string;
-  // Draws a rule above this row, splitting the list into blocks. Decoration,
-  // because a listbox may own nothing but options, so the keyboard steps past it.
-  divider?: boolean;
-};
-
-type FilterSelectProps = {
-  // Names the control for assistive tech, since the legend beside it is not a
-  // `<label>` a combobox can be tied to.
-  label: string;
-  name: string;
-  options: readonly SelectOption[];
-  value: string;
-};
+import type { FilterSelectProps } from "@/components/common/filter-select/filter-select.types";
 
 const TRIGGER =
-  "bg-card border-border/60 text-body-md text-foreground focus-visible:ring-ring px-space-sm gap-space-sm flex min-h-10 w-full items-center justify-between rounded-full border text-left focus-visible:ring-2 focus-visible:outline-none";
+  "bg-card border-border/60 text-body-md text-foreground focus-visible:ring-ring px-space-md gap-space-sm flex min-h-10 w-full items-center justify-between rounded-full border text-left focus-visible:ring-2 focus-visible:outline-none";
 
 const LIST =
   "bg-card border-border/60 p-space-xs gap-space-xs mt-space-xs scrollbar-slim flex max-h-60 w-full flex-col overflow-y-auto rounded-xl border";
 
 const OPTION =
-  "px-space-sm gap-space-sm text-body-md text-foreground flex min-h-10 items-center justify-between rounded-full text-left";
+  "px-space-md gap-space-sm text-body-md text-foreground flex min-h-10 items-center justify-between rounded-full text-left";
 
 /** Renders the field, its own dropdown and the input that posts it. */
 export function FilterSelect({ label, name, options, value }: Readonly<FilterSelectProps>) {

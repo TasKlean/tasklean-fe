@@ -10,10 +10,14 @@ export type SwatchOption = {
 };
 
 export type SwatchSelectProps = {
-  // The field name the form posts, carried by a hidden input.
-  name: string;
+  // The field name the form posts, carried by a hidden input. Left out by a
+  // picker inside another form, which has no value of its own to post.
+  name?: string;
   // Names the control, and prefixes the trigger's own name: "Colour: Teal".
   label: string;
+  // Which edge of the trigger the grid hangs from. "end" where the trigger
+  // sits at the right of its row and a grid to its right would run off screen.
+  align?: "start" | "end";
   value: string;
   options: readonly SwatchOption[];
   // What the trigger draws for a stored value none of the options holds, which

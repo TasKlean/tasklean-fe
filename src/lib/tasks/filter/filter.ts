@@ -26,6 +26,16 @@ import {
 } from "@/lib/tasks/filter/filter.types";
 import { QUERY_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
+// The one value `?task=` carries that is not a uid. Safe as a reserved value
+// because a task uid is a UUID, the same reasoning the `new` and `join` group
+// segments already rest on.
+export const NEW_TASK = "new";
+
+// What `?edit=` carries to open the panel on the form rather than the facts.
+// A row cannot reach the panel's own state, so the request crosses the
+// navigation in the URL, exactly as `?task=new` does.
+export const EDIT_TASK = "1";
+
 export const DEFAULT_SORT: TaskSort = "due-asc";
 
 // What the endpoint answers when no status is sent, so writing it would be
@@ -221,6 +231,38 @@ export function openTaskHref(path: string, query: TaskQuery, taskUid: string): s
   params.set("task", taskUid);
 
   return `${path}?${params}`;
+}
+
+/**
+ * Builds the URL that opens one chore with its editor already up.
+ *
+ * @returns The same link as `openTaskHref` plus `edit=1`. For a press that
+ * does not sit inside the panel, which is the only place editing is state.
+ */
+export function editTaskHref(path: string, query: TaskQuery, taskUid: string): string {
+  const params = taskQueryParams(query);
+  params.set("task", taskUid);
+  params.set("edit", EDIT_TASK);
+
+  return `${path}?${params}`;
+}
+
+/**
+ * Builds the URL that opens the form for a chore that does not exist yet.
+ *
+ * @param path The screen the press sits on, which is the board only sometimes:
+ * the form belongs to the board, so a press elsewhere goes there first.
+ * @param search That screen's query string, carried only where it is the
+ * board's own, so a filtered board is still filtered when the panel closes.
+ * @returns The board's URL with `?task=new` on it. For the chrome, which knows
+ * the path and the query but holds no `TaskQuery` of its own to rebuild.
+ */
+export function addTaskHref(groupUid: string, path: string, search: string): string {
+  const board = `/app/groups/${groupUid}`;
+  const params = new URLSearchParams(path === board ? search : "");
+  params.set("task", NEW_TASK);
+
+  return `${board}?${params}`;
 }
 
 /**

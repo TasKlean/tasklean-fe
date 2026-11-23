@@ -2,12 +2,11 @@
 
 // The zone is the drop target, so the dashed border is there at all times and
 // only its colour changes: a border that appeared on a drag would shift
-// everything inside it. The padding is pulled back out again so the label still
-// lines up with the fields above, while the outline sits outside them.
+// everything inside it, and the dashes are what say the block takes a file.
 const ZONE =
-  "gap-space-sm p-space-sm -mx-space-sm flex flex-col rounded-2xl border-2 border-dashed transition-colors";
+  "gap-space-sm p-space-md flex flex-col rounded-2xl border-2 border-dashed transition-colors";
 
-export const ZONE_IDLE = `${ZONE} border-transparent`;
+export const ZONE_IDLE = `${ZONE} border-border/60`;
 
 export const ZONE_OVER = `${ZONE} border-primary bg-muted`;
 

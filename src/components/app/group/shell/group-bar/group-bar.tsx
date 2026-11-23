@@ -12,7 +12,8 @@
 "use client";
 
 import { Ellipsis, Plus } from "lucide-react";
-import { usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useId, useState } from "react";
 import {
   ACTIVE,
@@ -24,6 +25,7 @@ import { InviteControl } from "@/components/app/group/shell/group-bar/invite-con
 import { NavEntry } from "@/components/app/group/shell/group-nav/nav-entry";
 import { navSections } from "@/components/app/group/shell/group-nav/nav-sections";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
+import { addTaskHref } from "@/lib/tasks/filter/filter";
 
 type GroupBarProps = {
   uid: string;
@@ -36,10 +38,9 @@ type GroupBarProps = {
 
 const BAR = "gap-space-sm bottom-space-md inset-x-margin fixed z-40 flex items-center lg:hidden";
 
-// The one thing a group is for, so it wears the brand colour even while it is
-// disabled: what it will do is worth showing before it does it.
+// The one thing a group is for, so it wears the brand colour.
 const TASK =
-  "bg-primary text-primary-foreground shadow-level-3 text-label-lg gap-space-sm flex min-h-13 items-center justify-center rounded-full whitespace-nowrap disabled:cursor-not-allowed";
+  "bg-primary text-primary-foreground shadow-level-3 text-label-lg gap-space-sm flex min-h-13 items-center justify-center rounded-full whitespace-nowrap";
 
 // The panels hang off this rather than off the control that opened them, which
 // is what keeps one as wide as the code it holds without leaving the screen, and
@@ -53,6 +54,7 @@ const MENU_ITEM =
 /** Renders the controls a group offers where there is no room for a rail. */
 export function GroupBar({ uid, admin, inviteCode }: Readonly<GroupBarProps>) {
   const pathname = usePathname();
+  const search = useSearchParams();
   const { open, toggle, close, root, trigger: triggerRef } = useDisclosure();
   const [panel, setPanel] = useState<"invite" | "menu">("invite");
   const menuPanel = useId();
@@ -83,15 +85,14 @@ export function GroupBar({ uid, admin, inviteCode }: Readonly<GroupBarProps>) {
 
   return (
     <div className={BAR}>
-      <button
-        type="button"
-        disabled
-        aria-label="Add task, coming soon"
+      <Link
+        href={addTaskHref(uid, pathname, search.toString())}
+        aria-label="Add task"
         className={`${TASK} ${named === "task" ? "px-space-lg flex-2" : "px-space-md shrink-0"}`}
       >
         <Plus className="size-5 shrink-0" aria-hidden />
         <span className={named === "task" ? "" : "hidden"}>Add task</span>
-      </button>
+      </Link>
 
       <div ref={root} className={SHELF}>
         {inviteCode ? (

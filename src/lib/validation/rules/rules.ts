@@ -17,6 +17,7 @@ import { GROUP_ROLES } from "@/lib/groups/groups.types";
 import { NOTIFICATION_TYPES } from "@/lib/notifications/settings/settings.types";
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, UPLOAD_PURPOSES } from "@/lib/uploads/uploads.types";
 import { AUDIT_FILTER_TYPES } from "@/lib/audit/filter/filter.types";
+import { RECURRENCE_TYPES, TASK_PRIORITY_VALUES } from "@/lib/tasks/tasks/tasks.types";
 
 // Stricter than the backend's `@Email`, which accepts a dotless domain. The
 // classes exclude the dot that separates the labels, so nothing backtracks.
@@ -61,6 +62,10 @@ export const TASK_DESCRIPTION_MAX_LENGTH = 2000;
 // sides: a day's worth is the ceiling.
 export const TASK_MINUTES_MIN = 1;
 export const TASK_MINUTES_MAX = 1440;
+
+// `TaskCreateRequest.tagNames`'s own `@Size`. Exported because the picker stops
+// offering more at the same number.
+export const TASK_TAGS_MAX = 5;
 
 // The icon column's own `@Size`. Shape only: which names the set holds is the
 // picker's business, and one it does not know draws nothing rather than failing.
@@ -322,6 +327,127 @@ export const labelIdRule = z.pipe(
   z.transform(Number),
 );
 
+/** A label a chore may be filed under, where nothing at all is none. */
+export const optionalLabelIdRule = z.optional(
+  z.pipe(
+    z.union([z.string().check(z.regex(/^\d+$/, "Pick a category from the list.")), z.literal("")]),
+    z.transform((value) => (value === "" ? undefined : Number(value))),
+  ),
+);
+
+/** What a chore is called, which is the one thing it cannot be saved without. */
+export const taskNameRule = z
+  .string({ error: "Name this chore." })
+  .check(
+    z.trim(),
+    z.minLength(1, "Name this chore."),
+    z.maxLength(TASK_NAME_MAX_LENGTH, `Use ${TASK_NAME_MAX_LENGTH} characters or fewer.`),
+  );
+
+/** What a chore involves, which is optional and generously bounded. */
+export const taskDescriptionRule = z.optional(
+  z.pipe(
+    z
+      .string()
+      .check(
+        z.trim(),
+        z.maxLength(
+          TASK_DESCRIPTION_MAX_LENGTH,
+          `Use ${TASK_DESCRIPTION_MAX_LENGTH} characters or fewer.`,
+        ),
+      ),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** How urgent a chore is, where nothing at all means nobody said. */
+export const taskPriorityRule = z.optional(
+  z.pipe(
+    z.union([z.enum(TASK_PRIORITY_VALUES), z.literal("")]),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** How often a chore comes back, where nothing at all means it happens once. */
+export const recurrenceRule = z.optional(
+  z.pipe(
+    z.union([z.enum(RECURRENCE_TYPES), z.literal("")]),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/**
+ * How long a chore takes, typed as text and bounded on both sides.
+ *
+ * Empty is not zero: the field is left out of the request entirely, where a 0
+ * would fail the backend's own minimum.
+ */
+export const taskMinutesRule = z.optional(
+  z.pipe(
+    z.pipe(
+      z.string().check(z.trim()),
+      z.transform((value) => (value === "" ? undefined : Number(value))),
+    ),
+    z.optional(
+      z
+        .int({ error: "Enter the minutes as a whole number." })
+        .check(
+          z.gte(TASK_MINUTES_MIN, `Give it at least ${TASK_MINUTES_MIN} minute.`),
+          z.lte(TASK_MINUTES_MAX, `A chore cannot take more than ${TASK_MINUTES_MAX} minutes.`),
+        ),
+    ),
+  ),
+);
+
+/**
+ * The labels on a chore, as the names the backend matches and creates by.
+ *
+ * Folded case-insensitively before the cap, because the backend matches that
+ * way: `Weekly` and `weekly` are one label and must not cost two of the five.
+ */
+export const tagNamesRule = z.pipe(
+  z.pipe(
+    z.array(z.string().check(z.trim(), z.maxLength(LABEL_NAME_MAX_LENGTH))),
+    z.transform((names) => {
+      const kept: string[] = [];
+      const seen = new Set<string>();
+      for (const name of names) {
+        const folded = name.toLowerCase();
+        if (name === "" || seen.has(folded)) continue;
+        seen.add(folded);
+        kept.push(name);
+      }
+      return kept;
+    }),
+  ),
+  z
+    .array(z.string())
+    .check(z.maxLength(TASK_TAGS_MAX, `A chore takes ${TASK_TAGS_MAX} tags at most.`)),
+);
+
+/** A clock time as a form posts one, which is optional beside its date. */
+export const timeOfDayRule = z.optional(
+  z.pipe(
+    z
+      .string()
+      .check(z.trim(), z.regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, "That time cannot be used.")),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/**
+ * A tickbox, which posts a value when it is on and nothing at all when it is
+ * off.
+ *
+ * Either kind of input, because the same schema runs twice: a form posts the
+ * box's value as text, where the component validating its own state holds the
+ * boolean it rendered the box from.
+ */
+export const flagRule = z.pipe(
+  z.optional(z.union([z.string(), z.boolean()])),
+  z.transform((value) => value === true || (typeof value === "string" && value !== "")),
+);
+
 /** One of the two roles a membership can hold. */
 export const groupRoleRule = z.enum(GROUP_ROLES, { error: "Pick a role." });
 
@@ -399,7 +525,9 @@ export const actorRefRule = z.optional(
  */
 export const dayRule = z.optional(
   z.pipe(
-    z.string().check(z.trim(), z.regex(/^\d{4}-\d{2}-\d{2}$/, "That date cannot be used.")),
+    // Empty passes the pattern rather than failing it, because a field left
+    // blank is no date: without that the transform below never sees one.
+    z.string().check(z.trim(), z.regex(/^(\d{4}-\d{2}-\d{2})?$/, "That date cannot be used.")),
     z.transform((value) => value || undefined),
   ),
 );

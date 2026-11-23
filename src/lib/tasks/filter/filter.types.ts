@@ -86,6 +86,9 @@ export type WhoChoice = {
 export type LabelChoice = {
   id: number;
   name: string;
-  // The label's own stored hex, drawn as the dot beside its name.
+  // The label's own stored hex, which tints the pill it is named on.
   color?: string;
+  // A name from the category icon set. A tag has none, and a category may
+  // carry one the set does not hold, which draws the dot instead.
+  icon?: string;
 };

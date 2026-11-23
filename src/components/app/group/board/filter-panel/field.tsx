@@ -12,6 +12,7 @@
 
 import { Minus, Plus } from "lucide-react";
 import { type ReactNode, useId } from "react";
+import { Strip } from "@/components/app/group/board/filter-panel/strip";
 
 type FieldProps = {
   legend: string;
@@ -45,6 +46,7 @@ export function Field({ legend, layout = "wrap", open, onToggle, children }: Rea
   const bodyId = useId();
 
   const Icon = open ? Minus : Plus;
+  const body = open ? BODY[layout] : "hidden";
 
   return (
     // `min-w-0` is load-bearing: a fieldset defaults to `min-width: min-content`
@@ -65,9 +67,15 @@ export function Field({ legend, layout = "wrap", open, onToggle, children }: Rea
         </button>
       </legend>
 
-      <div id={bodyId} className={open ? BODY[layout] : "hidden"}>
-        {children}
-      </div>
+      {layout === "strip" ? (
+        <Strip id={bodyId} className={body}>
+          {children}
+        </Strip>
+      ) : (
+        <div id={bodyId} className={body}>
+          {children}
+        </div>
+      )}
     </fieldset>
   );
 }

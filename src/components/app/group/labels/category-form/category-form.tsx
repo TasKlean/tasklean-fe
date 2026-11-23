@@ -131,7 +131,7 @@ export function CategoryForm({
       </div>
 
       <div className={FORM_CONTROLS}>
-        <ColorPicker value={fields.color} onChange={(color) => change({ color })} />
+        <ColorPicker name="color" value={fields.color} onChange={(color) => change({ color })} />
 
         <IconPicker value={fields.icon} onChange={(icon) => change({ icon })} />
 

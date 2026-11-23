@@ -9,7 +9,7 @@
  */
 
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
-import { dayKey, shiftDays, shortDate } from "@/lib/time/day/day";
+import { dayKey, numericDate, shiftDays, shortDate } from "@/lib/time/day/day";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 // How a due date is painted. `overdue` is the only one that alarms; `soon` is
@@ -47,4 +47,20 @@ export function dueLabel(task: Task, now: Date, timeZone: string): DueLabel | nu
   if (key === shiftDays(today, 1)) return { text: "Due tomorrow", tone: "soon", title };
 
   return { text: `Due ${title}`, tone: "later", title };
+}
+
+/**
+ * Dates a chore in digits, for the column at the head of a row.
+ *
+ * @returns The same tone the worded label carries, so the numbers alone still
+ * say a chore is late, and that wording as the title: a date in a column this
+ * narrow cannot also say "tomorrow".
+ */
+export function dueDigits(task: Task, now: Date, timeZone: string): DueLabel | null {
+  const due = parseApiDateOrNull(task.nextDueDate);
+  const label = dueLabel(task, now, timeZone);
+
+  if (!due || !label) return null;
+
+  return { text: numericDate(due, now, timeZone), tone: label.tone, title: label.text };
 }

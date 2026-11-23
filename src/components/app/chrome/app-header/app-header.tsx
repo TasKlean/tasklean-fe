@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import { AddTaskButton } from "@/components/app/chrome/add-task-button";
+import { AddTaskButton } from "@/components/app/chrome/add-task-button/add-task-button";
 import { HeaderBar } from "@/components/app/chrome/app-header/header-bar";
 import { GroupBreadcrumb } from "@/components/app/chrome/group-breadcrumb/group-breadcrumb";
 import { GroupSwitcher } from "@/components/app/chrome/group-switcher/group-switcher";

@@ -1,18 +1,30 @@
 import type { Metadata } from "next";
+import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
+import { loadBoard } from "@/app/(app)/app/groups/[uid]/page.helpers";
 import { BoardBar } from "@/components/app/group/board/board-bar/board-bar";
 import { TaskList } from "@/components/app/group/board/task-list/task-list";
 import { TaskPager } from "@/components/app/group/board/task-pager/task-pager";
 import { TaskPanel } from "@/components/app/group/board/task-panel/task-panel";
+import { TaskView } from "@/components/app/group/board/task-panel/task-view/task-view";
+import { bylineLabel } from "@/components/app/group/board/task-panel/task-view/task-view.helpers";
 import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { LoadError } from "@/components/common/load-error";
-import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import { loadBoard } from "@/app/(app)/app/groups/[uid]/page.helpers";
 import { getGroup } from "@/lib/groups/groups";
 import { groupLabel } from "@/lib/groups/labels/labels";
-import { boardHref, narrowsBoard, openTaskHref, taskQuery } from "@/lib/tasks/filter/filter";
+import {
+  boardHref,
+  EDIT_TASK,
+  editTaskHref,
+  narrowsBoard,
+  NEW_TASK,
+  openTaskHref,
+  taskQuery,
+} from "@/lib/tasks/filter/filter";
 import type { TaskSearchParams } from "@/lib/tasks/filter/filter.types";
-import { readTimeZone } from "@/lib/time/zone/zone-cookie";
+import { canEditTask } from "@/lib/tasks/permissions/permissions";
 import { readBoardView } from "@/lib/tasks/view/view";
+import { taskValues } from "@/lib/tasks/write/write";
+import { readTimeZone } from "@/lib/time/zone/zone-cookie";
 
 /**
  * Titles the tab with the group's own name.
@@ -60,8 +72,11 @@ export default async function GroupTasksPage({
   const path = `/app/groups/${uid}`;
   const myMemberUid = group.myMemberUid ?? null;
 
+  const asking = one(asked.task);
+
   const [loaded, timeZone, view] = await Promise.all([
-    loadBoard(uid, query, myMemberUid, one(asked.task)),
+    // Nothing to read for a chore being created, which has no uid yet.
+    loadBoard(uid, query, myMemberUid, asking === NEW_TASK ? "" : asking),
     readTimeZone(),
     readBoardView(),
   ]);
@@ -72,6 +87,25 @@ export default async function GroupTasksPage({
   const now = new Date();
   const items = board.items ?? [];
   const closeHref = boardHref(path, query, { page: query.page });
+  const editable = open ? canEditTask(open, myMemberUid, group.myRole) : false;
+
+  // Only where the chore is the reader's to change: the panel would otherwise
+  // open a form on a chore every save of which the backend refuses.
+  const startEditing = editable && one(asked.edit) === EDIT_TASK;
+
+  const creating = asking === NEW_TASK;
+  const labels = categories.flatMap((category) =>
+    category.id && category.name
+      ? [
+          {
+            id: category.id,
+            name: category.name,
+            color: category.color,
+            icon: category.icon,
+          },
+        ]
+      : [],
+  );
 
   return (
     // The cards layout gives up the app's column so a wide screen fits more
@@ -84,24 +118,16 @@ export default async function GroupTasksPage({
         query={query}
         view={view}
         members={members}
-        categories={categories.flatMap((category) =>
-          category.id && category.name
-            ? [{ id: category.id, name: category.name, color: category.color }]
-            : [],
-        )}
+        categories={labels}
         tags={tags}
       />
 
       {failure ? (
         <LoadError title="The board would not load" message={failure} />
       ) : (
-        // The panel's column is declared only while a chore is open, or a
-        // closed board gives up 22rem of width to an empty track.
-        <div
-          className={`gap-space-md grid grid-cols-1 items-start ${open ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : ""}`}
-        >
+        <>
           {/* A container, so the cards count their columns off the width the
-              board actually has: an open chore takes 22rem of it. */}
+              board has rather than the window's. */}
           <div className="gap-space-md @container flex flex-col">
             <TaskList
               tasks={items}
@@ -110,6 +136,10 @@ export default async function GroupTasksPage({
               narrowed={narrowsBoard(query)}
               path={path}
               hrefFor={(taskUid) => openTaskHref(path, query, taskUid)}
+              editHrefFor={(taskUid) => editTaskHref(path, query, taskUid)}
+              groupUid={uid}
+              myMemberUid={myMemberUid}
+              myRole={group.myRole}
               now={now}
               timeZone={timeZone}
             />
@@ -124,16 +154,36 @@ export default async function GroupTasksPage({
             />
           </div>
 
-          {open ? (
+          {open || creating ? (
             <TaskPanel
-              task={open}
-              category={categories.find((one) => one.id === open?.categoryId)}
+              view={
+                open ? (
+                  <TaskView
+                    task={open}
+                    category={categories.find((held) => held.id === open.categoryId)}
+                    now={now}
+                    timeZone={timeZone}
+                  />
+                ) : null
+              }
+              label={open?.name ?? "Task details"}
+              creating={creating}
+              startEditing={startEditing}
+              groupUid={uid}
+              taskUid={open?.uid}
+              values={taskValues(open ?? null, timeZone)}
+              photoUid={open?.photoUid ?? null}
+              categories={labels}
+              tags={tags}
+              members={members}
+              byline={bylineLabel(open ?? null, now, timeZone)}
+              canEdit={editable}
+              path={path}
+              query={query}
               closeHref={closeHref}
-              now={now}
-              timeZone={timeZone}
             />
           ) : null}
-        </div>
+        </>
       )}
     </section>
   );

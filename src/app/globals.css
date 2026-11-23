@@ -420,3 +420,29 @@ button:not(:disabled),
     border-color: color-mix(in srgb, var(--label-color) 48%, transparent);
   }
 }
+
+/* The same colour on a label that is a choice, deepened once the input inside
+   it is checked, so a strip of them reads as colours whether or not one is
+   picked. One utility rather than a second behind `has-[:checked]:`, which
+   would set the same two properties and leave the stylesheet's order to
+   settle it. The text keeps the foreground token: nothing is filled with a
+   stored hex, so no colour can come out unreadable. */
+@utility label-pill {
+  background-color: color-mix(in srgb, var(--label-color) 16%, transparent);
+  border-color: color-mix(in srgb, var(--label-color) 38%, transparent);
+
+  &:has(:checked) {
+    background-color: color-mix(in srgb, var(--label-color) 38%, transparent);
+    border-color: var(--label-color);
+  }
+
+  @variant dark {
+    background-color: color-mix(in srgb, var(--label-color) 26%, transparent);
+    border-color: color-mix(in srgb, var(--label-color) 48%, transparent);
+
+    &:has(:checked) {
+      background-color: color-mix(in srgb, var(--label-color) 52%, transparent);
+      border-color: var(--label-color);
+    }
+  }
+}

@@ -9,7 +9,9 @@
 
 // One constant per kind of image, matching the backend's `UploadPurpose`, where
 // each carries its own authorization rule.
-export const UPLOAD_PURPOSES = ["GROUP_PHOTO", "USER_PHOTO"] as const;
+// `TASK_PHOTO` targets the group, not the task, so a chore being created can
+// carry a picture where a group being created cannot.
+export const UPLOAD_PURPOSES = ["GROUP_PHOTO", "USER_PHOTO", "TASK_PHOTO"] as const;
 
 export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number];
 

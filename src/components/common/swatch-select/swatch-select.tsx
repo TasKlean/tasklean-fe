@@ -31,12 +31,16 @@ const CELL = "grid size-11 place-items-center rounded-full ring-offset-2 ring-of
 // the five columns are squeezed into one cell's width. The padding is what the
 // chosen cell's ring and its offset need, or the ring is clipped at the edge.
 const PANEL =
-  "bg-card border-input shadow-level-2 p-space-sm mt-space-xs absolute left-0 z-10 grid w-max grid-cols-5 gap-0.5 rounded-md border";
+  "bg-card border-input shadow-level-2 p-space-sm mt-space-xs absolute z-10 grid w-max grid-cols-5 gap-0.5 rounded-md border";
+
+// The caller names the edge, as every other panel in the app does.
+const EDGE = { start: "left-0", end: "right-0" } as const;
 
 /** Renders the chosen swatch, and the grid a press opens. */
 export function SwatchSelect({
   name,
   label,
+  align = "start",
   value,
   options,
   fallback,
@@ -110,7 +114,7 @@ export function SwatchSelect({
 
   return (
     <div className="relative">
-      <input type="hidden" name={name} value={value} />
+      {name ? <input type="hidden" name={name} value={value} /> : null}
 
       <button
         type="button"
@@ -138,7 +142,7 @@ export function SwatchSelect({
           // Keeps focus on the button, so a press on a cell is not preceded by
           // a blur that closes the grid before the click lands.
           onMouseDown={(event) => event.preventDefault()}
-          className={PANEL}
+          className={`${PANEL} ${EDGE[align]}`}
         >
           {options.map((option, index) => (
             <button

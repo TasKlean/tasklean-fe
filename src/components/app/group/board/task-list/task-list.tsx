@@ -9,6 +9,7 @@ import { NoTasks } from "@/components/app/group/board/no-tasks/no-tasks";
 import { TaskCard } from "@/components/app/group/board/task-card/task-card";
 import { TaskRow } from "@/components/app/group/board/task-row/task-row";
 import type { Category } from "@/lib/labels/categories/categories.types";
+import { canEditTask } from "@/lib/tasks/permissions/permissions";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 import type { BoardView } from "@/lib/tasks/view/view.types";
 
@@ -21,6 +22,13 @@ type TaskListProps = {
   path: string;
   // Builds the link that opens one chore, which is this path plus `?task=`.
   hrefFor: (uid: string) => string;
+  // The same link with the editor already up, which a row's menu leads to.
+  editHrefFor: (uid: string) => string;
+  groupUid: string;
+  // Who the reader is here, which decides whether a row carries the menu that
+  // edits and deletes it. UX only: each press handles its own 403.
+  myMemberUid: string | null;
+  myRole: string | undefined;
   now: Date;
   timeZone: string;
 };
@@ -39,6 +47,10 @@ export function TaskList({
   narrowed,
   path,
   hrefFor,
+  editHrefFor,
+  groupUid,
+  myMemberUid,
+  myRole,
   now,
   timeZone,
 }: Readonly<TaskListProps>) {
@@ -60,7 +72,13 @@ export function TaskList({
         return view === "cards" ? (
           <TaskCard key={task.uid} {...shared} />
         ) : (
-          <TaskRow key={task.uid} {...shared} />
+          <TaskRow
+            key={task.uid}
+            {...shared}
+            editHref={editHrefFor(task.uid ?? "")}
+            groupUid={groupUid}
+            canEdit={canEditTask(task, myMemberUid, myRole)}
+          />
         );
       })}
     </ul>

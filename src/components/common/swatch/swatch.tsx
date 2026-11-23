@@ -5,7 +5,7 @@ type SwatchProps = {
   color?: string;
 };
 
-/** Renders a dot in a label's own colour, so a long strip is scannable. */
+/** Renders a dot in a label's own colour, so a row of labels is scannable. */
 export function Swatch({ color }: Readonly<SwatchProps>) {
   return (
     <span

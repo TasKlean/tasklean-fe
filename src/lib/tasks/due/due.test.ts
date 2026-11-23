@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueLabel } from "@/lib/tasks/due/due";
+import { dueDigits, dueLabel } from "@/lib/tasks/due/due";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 const ZONE = "Europe/Ljubljana";
@@ -43,5 +43,33 @@ describe("dueLabel", () => {
     const label = dueLabel(task({ nextDueDate: "2026-11-21T23:30:00" }), NOW, ZONE);
 
     expect(label).toMatchObject({ text: "Due tomorrow" });
+  });
+});
+
+describe("dueDigits", () => {
+  it("says nothing for a chore nobody put a date on", () => {
+    expect(dueDigits(task({}), NOW, ZONE)).toBeNull();
+  });
+
+  it("dates a chore in digits, keeping the wording as the title", () => {
+    const digits = dueDigits(task({ nextDueDate: "2026-11-22T07:00:00" }), NOW, ZONE);
+
+    expect(digits).toMatchObject({ text: "22/11", tone: "soon", title: "Due tomorrow" });
+  });
+
+  it("carries the tone, so the numbers alone still say a chore is late", () => {
+    const digits = dueDigits(
+      task({ nextDueDate: "2026-11-20T08:00:00", overdue: true }),
+      NOW,
+      ZONE,
+    );
+
+    expect(digits).toMatchObject({ text: "20/11", tone: "overdue" });
+  });
+
+  it("reads the day the reader's own zone is on, not the server's", () => {
+    const digits = dueDigits(task({ nextDueDate: "2026-11-22T23:30:00" }), NOW, "Pacific/Auckland");
+
+    expect(digits?.text).toBe("23/11");
   });
 });

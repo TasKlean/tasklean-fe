@@ -3,6 +3,7 @@ import {
   activeFilterCount,
   boardHref,
   carriedFields,
+  editTaskHref,
   openTaskHref,
   DEFAULT_STATES,
   narrowsBoard,
@@ -234,6 +235,20 @@ describe("openTaskHref", () => {
   it("keeps the filter and the page, so closing it returns to the same board", () => {
     expect(openTaskHref(PATH, query({ overdue: true, page: 2 }), "t1")).toBe(
       `${PATH}?overdue=1&page=2&task=t1`,
+    );
+  });
+});
+
+describe("editTaskHref", () => {
+  const PATH = "/app/groups/g1";
+
+  it("opens a chore on its editor, which a row cannot ask for any other way", () => {
+    expect(editTaskHref(PATH, query(), "t1")).toBe(`${PATH}?task=t1&edit=1`);
+  });
+
+  it("keeps the filter, so discarding returns to the same board", () => {
+    expect(editTaskHref(PATH, query({ overdue: true, page: 2 }), "t1")).toBe(
+      `${PATH}?overdue=1&page=2&task=t1&edit=1`,
     );
   });
 });

@@ -13,9 +13,10 @@
 
 import { useState } from "react";
 import { Field } from "@/components/app/group/board/filter-panel/field";
-import { Swatch } from "@/components/app/group/board/filter-panel/swatch";
+import { LabelMark } from "@/components/app/group/board/label-mark/label-mark";
 import { FilterChip } from "@/components/common/filter-chip/filter-chip";
-import { FilterSelect, type SelectOption } from "@/components/common/filter-select/filter-select";
+import { FilterSelect } from "@/components/common/filter-select/filter-select";
+import type { SelectOption } from "@/components/common/filter-select/filter-select.types";
 import {
   appliedAxes,
   PRIORITY_OPTIONS,
@@ -168,7 +169,9 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
                 value={String(category.id)}
                 label={category.name}
                 defaultChecked={query.categoryId === category.id}
-                mark={<Swatch color={category.color} />}
+                tone="label"
+                color={category.color}
+                mark={<LabelMark color={category.color} icon={category.icon} />}
               />
             ))}
           </Field>
@@ -191,7 +194,10 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
                 value={String(tag.id)}
                 label={tag.name}
                 defaultChecked={query.tagId === tag.id}
-                mark={<Swatch color={tag.color} />}
+                tone="label"
+                color={tag.color}
+                mark={<LabelMark color={tag.color} />}
+                markOn="checked"
               />
             ))}
           </Field>

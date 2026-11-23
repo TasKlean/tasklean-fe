@@ -14,6 +14,10 @@ import { SWATCHES } from "@/lib/labels/palette/palette";
 type ColorPickerProps = {
   // The stored colour, which may be one this palette does not hold.
   value: string;
+  // Left out inside another form, where the colour is not a field of that form.
+  name?: string;
+  // Passed through: which edge of the circle the palette hangs from.
+  align?: "start" | "end";
   onChange: (color: string) => void;
 };
 
@@ -31,11 +35,12 @@ const OPTIONS: readonly SwatchOption[] = SWATCHES.map((swatch) => ({
 }));
 
 /** Renders the palette behind a single swatch. */
-export function ColorPicker({ value, onChange }: Readonly<ColorPickerProps>) {
+export function ColorPicker({ value, name, align, onChange }: Readonly<ColorPickerProps>) {
   return (
     <SwatchSelect
-      name="color"
+      name={name}
       label="Colour"
+      align={align}
       value={value.toLowerCase()}
       options={OPTIONS}
       fallback={dot(value)}
