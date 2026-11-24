@@ -11,7 +11,7 @@ export default function GroupPreferencesPage() {
   return (
     <SettingsSection
       title="Preferences"
-      description="How this group's tasks are laid out for you. Nobody else sees this choice."
+      info="Set your own preferences for this group. Nobody else sees them."
     >
       <GroupPreferences />
     </SettingsSection>

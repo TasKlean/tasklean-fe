@@ -31,7 +31,6 @@ import {
   CREATE_HEADING,
   CREATE_SUBMIT,
 } from "@/components/app/group/board/task-panel/task-form/create-header";
-import { DeleteTask } from "@/components/app/group/board/task-panel/task-form/delete-task";
 import { DueFields } from "@/components/app/group/board/task-panel/task-form/due-fields";
 import {
   EditHeader,
@@ -40,7 +39,8 @@ import {
 } from "@/components/app/group/board/task-panel/task-form/edit-header";
 import { EstimateField } from "@/components/app/group/board/task-panel/task-form/estimate-field";
 import { FormRow } from "@/components/app/group/board/task-panel/task-form/form-row";
-import { PhotoProofCard } from "@/components/app/group/board/task-panel/task-form/photo-proof-card";
+import { FIELD_INFO } from "@/components/app/group/board/task-panel/task-form/task-form.labels";
+import { PhotoProofCard } from "@/components/app/group/board/task-panel/task-form/photo-proof-card/photo-proof-card";
 import { PriorityPills } from "@/components/app/group/board/task-panel/task-form/priority-pills";
 import { TagEditor } from "@/components/app/group/board/task-panel/task-form/tag-editor/tag-editor";
 import { isPreset } from "@/components/app/group/board/task-panel/task-form/task-form.helpers";
@@ -140,7 +140,6 @@ export function TaskEditor({
   const [custom, setCustom] = useState(
     () => values.estimatedTimeMinutes !== "" && !isPreset(values.estimatedTimeMinutes),
   );
-  const [pressError, setPressError] = useState<string | null>(null);
   const announced = useRef<string | null>(null);
   const image = useImageUpload({ purpose: "TASK_PHOTO", targetUid: groupUid });
 
@@ -253,7 +252,7 @@ export function TaskEditor({
             error={nameShown}
           />
 
-          <FormRow label="Category">
+          <FormRow label="Category" info={FIELD_INFO.category}>
             <CategoryPills
               categories={categories}
               value={fields.categoryId}
@@ -264,6 +263,7 @@ export function TaskEditor({
           <TextArea
             label="Description"
             name="description"
+            info={FIELD_INFO.description}
             rows={3}
             maxLength={TASK_DESCRIPTION_MAX_LENGTH}
             placeholder="What doing it involves, if it needs saying"
@@ -272,7 +272,7 @@ export function TaskEditor({
             error={errors.description ?? refused?.description}
           />
 
-          <FormRow label="Assigned to">
+          <FormRow label="Assigned to" info={FIELD_INFO.assignee}>
             <FilterSelect
               label="Who this chore is for"
               name="assignedToUid"
@@ -282,7 +282,7 @@ export function TaskEditor({
           </FormRow>
 
           <div className={HALVES}>
-            <FormRow label="Repeats">
+            <FormRow label="Repeats" info={FIELD_INFO.recurrence}>
               <FilterSelect
                 label="How often this chore repeats"
                 name="recurrenceType"
@@ -297,7 +297,12 @@ export function TaskEditor({
               />
             </FormRow>
 
-            <FormRow label="Priority" error={submitted ? errors.priority : undefined}>
+            <FormRow
+              label="Priority"
+              info={FIELD_INFO.priority}
+              infoEnd
+              error={submitted ? errors.priority : undefined}
+            >
               <PriorityPills value={fields.priority} onPick={(priority) => set({ priority })} />
             </FormRow>
           </div>
@@ -312,6 +317,7 @@ export function TaskEditor({
 
           <FormRow
             label="Estimated time to complete"
+            info={FIELD_INFO.estimate}
             error={errors.estimatedTimeMinutes ?? refused?.estimatedTimeMinutes}
           >
             <EstimateField
@@ -324,6 +330,7 @@ export function TaskEditor({
 
           <ImagePicker
             label="Reference image"
+            info={FIELD_INFO.image}
             shape="square"
             preview={image.preview ?? uploadedImageSrc(kept)}
             busy={image.busy}
@@ -340,7 +347,7 @@ export function TaskEditor({
             }}
           />
 
-          <FormRow label="Tags" error={errors.tagNames}>
+          <FormRow label="Tags" info={FIELD_INFO.tags} error={errors.tagNames}>
             <TagEditor
               groupUid={groupUid}
               tags={tags}
@@ -356,20 +363,7 @@ export function TaskEditor({
         </div>
 
         <div className={FOOTER}>
-          {pressError ? <FormNotice tone="error">{pressError}</FormNotice> : null}
-
-          <div className="gap-space-sm flex items-center justify-between">
-            {mode === "edit" && taskUid ? (
-              <DeleteTask
-                groupUid={groupUid}
-                taskUid={taskUid}
-                closeHref={closeHref}
-                onError={setPressError}
-              />
-            ) : (
-              <span />
-            )}
-
+          <div className="gap-space-sm flex items-center justify-end">
             <div className="gap-space-xs flex shrink-0 items-center">
               {/* A link while creating, like the header's own close: there are
                   no facts to go back to, so Cancel leaves the panel. */}

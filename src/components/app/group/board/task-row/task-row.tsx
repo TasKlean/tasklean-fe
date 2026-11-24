@@ -24,6 +24,7 @@ import { StatusPill } from "@/components/app/group/board/status-pill/status-pill
 import { TaskMarks } from "@/components/app/group/board/task-marks/task-marks";
 import { CategoryIcon } from "@/components/common/category-icon/category-icon";
 import { LabelChip } from "@/components/common/label-chip/label-chip";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import { dueDigits } from "@/lib/tasks/due/due";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 import type { Category } from "@/lib/labels/categories/categories.types";
@@ -70,7 +71,13 @@ export function TaskRow({
         canEdit,
       }}
     >
-      <span className={ROW_DUE}>{due ? <DueDigits due={due} /> : null}</span>
+      <span className={ROW_DUE}>
+        {due ? (
+          <Tooltip text={due.title} place="above-start">
+            <DueDigits due={due} />
+          </Tooltip>
+        ) : null}
+      </span>
 
       <Link href={href} className={ROW_MAIN}>
         <span className={`${ROW_TITLE} min-w-0 truncate`}>{task.name}</span>
@@ -81,19 +88,25 @@ export function TaskRow({
           {/* A chip is `max-w-full` and truncates inside, which needs a flex
               parent that may shrink: a long category would push the rest out. */}
           {category?.name ? (
-            <span className="flex min-w-0">
+            <Tooltip text="Category" width="shrink">
               <LabelChip
                 name={category.name}
                 color={category.color}
                 size="sm"
                 icon={<CategoryIcon name={category.icon} />}
               />
-            </span>
+            </Tooltip>
           ) : null}
 
-          <StatusPill status={task.status} />
+          <Tooltip text="Status">
+            <StatusPill status={task.status} />
+          </Tooltip>
 
-          {task.priority ? <PriorityMark priority={task.priority} /> : null}
+          {task.priority ? (
+            <Tooltip text="Priority">
+              <PriorityMark priority={task.priority} />
+            </Tooltip>
+          ) : null}
 
           <span className="gap-space-xs flex items-center sm:hidden">
             <TaskMarks {...marks} words={false} />
@@ -102,7 +115,9 @@ export function TaskRow({
       </Link>
 
       <span className={ROW_SIDE}>
-        <AssigneeChip member={task.assignedTo} compact />
+        <Tooltip text="Assigned to" place="above-end">
+          <AssigneeChip member={task.assignedTo} compact />
+        </Tooltip>
       </span>
 
       <span className={ROW_META}>

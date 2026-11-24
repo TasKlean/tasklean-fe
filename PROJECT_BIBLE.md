@@ -2675,6 +2675,90 @@ drawn at 63 on a 390x844 phone: a flex item's automatic minimum is its content, 
 image is not content, so the box absorbed the overflow instead of the column scrolling. The
 editor's own picker never showed this because its preview carries `shrink-0` already. Measured.
 
+### A pill says what it is on hover, and a field says what it is for
+
+A row carries five pills and two marks, and each of them shows a value without saying which axis it
+belongs to: `High` is a priority, `Kitchen` a category, `11/3` a date, and nothing on the row says
+so. The bubble is what says it, and the (i) in the chore form is the same bubble put to the other
+use, explaining a field rather than naming a pill.
+
+**The browser's own `title` was what the row used, and it is not good enough.** It waits about a
+second, it is the operating system's style rather than ours, and a touch screen never shows it at
+all. One bubble in our own tokens replaced every `title` on the board, so a row explains itself the
+same way throughout.
+
+**It is CSS, so the row stays server rendered.** The anchor is a group and the bubble is revealed by
+`group-hover`, which costs no client component and no state: `TaskRow` is still a Server Component
+but for the menu's own press. The whole anchor is `pointer-fine:`, down to its `relative`, rather
+than hidden on a coarse pointer: a tap counts as a hover on a phone and would leave a bubble sitting
+over the row that was tapped, and the resting opacity and the revealed one are then one property set
+in one place. Two utilities for one property resolve in the stylesheet, not in the class list.
+
+**The stretched link takes every hover, and that is why the anchor is raised.** `after:inset-0`
+covers the row so that all of it opens the chore, and it is a positioned box painted over the pills,
+so hovering `Kitchen` hovers the overlay and the pill under it is never pointed at. The first build
+shipped without noticing, because a forced `:hover` in the probe proved the rule and a real pointer,
+which reported the hover landing nowhere, was read as the tool being unreliable. `pointer-fine:z-10`
+on the anchor is the fix, and it is a trade: a raised cell **outside** the link stops opening the
+chore, which costs the date its slot on a desk. The avatar was never a target anyway, `Avatar` being
+`relative` for its own picture layer, and a phone keeps every target it had, the raise not applying
+there.
+
+**The bubble is hidden from assistive technology, and the chip keeps its own words.** It sits inside
+the row's stretched link, so its text would otherwise be read out as part of the link's name:
+"Category Kitchen Status To do High". Everything a reader has to hear is `sr-only` text on the chip
+itself, which is where the date's wording moved when its `title` went.
+
+**The (i) presses as well as hovers.** A touch screen has no hover, and Safari does not focus a
+button it was tapped on, so hover and focus alone would leave the explanations unreachable on a
+phone. `InfoTip` is therefore the one client component of the pair, on `useDisclosure` like every
+other popup here, and its press is cancelled and kept to itself: the photo-proof card is a
+`<label>`, and a click bubbling out of the (i) would toggle the switch it sits beside.
+
+**A label holding one has to name its control.** That card wraps everything it holds, and a label's
+control is its first labelable descendant, which a `<button>` is: the (i) became the card's control,
+so hovering anywhere on the card opened its bubble and a press on the switch pressed the (i).
+`htmlFor` naming the checkbox settles it whatever the order inside, and the bubble hangs off the row
+holding the words rather than off the card, which put it at the far left while the (i) sat at the
+far right.
+
+**Its bubble is measured against the field's row, not against the icon.** Anchored to a 24px circle,
+a 224px bubble beside `Estimated time to complete` ran off the side of a 390px panel, and the
+panel's field box scrolls, so `overflow-y` makes `overflow-x` clip it. The wrapper is deliberately
+not `relative`: the nearest positioned ancestor is then the label's own row, the bubble hangs from
+its left edge and is capped at its width, and no field can produce one wider than itself. The press
+and the bubble are siblings, so the reveal is `peer-hover` rather than a second group. It sits
+**above** that row: under it, it covered the control the reader had just asked about.
+
+**A field that shares a row hangs its bubble from the right.** The rule that a bubble anchored to
+the field's own row can never come out wider than the field holds only for a whole row. The chore
+form puts Repeat beside Priority and the due day beside its time, and half a row is narrower than
+the bubble, so the right-hand one started at the middle of the panel and ran past its edge: the
+panel scrolled sideways at 440, the width where its field box crosses the `@sm` container query
+and the halves go two-up, which is why every narrower phone looked right. Those two fields hang
+their bubble from the row's end instead.
+
+**A screen's own description became its (i) too.** Every group screen opened with a heading and a
+sentence under it, and that sentence is read once and skipped on every visit after. The same words
+in a bubble keep the explanation for whoever wants it and give the screen its first line back. A
+heading's bubble opens beside the words rather than above them, a page's own title having nothing
+above it but the chrome, and it hangs off the (i) itself where a field's hangs off its row: a
+heading's row is the width of the page, so anchored to it the bubble landed past the column's
+right edge and the page scrolled sideways by 183px. Beside the words it needs room, which a phone
+has not got, so below `sm` it drops under the heading: measured at 360, 390, 640, 768 and 1280,
+nothing scrolls sideways and the board's filter panel, which clips horizontally, holds both of
+its own. The labels screen keeps the note it draws for a member: that one is a
+permission, not a description, and a reader has to meet it without going looking.
+
+**The card gave up `overflow-hidden` to hold one.** It was there to clip the photo's top corners,
+and it clipped every bubble inside the card as well, so the photo rounds its own corners instead.
+
+**The form's explanations are copy, so they live together.** Eleven sentences inline would have been
+spread over three components, and they are read as one voice: `task-form.labels` is the one place
+they are written. They replaced the lines under the controls, which is what the photo-proof card's
+second line was: the form is already long, and eleven of those would have made it half as long
+again.
+
 ### A group's picture is an uploaded file, and every piece of that is forced
 
 `GroupRequest` carries a `photoUid` naming an upload rather than the pasted `photoUrl` this section

@@ -17,7 +17,7 @@ function section(overrides: Partial<React.ComponentProps<typeof LabelSection>> =
   return (
     <LabelSection
       title="Categories"
-      description="Manage your group's categories."
+      info="The filing system for this group's chores."
       note="You can add, rename and remove these."
       groupUid="g1"
       kind="category"

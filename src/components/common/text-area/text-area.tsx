@@ -12,6 +12,7 @@
  */
 
 import type { TextareaHTMLAttributes } from "react";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { describedById } from "@/components/common/text-field/described-by-id";
 import { FieldMessage } from "@/components/common/text-field/field-message";
 
@@ -22,17 +23,19 @@ type TextAreaProps = {
   error?: string;
   // Shown under the field until an error replaces it.
   hint?: string;
+  // What the field is for, which goes in a bubble beside its name.
+  info?: string;
 } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className">;
 
 /** Renders a labelled textarea with its own error and hint line. */
-export function TextArea({ label, name, error, hint, ...textarea }: Readonly<TextAreaProps>) {
+export function TextArea({ label, name, error, hint, info, ...textarea }: Readonly<TextAreaProps>) {
   const errorId = `${name}-error`;
   const hintId = `${name}-hint`;
   const describedBy = describedById(errorId, hintId, { error, hint });
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
+      <div className="relative flex items-center gap-1">
         <label htmlFor={name} className="text-label-md text-foreground font-semibold">
           {label}
         </label>
@@ -41,6 +44,7 @@ export function TextArea({ label, name, error, hint, ...textarea }: Readonly<Tex
             *
           </span>
         ) : null}
+        {info ? <InfoTip label={label} text={info} /> : null}
       </div>
 
       <textarea

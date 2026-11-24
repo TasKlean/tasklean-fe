@@ -22,6 +22,7 @@ import {
   TRIGGER_ON,
   TRIGGER_QUIET,
 } from "@/components/common/filter-menu/filter-menu.styles";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { ActorChoice } from "@/lib/audit/audit.types";
 import { auditFilterParams } from "@/lib/audit/filter/filter";
@@ -59,20 +60,22 @@ export function ActorMenu({ path, filter, actors }: Readonly<ActorMenuProps>) {
 
   return (
     <div ref={root} className="relative min-w-0 flex-1 sm:w-fit sm:flex-none">
-      <button
-        ref={trigger}
-        type="button"
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={`Filter activity by who acted, showing ${label}`}
-        onClick={toggle}
-        className={`${TRIGGER} ${filter.actor ? TRIGGER_ON : TRIGGER_QUIET}`}
-      >
-        <UserSearch className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{chosen ? `${NAME}: ${chosen.name}` : NAME}</span>
-        <ChevronDown className={TRIGGER_ARROW} aria-hidden />
-      </button>
+      <Tooltip text="What this group member has done" width="fill" place="above-end">
+        <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          aria-label={`Filter activity by who acted, showing ${label}`}
+          onClick={toggle}
+          className={`${TRIGGER} ${filter.actor ? TRIGGER_ON : TRIGGER_QUIET}`}
+        >
+          <UserSearch className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">{chosen ? `${NAME}: ${chosen.name}` : NAME}</span>
+          <ChevronDown className={TRIGGER_ARROW} aria-hidden />
+        </button>
+      </Tooltip>
 
       {open ? (
         // Capped and scrollable, as the member list is: a household is small,

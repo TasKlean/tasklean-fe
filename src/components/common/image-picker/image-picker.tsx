@@ -23,6 +23,7 @@ import {
   ZONE_OVER,
   type PickerShape,
 } from "@/components/common/image-picker/image-picker.styles";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { describedById } from "@/components/common/text-field/described-by-id";
 import { FieldMessage } from "@/components/common/text-field/field-message";
 import { MAX_SOURCE_BYTES } from "@/lib/images/resize/resize";
@@ -38,6 +39,8 @@ type ImagePickerProps = {
   // The shape the picture will be drawn in once saved, so the preview shows it.
   // A group's is a square and a person's a circle.
   shape?: PickerShape;
+  // What the picture is for, which goes in a bubble beside the label.
+  info?: string;
   onPick: (file: Blob) => void;
   onRemove: () => void;
 };
@@ -53,6 +56,7 @@ export function ImagePicker({
   busy,
   failure,
   shape = "square",
+  info,
   onPick,
   onRemove,
 }: Readonly<ImagePickerProps>) {
@@ -99,9 +103,12 @@ export function ImagePicker({
       onDragLeave={handleDragLeave}
       className={over ? ZONE_OVER : ZONE_IDLE}
     >
-      <p id={id} className="text-label-md text-foreground font-semibold">
-        {label}
-      </p>
+      <div className="relative flex items-center gap-1">
+        <p id={id} className="text-label-md text-foreground font-semibold">
+          {label}
+        </p>
+        {info ? <InfoTip label={label} text={info} /> : null}
+      </div>
 
       <div className="gap-space-md flex flex-wrap items-center">
         <span className={previewBox(shape, preview !== null)}>

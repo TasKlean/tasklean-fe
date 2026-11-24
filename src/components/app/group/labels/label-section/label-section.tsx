@@ -20,10 +20,12 @@ import { type ReactNode, useCallback, useState } from "react";
 import { CategoryForm } from "@/components/app/group/labels/category-form/category-form";
 import { ADD_FORM, PRIMARY_BUTTON } from "@/components/app/group/labels/labels.styles";
 import { TagForm } from "@/components/app/group/labels/tag-form/tag-form";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 
 type LabelSectionProps = {
   title: string;
-  description: string;
+  // What the section is for, which the (i) beside its name holds.
+  info: string;
   // Why a press is missing, for the reader who may not use it. An admin is
   // told nothing, the presses being there to see.
   note?: string;
@@ -44,7 +46,7 @@ const TITLE_LINE = "gap-space-sm flex items-center justify-between";
 /** Renders a titled section of the labels screen, and the press that adds to it. */
 export function LabelSection({
   title,
-  description,
+  info,
   note,
   groupUid,
   kind,
@@ -59,7 +61,11 @@ export function LabelSection({
     <section className="gap-space-md flex flex-col">
       <div className="gap-space-xs flex flex-col">
         <div className={TITLE_LINE}>
-          <h2 className="text-headline-sm text-foreground min-w-0">{title}</h2>
+          <div className="relative flex min-w-0 items-center gap-1">
+            <h2 className="text-headline-sm text-foreground min-w-0">{title}</h2>
+
+            <InfoTip label={title} text={info} place="right" />
+          </div>
 
           {/* Gone while the form is open, where its own submit carries the
               label and Cancel is the way back. */}
@@ -74,8 +80,6 @@ export function LabelSection({
             </button>
           ) : null}
         </div>
-
-        <p className="text-body-md text-muted-foreground max-w-prose">{description}</p>
 
         {note ? <p className="text-label-md text-muted-foreground max-w-prose">{note}</p> : null}
       </div>

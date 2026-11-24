@@ -4,7 +4,7 @@ import { EditGroupForm } from "@/components/app/group/settings/edit-group-form/e
 import { SettingsSection } from "@/components/app/group/settings/settings-section";
 
 export const metadata: Metadata = {
-  title: "Group details",
+  title: "Edit group",
 };
 
 /** Renders the name, description and picture everybody in the group sees. */
@@ -18,8 +18,8 @@ export default async function GroupDetailsPage({
 
   return (
     <SettingsSection
-      title="Group details"
-      description="The name, description and picture everybody in this group sees."
+      title="Edit group"
+      info="Edit this group's details. Change its name, its description or its picture."
     >
       <EditGroupForm
         groupUid={uid}

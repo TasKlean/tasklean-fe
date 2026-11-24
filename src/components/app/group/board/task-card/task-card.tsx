@@ -9,6 +9,7 @@ import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assigne
 import { DueChip } from "@/components/app/group/board/due-chip/due-chip";
 import { PriorityMark } from "@/components/app/group/board/priority-mark/priority-mark";
 import { CategoryIcon } from "@/components/common/category-icon/category-icon";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import type { Category } from "@/lib/labels/categories/categories.types";
 import { DEFAULT_SWATCH } from "@/lib/labels/palette/palette";
 import { dueLabel } from "@/lib/tasks/due/due";
@@ -23,11 +24,14 @@ type TaskCardProps = {
   timeZone: string;
 };
 
+// No `overflow-hidden`: a bubble is an absolute child and the card would clip
+// it, so the photo rounds its own top corners instead.
 const CARD =
-  "bg-card border-border/60 hover:bg-muted/40 flex h-full w-full flex-col overflow-hidden rounded-xl border text-left transition-colors";
+  "bg-card border-border/60 hover:bg-muted/40 flex h-full w-full flex-col rounded-xl border text-left transition-colors";
 
 // The colour is the label's own stored hex, which is data rather than a token.
-const FACE = "relative grid h-28 w-full shrink-0 place-items-center bg-cover bg-center";
+const FACE =
+  "relative grid h-28 w-full shrink-0 place-items-center rounded-t-xl bg-cover bg-center";
 
 /** Renders one chore as a card. */
 export function TaskCard({ task, category, href, now, timeZone }: Readonly<TaskCardProps>) {
@@ -55,15 +59,24 @@ export function TaskCard({ task, category, href, now, timeZone }: Readonly<TaskC
           <span className="text-body-lg text-foreground line-clamp-2">{task.name}</span>
 
           <span className="gap-space-xs mt-auto flex flex-wrap items-center">
-            {task.priority ? <PriorityMark priority={task.priority} /> : null}
-            {due ? <DueChip due={due} /> : null}
+            {task.priority ? (
+              <Tooltip text="Priority">
+                <PriorityMark priority={task.priority} />
+              </Tooltip>
+            ) : null}
+
+            {due ? (
+              <Tooltip text={due.title}>
+                <DueChip due={due} />
+              </Tooltip>
+            ) : null}
           </span>
 
           {/* A column stretches its children, so the pill needs a row of
               its own to hug its contents rather than span the card. */}
-          <span className="flex min-w-0">
+          <Tooltip text="Assigned to" width="shrink">
             <AssigneeChip member={task.assignedTo} />
-          </span>
+          </Tooltip>
         </span>
       </Link>
     </li>

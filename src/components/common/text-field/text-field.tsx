@@ -4,6 +4,7 @@
  */
 
 import type { InputHTMLAttributes, ReactNode, RefAttributes } from "react";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { describedById } from "@/components/common/text-field/described-by-id";
 import { FieldMessage } from "@/components/common/text-field/field-message";
 
@@ -18,6 +19,12 @@ type TextFieldProps = {
   error?: string;
   // Shown under the field until an error replaces it.
   hint?: string;
+  // What the field is for, which goes in a bubble beside its name.
+  info?: string;
+  // Hangs that bubble from the row's right-hand end, which a field sharing a
+  // row needs: half a row is narrower than the bubble, so anchored to the left
+  // it reaches past the panel.
+  infoEnd?: boolean;
   // Confirmation under the field, outranked by an error.
   success?: string;
   // Extra content under the field, such as a strength meter.
@@ -35,6 +42,8 @@ export function TextField({
   trailing,
   error,
   hint,
+  info,
+  infoEnd,
   success,
   below,
   labelAction,
@@ -49,7 +58,7 @@ export function TextField({
 
   return (
     <div className="relative flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
+      <div className="relative flex items-center gap-1">
         <label htmlFor={fieldId} className="text-label-md text-foreground font-semibold">
           {label}
         </label>
@@ -59,6 +68,9 @@ export function TextField({
           <span aria-hidden className="text-destructive text-label-md">
             *
           </span>
+        ) : null}
+        {info ? (
+          <InfoTip label={label} text={info} place={infoEnd ? "above-end" : "above"} />
         ) : null}
       </div>
 

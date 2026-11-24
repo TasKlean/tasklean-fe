@@ -11,6 +11,7 @@ import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { ActivityEmpty } from "@/components/common/activity/activity-empty";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
 import { ClearFilters } from "@/components/common/filter-menu/clear-filters";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { DateMenu } from "@/components/common/activity/date-menu/date-menu";
 import { LoadError } from "@/components/common/load-error";
 import { dateChoices } from "@/lib/audit/dates/dates";
@@ -67,13 +68,18 @@ export default async function ActivityPage({
   // The three slots below are keyed because they reach a client component as
   // props, where React validates them as list children and asks for one.
   const heading = (
-    <div key="heading" className="gap-space-xs flex min-w-0 flex-col">
+    <div key="heading" className="relative flex min-w-0 items-center gap-1">
       <h2 className="text-headline-sm text-foreground">Activity</h2>
-      <p className="text-body-md text-muted-foreground">
-        {admin
-          ? "Everything that has happened in this group."
-          : "What you have done here, and what happened to the things you made."}
-      </p>
+
+      <InfoTip
+        label="Activity"
+        text={
+          admin
+            ? "Everything that has happened in this group, which you can filter."
+            : "What you have done here and what happened to the things you made, which you can filter."
+        }
+        place="right"
+      />
     </div>
   );
 

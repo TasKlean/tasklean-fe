@@ -15,7 +15,7 @@ const SHORT: Record<TaskPriority, string> = { HIGH: "High", MEDIUM: "Medium", LO
 /** Renders one chore's priority. */
 export function PriorityMark({ priority }: Readonly<PriorityMarkProps>) {
   return (
-    <span className={`${CHIP} ${PRIORITY_TONE[priority]}`} title={PRIORITY_LABEL[priority]}>
+    <span className={`${CHIP} ${PRIORITY_TONE[priority]}`}>
       <span className="sr-only">{PRIORITY_LABEL[priority]}</span>
       <span aria-hidden>{SHORT[priority]}</span>
     </span>

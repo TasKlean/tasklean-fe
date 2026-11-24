@@ -8,22 +8,46 @@
  */
 
 import type { ReactNode } from "react";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 
 type FormRowProps = {
   label: string;
   required?: boolean;
   error?: string;
   hint?: string;
+  // What the field is for, which goes in a bubble beside its name.
+  info?: string;
+  // Hangs that bubble from the row's right-hand end, which a field sharing a
+  // row needs: half a row is narrower than the bubble, so anchored to the left
+  // it reaches past the panel.
+  infoEnd?: boolean;
   children: ReactNode;
 };
 
 /** Renders a labelled block around a control that names itself. */
-export function FormRow({ label, required, error, hint, children }: Readonly<FormRowProps>) {
+export function FormRow({
+  label,
+  required,
+  error,
+  hint,
+  info,
+  infoEnd,
+  children,
+}: Readonly<FormRowProps>) {
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1" aria-hidden>
-        <span className="text-label-md text-foreground">{label}</span>
-        {required ? <span className="text-destructive text-label-md">*</span> : null}
+      <div className="relative flex items-center gap-1">
+        <span aria-hidden className="text-label-md text-foreground">
+          {label}
+        </span>
+        {required ? (
+          <span aria-hidden className="text-destructive text-label-md">
+            *
+          </span>
+        ) : null}
+        {info ? (
+          <InfoTip label={label} text={info} place={infoEnd ? "above-end" : "above"} />
+        ) : null}
       </div>
 
       {children}

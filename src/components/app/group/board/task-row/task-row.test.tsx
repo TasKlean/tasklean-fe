@@ -48,30 +48,39 @@ describe("TaskRow", () => {
   it("dates a chore in digits, the column having room for nothing else", () => {
     row({ nextDueDate: "2026-03-11T18:00:00" });
 
-    expect(screen.getByTitle("Due tomorrow")).toHaveTextContent("11/3");
+    expect(screen.getByText("11/3")).toBeInTheDocument();
+    expect(screen.getAllByText("Due tomorrow").length).toBeGreaterThan(0);
   });
 
   it("dates one in another year with that year, which a yearly chore needs", () => {
     row({ nextDueDate: "2027-01-02T18:00:00" });
 
-    expect(screen.getByTitle("Due 2 Jan")).toHaveTextContent("2/1/27");
+    expect(screen.getByText("2/1/27")).toBeInTheDocument();
   });
 
   it("says a chore has to be photographed, which is otherwise only an icon", () => {
     row({ requiresPhotoProof: true });
 
-    expect(screen.getAllByTitle("Photo proof").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Photo proof").length).toBeGreaterThan(0);
   });
 
   it("says how often a chore repeats, which is an icon alone on a phone", () => {
     row({ recurrenceType: "WEEKLY" });
 
-    expect(screen.getAllByTitle("Every week").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Every week").length).toBeGreaterThan(0);
   });
 
   it("says nothing about repeating for a chore that does not", () => {
     row({});
 
-    expect(screen.queryByTitle(/^Every/)).toBeNull();
+    expect(screen.queryByText(/^Every/)).toBeNull();
+  });
+
+  it("names what each pill is, the pill itself carrying only the value", () => {
+    row({ priority: "HIGH" });
+
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Priority")).toBeInTheDocument();
+    expect(screen.getByText("Assigned to")).toBeInTheDocument();
   });
 });

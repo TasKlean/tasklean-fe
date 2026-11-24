@@ -31,7 +31,7 @@ const SETTINGS = [
 ];
 
 const ADMIN_ONLY = [
-  ["Group details", "/app/groups/g1/settings/details"],
+  ["Edit group", "/app/groups/g1/settings/details"],
   ["Invite code", "/app/groups/g1/settings/invite-code"],
   ["Delete group", "/app/groups/g1/settings/delete"],
 ];

@@ -133,6 +133,8 @@ export function TaskPanel({
   return (
     <TaskReader
       label={label}
+      groupUid={groupUid}
+      taskUid={taskUid}
       closeHref={closeHref}
       canEdit={canEdit}
       onEdit={() => setEditing(true)}

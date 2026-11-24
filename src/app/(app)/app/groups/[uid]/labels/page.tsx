@@ -39,7 +39,7 @@ export default async function GroupLabelsPage({ params }: PageProps<"/app/groups
     <div className={`gap-space-xl flex flex-col ${SECTION_COLUMN}`}>
       <LabelSection
         title="Categories"
-        description="Manage your group's categories."
+        info="The filing system for this group's chores. A chore goes in one of them."
         note={admin ? undefined : CATEGORY_NOTE}
         groupUid={uid}
         kind="category"
@@ -54,7 +54,7 @@ export default async function GroupLabelsPage({ params }: PageProps<"/app/groups
 
       <LabelSection
         title="Tags"
-        description="Manage your group's tags."
+        info="Extra labels anybody can add to a chore, up to five of them."
         note={admin ? undefined : TAG_NOTE}
         groupUid={uid}
         kind="tag"

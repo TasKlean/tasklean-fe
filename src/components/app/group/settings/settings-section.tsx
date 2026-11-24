@@ -6,10 +6,12 @@
 
 import type { ReactNode } from "react";
 import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 
 type SettingsSectionProps = {
   title: string;
-  description: string;
+  // What the section is for, which the (i) beside its name holds.
+  info: string;
   // Red where the section's own control ends something, which is the only
   // difference between deleting a group and the rest.
   tone?: "default" | "destructive";
@@ -26,19 +28,20 @@ const TONES = {
 /** Renders a titled section of a group's settings. */
 export function SettingsSection({
   title,
-  description,
+  info,
   tone = "default",
   children,
 }: Readonly<SettingsSectionProps>) {
   return (
     <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
-      <div className="gap-space-xs flex flex-col">
+      <div className="relative flex items-center gap-1">
         <h2
           className={`text-headline-sm ${tone === "destructive" ? "text-destructive" : "text-foreground"}`}
         >
           {title}
         </h2>
-        <p className="text-body-md text-muted-foreground max-w-prose">{description}</p>
+
+        <InfoTip label={title} text={info} place="right" />
       </div>
 
       <div className={`${CARD} ${TONES[tone]}`}>{children}</div>

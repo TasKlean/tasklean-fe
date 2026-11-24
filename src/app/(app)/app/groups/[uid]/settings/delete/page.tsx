@@ -19,8 +19,8 @@ export default async function GroupDeletePage({
 
   return (
     <SettingsSection
-      title="Delete this group"
-      description="The group, its tasks and everybody's membership go at once. This cannot be undone."
+      title="Delete group"
+      info="Deletes this group and everything in it. This cannot be undone."
       tone="destructive"
     >
       <DeleteGroup groupUid={uid} name={groupLabel(group.name)} />

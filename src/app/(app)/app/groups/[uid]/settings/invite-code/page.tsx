@@ -19,7 +19,7 @@ export default async function GroupInviteCodePage({
   return (
     <SettingsSection
       title="Invite code"
-      description="Anyone holding this can join, and nobody has to approve them."
+      info="How somebody joins this group. Anyone holding the code gets in without approval, so replace it if it spreads."
     >
       {/* An admin with no code is a backend that sent none, not a permission:
           the role has already been checked, so there is nothing to hide. */}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { History } from "lucide-react";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 import { auditFilterParams } from "@/lib/audit/filter/filter";
 import type { Group } from "@/lib/groups/groups.types";
@@ -59,11 +60,14 @@ export default async function GroupInformationPage({
 
   return (
     <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
-      <div className="gap-space-xs flex flex-col">
+      <div className="relative flex items-center gap-1">
         <h2 className="text-headline-sm text-foreground">Information</h2>
-        <p className="text-body-md text-muted-foreground">
-          What this group is. Its admins change these in settings.
-        </p>
+
+        <InfoTip
+          label="Information"
+          text="What this group is set to: its name, its picture, its description and the rest."
+          place="right"
+        />
       </div>
 
       <div className={CARD}>

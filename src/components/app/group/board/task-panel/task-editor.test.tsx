@@ -268,23 +268,6 @@ describe("TaskEditor", () => {
     expect(posted(createTaskAction).estimatedTimeMinutes).toEqual(["45"]);
   });
 
-  it("asks before deleting a chore, which nothing brings back", async () => {
-    editor({ mode: "edit", taskUid: "t1", values: { ...taskValues(null, ZONE), name: "Bins" } });
-    await userEvent.click(screen.getByRole("button", { name: "Delete task" }));
-
-    expect(deleteTaskAction).not.toHaveBeenCalled();
-
-    await userEvent.click(screen.getByRole("button", { name: "Delete for good" }));
-
-    await waitFor(() => expect(deleteTaskAction).toHaveBeenCalledWith("g1", "t1"));
-  });
-
-  it("offers no delete while creating, there being nothing to delete", () => {
-    editor();
-
-    expect(screen.queryByRole("button", { name: "Delete task" })).toBeNull();
-  });
-
   it("reports a refused save where it was pressed", async () => {
     updateTaskAction.mockResolvedValueOnce({
       error: "This chore is not yours to change. Its author or an admin can.",

@@ -68,7 +68,7 @@ function settingsItems(group: string, admin: boolean): GroupNavItem[] {
 
   return [
     ...mine,
-    { href: `${group}/settings/details`, label: "Group details", icon: Pencil },
+    { href: `${group}/settings/details`, label: "Edit group", icon: Pencil },
     { href: `${group}/settings/invite-code`, label: "Invite code", icon: KeyRound },
     { href: `${group}/settings/delete`, label: "Delete group", icon: Trash2, destructive: true },
   ];

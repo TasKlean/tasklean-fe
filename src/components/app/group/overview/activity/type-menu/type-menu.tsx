@@ -21,6 +21,7 @@ import {
   TRIGGER_ON,
   TRIGGER_QUIET,
 } from "@/components/common/filter-menu/filter-menu.styles";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 import type { MemberChoice } from "@/lib/audit/audit.types";
 import { pinnedLabel } from "@/lib/audit/filter/filter";
@@ -95,20 +96,22 @@ export function TypeMenu({ path, filter, members, pinned }: Readonly<TypeMenuPro
 
   return (
     <div ref={root} className="relative min-w-0 flex-1 sm:w-fit sm:flex-none">
-      <button
-        ref={trigger}
-        type="button"
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={`Filter activity, showing ${filter.ref ? label : chosen.label}`}
-        onClick={flip}
-        className={`${TRIGGER} ${filter.type ? TRIGGER_ON : TRIGGER_QUIET}`}
-      >
-        <ListFilter className="size-4 shrink-0" aria-hidden />
-        <span className="truncate">{label}</span>
-        <ChevronDown className={TRIGGER_ARROW} aria-hidden />
-      </button>
+      <Tooltip text="What has happened to this entity" width="fill" place="above-start">
+        <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          aria-label={`Filter activity, showing ${filter.ref ? label : chosen.label}`}
+          onClick={flip}
+          className={`${TRIGGER} ${filter.type ? TRIGGER_ON : TRIGGER_QUIET}`}
+        >
+          <ListFilter className="size-4 shrink-0" aria-hidden />
+          <span className="truncate">{label}</span>
+          <ChevronDown className={TRIGGER_ARROW} aria-hidden />
+        </button>
+      </Tooltip>
 
       {open ? (
         <div id={panelId} className={`${PANEL} left-0 w-64`}>

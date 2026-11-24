@@ -11,7 +11,7 @@ export default function GroupNotificationsPage() {
   return (
     <SettingsSection
       title="Notifications"
-      description="Which of this group's notifications reach you."
+      info="Set which of this group's notifications reach you. Your account settings overrule these."
     >
       <GroupNotifications />
     </SettingsSection>

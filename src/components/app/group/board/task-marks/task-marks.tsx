@@ -5,6 +5,7 @@
  */
 
 import { Camera, Repeat2 } from "lucide-react";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import { recurrenceLabel } from "@/lib/tasks/recurrence/recurrence";
 
 type TaskMarksProps = {
@@ -22,15 +23,19 @@ const MARK =
 /** Renders the marks this chore has earned, in order. */
 export function TaskMarks({ recurrence, photoProof, words = true }: Readonly<TaskMarksProps>) {
   const marks = [
-    ...(recurrence ? [{ Icon: Repeat2, label: recurrenceLabel(recurrence) }] : []),
-    ...(photoProof ? [{ Icon: Camera, label: "Photo proof" }] : []),
+    ...(recurrence ? [{ Icon: Repeat2, label: recurrenceLabel(recurrence), tip: "Repeats" }] : []),
+    ...(photoProof
+      ? [{ Icon: Camera, label: "Photo proof", tip: "Photo proof on completion" }]
+      : []),
   ];
 
-  return marks.map(({ Icon, label }) => (
-    <span key={label} className={MARK} title={label}>
-      <Icon className="size-3.5 shrink-0" aria-hidden />
-      <span className="sr-only">{label}</span>
-      {words ? <span aria-hidden>{label}</span> : null}
-    </span>
+  return marks.map(({ Icon, label, tip }) => (
+    <Tooltip key={label} text={tip}>
+      <span className={MARK}>
+        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <span className="sr-only">{label}</span>
+        {words ? <span aria-hidden>{label}</span> : null}
+      </span>
+    </Tooltip>
   ));
 }

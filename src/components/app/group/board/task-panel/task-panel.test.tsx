@@ -84,7 +84,7 @@ describe("TaskPanel", () => {
 
   it("puts the facts back on a discard, leaving no history entry", async () => {
     render(panel(<p>Every week</p>));
-    await userEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Edit task" }));
 
     expect(screen.getAllByRole("button", { name: "Save changes" })[0]).toBeVisible();
 
@@ -118,7 +118,7 @@ describe("TaskPanel", () => {
 
   it("leaves the editor by the way back, not by the way out", async () => {
     render(panel(<p>Every week</p>));
-    await userEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Edit task" }));
 
     expect(screen.getByRole("button", { name: "Back" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Close" })).toBeNull();

@@ -6,6 +6,7 @@
  * and nobody has to type 23:59 to say "sometime Tuesday".
  */
 
+import { FIELD_INFO } from "@/components/app/group/board/task-panel/task-form/task-form.labels";
 import { HALVES } from "@/components/app/group/board/task-panel/task-form/task-form.styles";
 import { TextField } from "@/components/common/text-field/text-field";
 
@@ -25,6 +26,7 @@ export function DueFields({ date, time, error, onDate, onTime }: Readonly<DueFie
       <TextField
         label="Due date"
         name="dueDate"
+        info={FIELD_INFO.dueDate}
         type="date"
         value={date}
         onChange={(event) => onDate(event.target.value)}
@@ -34,6 +36,8 @@ export function DueFields({ date, time, error, onDate, onTime }: Readonly<DueFie
       <TextField
         label="Due time"
         name="dueTime"
+        info={FIELD_INFO.dueTime}
+        infoEnd
         type="time"
         value={time}
         onChange={(event) => onTime(event.target.value)}

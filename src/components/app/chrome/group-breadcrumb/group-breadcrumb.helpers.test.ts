@@ -61,7 +61,7 @@ describe("buildCrumbs", () => {
     expect(sections).toEqual([
       "Preferences",
       "Notifications",
-      "Group details",
+      "Edit group",
       "Invite code",
       "Delete group",
     ]);

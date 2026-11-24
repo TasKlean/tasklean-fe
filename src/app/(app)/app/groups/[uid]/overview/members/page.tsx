@@ -5,6 +5,7 @@ import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
 import { LeaveGroup } from "@/components/app/group/overview/leave-group/leave-group";
 import { MemberRow } from "@/components/app/group/overview/member-row/member-row";
 import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { LoadError } from "@/components/common/load-error";
 import { isApiError } from "@/lib/api/errors";
 import { isSessionExpiredError } from "@/lib/api/server/server";
@@ -86,13 +87,18 @@ export default async function MembersPage({
 
   return (
     <section className={`gap-space-md flex flex-col ${SECTION_COLUMN}`}>
-      <div className="gap-space-xs flex flex-col">
+      <div className="relative flex items-center gap-1">
         <h2 className="text-headline-sm text-foreground">Members</h2>
-        <p className="text-body-md text-muted-foreground">
-          {admin
-            ? "Everyone in this group. You can change what they may do, or take them out."
-            : "Everyone in this group."}
-        </p>
+
+        <InfoTip
+          label="Members"
+          text={
+            admin
+              ? "Everybody in this group. Manage what they may do, or remove them."
+              : "Everybody in this group."
+          }
+          place="right"
+        />
       </div>
 
       {body}

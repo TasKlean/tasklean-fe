@@ -1,7 +1,7 @@
 /**
  * When a chore is next due, named rather than dated for the nearest days. The
- * full date stays in the title, so a reader can still see which day "tomorrow"
- * is without doing the arithmetic.
+ * full date goes in the bubble over it, so a reader can still see which day
+ * "tomorrow" is without doing the arithmetic.
  */
 
 import { CalendarClock } from "lucide-react";
@@ -15,7 +15,7 @@ type DueChipProps = {
 /** Renders a chore's due date. */
 export function DueChip({ due }: Readonly<DueChipProps>) {
   return (
-    <span className={`${CHIP} ${DUE_TONE[due.tone]}`} title={due.title}>
+    <span className={`${CHIP} ${DUE_TONE[due.tone]}`}>
       <CalendarClock className="size-3.5 shrink-0" aria-hidden />
       {due.text}
     </span>

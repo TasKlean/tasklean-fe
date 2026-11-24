@@ -15,6 +15,7 @@ import { useState } from "react";
 import { Field } from "@/components/app/group/board/filter-panel/field";
 import { LabelMark } from "@/components/app/group/board/label-mark/label-mark";
 import { FilterChip } from "@/components/common/filter-chip/filter-chip";
+import { InfoTip } from "@/components/common/info-tip/info-tip";
 import { FilterSelect } from "@/components/common/filter-select/filter-select";
 import type { SelectOption } from "@/components/common/filter-select/filter-select.types";
 import {
@@ -118,7 +119,11 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
     <div className="gap-space-md flex flex-col">
       <section className="flex min-w-0 flex-col">
         <div className={SECTION_ROW}>
-          <h2 className={SECTION}>Sort</h2>
+          <span className="relative flex min-w-0 items-center gap-1">
+            <h2 className={SECTION}>Sort</h2>
+
+            <InfoTip label="Sort" text="The order the chores are listed in." place="right" />
+          </span>
         </div>
 
         <FilterSelect
@@ -131,7 +136,15 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
 
       <section className="gap-space-xs flex min-w-0 flex-col">
         <div className={SECTION_ROW}>
-          <h2 className={SECTION}>Filter</h2>
+          <span className="relative flex min-w-0 items-center gap-1">
+            <h2 className={SECTION}>Filter</h2>
+
+            <InfoTip
+              label="Filter"
+              text="Narrows the board to the chores you want to see."
+              place="right"
+            />
+          </span>
 
           <button type="button" onClick={() => setShown(allFields(!allOpen))} className={ALL_PRESS}>
             {allOpen ? "Close all" : "Expand all"}

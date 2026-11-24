@@ -218,6 +218,10 @@ src/
                        switch-track, group-avatar, image-picker, recovery-codes,
                        side-panel (a dialog anchored right, the page usable
                        behind it),
+                       tooltip (+ .styles: a hover bubble naming what a pill is,
+                       and the paint both bubbles share),
+                       info-tip (that bubble beside a field's name, opened by a
+                       press as well, for a screen with no hover),
                        zone-probe (the browser's own zone, into a cookie),
                        label-chip (a category or tag, tinted from its own hex),
                        label-tint (that hex on its way into CSS, with the
@@ -258,13 +262,14 @@ src/
                        edit and delete, + .types)) or task-card, task-pager,
                        task-panel/ (task-panel, the state the reader and the
                        editor are picked by, task-reader, task-editor,
-                       complete-button, task-view/ (task-view, .helpers,
+                       complete-button, delete-task, task-view/ (task-view, .helpers,
                        fact-card, fact-row, description-block) and
                        task-form/ (category-pills, priority-pills, due-fields,
-                       estimate-field, photo-proof-card, tag-editor/ (+
+                       estimate-field, photo-proof-card/, tag-editor/ (+
                        add-tag-panel), create-header and edit-header (a bar
-                       each, and the words both own), delete-task, form-row,
-                       .styles, .helpers (the stretches both the field and the
+                       each, and the words both own), form-row,
+                       .styles, .labels (what each field is for, in one line
+                       each), .helpers (the stretches both the field and the
                        editor read))), board-bar (+ view-picker (one pill on a
                        track of two, at every width, + view.labels),
                        task-search, filter-panel (+ filter-fields: sort, then
@@ -578,6 +583,30 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **A field that appears on a press takes focus through a ref, never `autoFocus`**, which cannot
   tell an editor that was asked for from one that loaded on its own and is a finding wherever it
   sits.
+- **A hover bubble is CSS, and the whole of it is `pointer-fine:`**, down to the anchor's own
+  `relative`, so a touch screen is left exactly as it was: a tap counts as a hover there and would
+  leave a bubble sitting over whatever was tapped. The reveal and the resting state are one
+  property set once, since two opacity utilities in one class list resolve in the stylesheet.
+  `Tooltip`'s bubble is `aria-hidden` or it joins the accessible name of the row's own link;
+  `InfoTip`'s is a `role="tooltip"` the press is `aria-describedby`, so it is read whether it is
+  open or not.
+- **A pill under a stretched link has to be raised to be hovered at all.** `after:inset-0` covers
+  the whole row and takes every pointer, so the pill beneath it never knows it was pointed at:
+  the anchor carries `pointer-fine:z-10`. The cost is that a raised cell **outside** that link
+  stops opening the chore on a desk, which is the date's slot; the avatar never did, `Avatar`
+  being `relative` already. Measured, both ways.
+- **An (i) opens on a press as well as a hover**, a touch screen having neither and Safari not
+  focusing a button it was tapped on. The press is cancelled and kept to itself, so an (i) inside a
+  `<label>` does not toggle that label's control, and the icon is 24px drawn with the hit area
+  taken out to 44 by a pseudo-element rather than by padding that would move the name beside it.
+- **A `<label>` holding an (i) names its control with `htmlFor`**, because a label's control is its
+  first labelable descendant and a `<button>` is one: the photo-proof card took the (i) as its
+  control, so hovering the card opened that bubble and a press on the switch pressed the (i)
+  instead. Measured.
+- **An info bubble sits above the field's own row, not against the icon**, which is why
+  `InfoTip`'s wrapper is deliberately not `relative`: anchored to a 24px circle it ran off a 390px
+  panel, and anchored to the row it hangs from the left edge and can never come out wider than the
+  field. Measured.
 - **A live region with no name is an `<output>`**, which carries `role="status"` already, so the
   attribute is noise and `getByRole("status")` still finds it. `role="alert"` has no element of its
   own and stays an attribute.
@@ -640,6 +669,14 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   path. Preferences and Notifications are everybody's; details, invite code and delete are an
   admin's, and `loadAdminGroup` redirects a member. Each action still reports its own refusal: the
   gate is UX, Spring is the authority. A form in a section is bounded at `max-w-2xl`.
+- **A section says what it is behind the (i) beside its heading, not in a line under it.** The
+  settings sections, the overview's three screens, both halves of Labels and the board's Sort and
+  Filter each carry one, and a heading's bubble opens **beside the words** from `sm`, hanging off
+  the (i) itself, where a field's hangs off its own row. Below `sm` it drops under the heading
+  instead: measured, a 224px bubble off the end of a heading runs out of a 360px screen. Labels
+  keeps its note for a member, which is a permission
+  rather than a description. **The trail's two pills say what they narrow on hover**, being named
+  by a word each.
 - **A step that cannot be undone asks for the name, not a second press.** `DeleteGroup` matches the
   typed name trimmed and case-insensitively. **Replacing the invite code confirms neutrally**,
   because nothing is lost.
@@ -802,8 +839,11 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   category as pills; the name as the body's own `h2`; the description capped at 260 characters
   behind a Read more; the picture under a `Reference image` heading; then one card of what it is
   set to (assigned to, due date, repeat, estimated time, photo proof); then its tags; then who
-  added it and how long ago, which `sinceLabel` words. Complete and Edit sit in the header and
-  again in the footer at three quarters to one.
+  added it and how long ago, which `sinceLabel` words. Complete sits in the header and again in
+  the footer, taking that row's width, with **Edit and Delete beside it as 44px icon presses**:
+  Complete is what the row is for, and two more labels do not fit a phone. **The question Delete
+  asks takes the whole row**, so the presses it is about stand aside while it is up, which
+  `onAsking` is the one flag for, and a refusal is a notice above that row.
 - **Each form has its own top bar.** A chore being created carries its name and the one press that
   writes it down; one being edited carries its name, who wrote it and when, Discard and Save. There
   is nothing to discard a new chore back to, so `CreateHeader` and `EditHeader` are two components
@@ -830,9 +870,17 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   list being a render old, or a tag made here would wear the fallback until the board was read
   again. A name the household already holds comes back from a 409 as
   itself rather than as a failure.
-- **Deleting is permanent and confirms in place**, in the editor's footer, swapping the press for
-  the question. **Complete is a disabled press in both the header and the footer**, the backend
-  having no endpoint for it, with the reason in its name and its brand colour kept.
+- **A field is explained by an (i) beside its name, never by a line under it.** Eleven of them
+  would have pushed the form half as long again, so `task-form.labels` holds the sentences and
+  `InfoTip` draws them. Only the title, which needs none, and the estimate's own stretches go
+  without. **A field sharing a row hangs its bubble from the row's right-hand end**, which
+  `infoEnd` is the flag for: half a row is narrower than the bubble, so Priority's and Due time's
+  reached past the panel. Measured at 440, the width where the panel's own container crosses `@sm`
+  and the halves go two-up, which is why no narrower phone showed it.
+- **Deleting is permanent and confirms in place**, in the reader's footer rather than the
+  editor's: it is a thing done to the chore, not an edit to it, and a phone's form footer already
+  holds Cancel and Save. **Complete is a disabled press in both the header and the footer**, the
+  backend having no endpoint for it, with the reason in its name and its brand colour kept.
 
 - **One form creates and saves, and it posts every field.** `PUT /api/tasks/{uid}` takes the chore
   as it will then be, so a field the form left out would be cleared on every edit: the two modes
@@ -1000,9 +1048,14 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **An unassigned chore is drawn exactly like an assigned one**, down to the circle: `Avatar` falls
   back to a person where it is given no name and no picture, so a column of assignees reads as one
   column rather than as two kinds of thing.
+- **Every pill says what kind of thing it is, on hover.** `Tooltip` names the axis over the
+  category, the status, the priority and the assignee, where the date and the marks put their own
+  wording there instead, the digits and the icons not carrying it. The chip keeps the `sr-only`
+  text it already had, the bubble being `aria-hidden`.
 - **A card is the photo, or the category's colour where there is none**, so a grid of chores
   nobody has photographed still reads as a grid. The colour sits under the picture rather than
-  beside it, so a dead upload falls back with no handler and one request.
+  beside it, so a dead upload falls back with no handler and one request. **It clips nothing**, a
+  bubble being an absolute child, so the photo rounds its own top corners.
 - **A flex column stretches its children**, so a pill inside a card needs a row of its own or it
   spans the card. Measured.
 - **Who may change a chore is a third permission model.** `canEdit` on the backend is the author or
