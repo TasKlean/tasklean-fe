@@ -12,7 +12,7 @@
 import { Users } from "lucide-react";
 import { GroupAvatar } from "@/components/common/group-avatar/group-avatar";
 import { GroupDescription } from "@/components/app/group/shell/group-sidebar/group-description";
-import { GroupName } from "@/components/app/group/shell/group-sidebar/group-name";
+import { ClippedName } from "@/components/common/clipped-name/clipped-name";
 import { RoleChip } from "@/components/common/role-chip/role-chip";
 import { memberCountLabel } from "@/lib/groups/labels/labels";
 
@@ -105,7 +105,7 @@ export function GroupSummary({
       </span>
 
       <h1 className={`${NAME} min-w-0`}>
-        <GroupName
+        <ClippedName
           name={name}
           className={`text-headline-md lg:text-title-md text-foreground ${stripped ? "lg:sr-only" : ""}`}
         />

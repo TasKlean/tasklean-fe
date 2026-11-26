@@ -1,7 +1,7 @@
 /**
- * The board's chores, in whichever layout the reader chose, or the reason
- * there are none. The category each chore shows is looked up here rather than
- * per row: a chore carries a numeric id and the household's categories are
+ * The board's tasks, in whichever layout the reader chose, or the reason
+ * there are none. The category each task shows is looked up here rather than
+ * per row: a task carries a numeric id and the household's categories are
  * read once for the whole page.
  */
 
@@ -17,10 +17,10 @@ type TaskListProps = {
   tasks: readonly Task[];
   categories: readonly Category[];
   view: BoardView;
-  // Whether anything is hiding a chore, which decides what an empty board says.
+  // Whether anything is hiding a task, which decides what an empty board says.
   narrowed: boolean;
   path: string;
-  // Builds the link that opens one chore, which is this path plus `?task=`.
+  // Builds the link that opens one task, which is this path plus `?task=`.
   hrefFor: (uid: string) => string;
   // The same link with the editor already up, which a row's menu leads to.
   editHrefFor: (uid: string) => string;
@@ -35,11 +35,11 @@ type TaskListProps = {
 
 const LIST = "gap-space-sm flex flex-col";
 
-// Counted off the board's own width, not the window's, so an open chore drops a
+// Counted off the board's own width, not the window's, so an open task drops a
 // column rather than squeezing one in. The steps keep a card near 300px and up.
 const GRID = "gap-space-sm grid grid-cols-1 @xl:grid-cols-2 @5xl:grid-cols-3 @7xl:grid-cols-4";
 
-/** Renders the chores on this page of the board. */
+/** Renders the tasks on this page of the board. */
 export function TaskList({
   tasks,
   categories,

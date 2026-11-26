@@ -142,6 +142,12 @@
   --text-body-lg--line-height: 1.625rem;
   --text-body-lg--font-weight: 400;
 
+  /* DESIGN.md's body-lg at the Semi-Bold its task card asks for, which the
+   * scale itself has no entry for. */
+  --text-body-lg-strong: 1rem;
+  --text-body-lg-strong--line-height: 1.625rem;
+  --text-body-lg-strong--font-weight: 600;
+
   --text-body-md: 0.875rem;
   --text-body-md--line-height: 1.375rem;
   --text-body-md--font-weight: 400;
@@ -160,6 +166,13 @@
   --text-label-sm--line-height: 0.875rem;
   --text-label-sm--letter-spacing: 0.03em;
   --text-label-sm--font-weight: 600;
+
+  /* `label-sm` at Bold, which the scale has no entry for: the status pill has
+   * to read as a state rather than as one more quiet pill beside it. */
+  --text-label-sm-strong: 0.6875rem;
+  --text-label-sm-strong--line-height: 0.875rem;
+  --text-label-sm-strong--letter-spacing: 0.03em;
+  --text-label-sm-strong--font-weight: 700;
 
   /* Generous radii on purpose: DESIGN.md rejects mechanical corners. */
   --radius-sm: 0.25rem;

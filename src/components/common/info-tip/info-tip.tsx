@@ -14,24 +14,31 @@ import { useId } from "react";
 import { TIP_PEER, TIP_PLACE, TIP_SHOWN } from "@/components/common/tooltip/tooltip.styles";
 import { useDisclosure } from "@/hooks/use-disclosure/use-disclosure";
 
-type InfoPlace = "above" | "above-end" | "right";
+type InfoPlace = "above" | "above-end" | "below" | "right";
 
 type InfoTipProps = {
   // The field or section this explains, which is what names the press.
   label: string;
   text: string;
   // Above by default, `above-end` for a field sharing a row, whose own row is
-  // narrower than the bubble, and `right` for a heading.
+  // narrower than the bubble, `below` for a field at the top of a scrolling
+  // box, which clips what is above it, and `right` for a heading.
   place?: InfoPlace;
 };
 
 // Where each bubble hangs, and off what: a field's own row caps it at that
 // field's width, where a heading's row is the width of the page.
-const WHERE = { above: "above-start", "above-end": "above-end", right: "right" } as const;
+const WHERE = {
+  above: "above-start",
+  "above-end": "above-end",
+  below: "below",
+  right: "right",
+} as const;
 
 const ANCHOR = {
   above: "inline-flex",
   "above-end": "inline-flex",
+  below: "inline-flex",
   right: "static sm:relative inline-flex",
 } as const;
 

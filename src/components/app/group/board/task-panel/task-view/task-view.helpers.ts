@@ -1,7 +1,7 @@
 /**
- * How a chore's stored values are worded in the panel. A row is always drawn,
- * so every one of these answers for a field the chore does not carry too: a
- * blank reads as a rendering fault where "No" is the chore's actual state.
+ * How a task's stored values are worded in the panel. A row is always drawn,
+ * so every one of these answers for a field the task does not carry too: a
+ * blank reads as a rendering fault where "No" is the task's actual state.
  */
 
 import { recurrenceLabel } from "@/lib/tasks/recurrence/recurrence";
@@ -12,7 +12,7 @@ import { fullName } from "@/lib/users/name/name";
 
 export const NOT_SET = "Not set";
 
-/** Words how often a chore comes back, or says that it does not. */
+/** Words how often a task comes back, or says that it does not. */
 export function repeatsLabel(type: string | undefined): string {
   return type ? recurrenceLabel(type) : "No";
 }
@@ -30,9 +30,9 @@ export function minutesLabel(minutes: number | undefined): string {
 }
 
 /**
- * Words who wrote the chore down and when.
+ * Words who wrote the task down and when.
  *
- * @returns The line, or null where the chore carries neither, which a chore
+ * @returns The line, or null where the task carries neither, which a task
  * being created does not.
  */
 export function bylineLabel(task: Task | null, now: Date, timeZone: string): string | null {

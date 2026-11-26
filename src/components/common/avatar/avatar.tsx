@@ -54,7 +54,10 @@ export function Avatar({ photoUid, photoUrl, name, lastName, size = "sm" }: Read
 
   return (
     <span className={shell}>
-      <span aria-hidden={uploaded ? true : undefined}>
+      {/* A grid of its own: as a grid item this span is blockified and its
+          line box takes the inherited line height, which left small initials
+          and the placeholder sitting below the circle's centre. */}
+      <span aria-hidden={uploaded ? true : undefined} className="grid size-full place-items-center">
         {letters ? (
           <span className={`${TEXT[size]} text-foreground font-semibold`}>{letters}</span>
         ) : (

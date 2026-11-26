@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 import { GroupBar } from "@/components/app/group/shell/group-bar/group-bar";
 
 describe("GroupBar", () => {
-  it("opens the new-chore form over the board the reader is on, filter and all", () => {
+  it("opens the new-task form over the board the reader is on, filter and all", () => {
     render(<GroupBar uid="g1" admin inviteCode={null} />);
 
     expect(screen.getByRole("link", { name: "Add task" })).toHaveAttribute(

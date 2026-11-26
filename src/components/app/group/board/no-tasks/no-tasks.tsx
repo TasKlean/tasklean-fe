@@ -1,13 +1,13 @@
 /**
  * The board with nothing on it, which is two different situations: a household
- * that has not written a chore down yet, and a filter that matched none.
+ * that has not written a task down yet, and a filter that matched none.
  */
 
 import { CircleCheckBig, SearchX } from "lucide-react";
 import Link from "next/link";
 
 type NoTasksProps = {
-  // Whether anything is hiding a chore the board could have shown.
+  // Whether anything is hiding a task the board could have shown.
   narrowed: boolean;
   // The path back to the whole board, for the way out of an empty filter.
   path: string;
@@ -29,13 +29,13 @@ export function NoTasks({ narrowed, path }: Readonly<NoTasksProps>) {
       </span>
 
       <h3 className="text-title-md text-foreground">
-        {narrowed ? "No chores match" : "No chores yet"}
+        {narrowed ? "No tasks match" : "No tasks yet"}
       </h3>
 
       <p className="text-body-md text-muted-foreground max-w-prose">
         {narrowed
           ? "Nothing on this board fits what you asked for. Widen the filters, or clear them to see everything again."
-          : "Nothing is written down yet. Add the first chore and it will show up here for everybody in the group."}
+          : "Nothing is written down yet. Add the first task and it will show up here for everybody in the group."}
       </p>
 
       {narrowed ? (

@@ -8,5 +8,5 @@ export const BOARD_VIEWS = ["list", "cards"] as const;
 export type BoardView = (typeof BOARD_VIEWS)[number];
 
 // A list reads fastest and says the most per row, so it is what a board opens
-// on; cards are for a household that puts photos on its chores.
+// on; cards are for a household that puts photos on its tasks.
 export const DEFAULT_VIEW: BoardView = "list";

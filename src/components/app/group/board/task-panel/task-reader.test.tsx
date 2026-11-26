@@ -10,6 +10,7 @@ const deleteTaskAction = vi.fn<(group: string, task: string) => Promise<{ error:
 
 vi.mock("@/app/(app)/app/groups/[uid]/actions/actions", () => ({
   deleteTaskAction: (group: string, task: string) => deleteTaskAction(group, task),
+  completeTaskAction: async () => ({ error: null, done: "Marked done." }),
 }));
 
 const router = { push: vi.fn(), replace: vi.fn() };
@@ -19,16 +20,26 @@ vi.mock("next/navigation", () => ({ useRouter: () => router }));
 import { TaskReader } from "@/components/app/group/board/task-panel/task-reader";
 
 const onEdit = vi.fn();
+const onComplete = vi.fn();
+const onNotice = vi.fn();
 
-function reader(canEdit = true) {
+function reader(overrides: Partial<React.ComponentProps<typeof TaskReader>> = {}) {
   return render(
     <TaskReader
       label="Bins"
       groupUid="g1"
       taskUid="t1"
       closeHref="/app/groups/g1"
-      canEdit={canEdit}
+      requiresProof={false}
+      canComplete
+      heldBy={null}
+      doneFor={null}
+      canEdit
+      notice={null}
+      onNotice={onNotice}
       onEdit={onEdit}
+      onComplete={onComplete}
+      {...overrides}
     >
       <p>the facts</p>
     </TaskReader>,
@@ -39,10 +50,12 @@ beforeEach(() => {
   deleteTaskAction.mockClear();
   router.push.mockClear();
   onEdit.mockClear();
+  onComplete.mockClear();
+  onNotice.mockClear();
 });
 
 describe("TaskReader", () => {
-  it("asks before deleting a chore, which nothing brings back", async () => {
+  it("asks before deleting a task, which nothing brings back", async () => {
     reader();
     await userEvent.click(screen.getByRole("button", { name: "Delete task" }));
 
@@ -54,24 +67,42 @@ describe("TaskReader", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/app/groups/g1"));
   });
 
-  it("reports a refused delete in the panel, and stays on the chore", async () => {
+  it("reports a refused delete in the panel, and stays on the task", async () => {
     deleteTaskAction.mockResolvedValueOnce({
-      error: "This chore is not yours to delete. Its author or an admin can.",
+      error: "This task is not yours to delete. Its author or an admin can.",
     });
 
     reader();
     await userEvent.click(screen.getByRole("button", { name: "Delete task" }));
     await userEvent.click(screen.getByRole("button", { name: "Delete for good" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("not yours to delete");
+    await waitFor(() =>
+      expect(onNotice).toHaveBeenCalledWith({
+        tone: "error",
+        text: "This task is not yours to delete. Its author or an admin can.",
+      }),
+    );
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("offers neither press to a reader the chore is not theirs to change", () => {
-    reader(false);
+  it("offers neither press to a reader the task is not theirs to change", () => {
+    reader({ canEdit: false });
 
     expect(screen.queryByRole("button", { name: "Delete task" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit task" })).toBeNull();
-    expect(screen.getByText("the facts")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Complete" }).length).toBeGreaterThan(0);
+  });
+
+  it("draws no Complete press on a task that is done for good", () => {
+    reader({ canComplete: false });
+
+    expect(screen.queryByRole("button", { name: "Complete" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit task" })).toBeInTheDocument();
+  });
+
+  it("shows what the last press said", () => {
+    reader({ notice: { tone: "success", text: "Marked done. It comes round again tomorrow." } });
+
+    expect(screen.getByText("Marked done. It comes round again tomorrow.")).toBeInTheDocument();
   });
 });

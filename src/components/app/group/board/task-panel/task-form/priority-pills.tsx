@@ -1,5 +1,5 @@
 /**
- * How urgent a chore is, as one pill moving along a track of three, and none
+ * How urgent a task is, as one pill moving along a track of three, and none
  * of them where nobody said. A radio cannot be unticked, so the press on the
  * one already on is what clears it, rather than a fourth pill for nothing.
  *
@@ -9,10 +9,10 @@
 
 "use client";
 
+import { PRIORITY_TONE } from "@/components/app/group/board/board.styles";
 import {
   SEGMENT,
   SEGMENT_OFF,
-  SEGMENT_ON,
   TRACK,
 } from "@/components/app/group/board/task-panel/task-form/task-form.styles";
 import { PRIORITY_OPTIONS } from "@/lib/tasks/filter/filter";
@@ -27,7 +27,7 @@ type PriorityPillsProps = {
 // High, the one a reader goes looking for.
 const TRACK_ORDER = PRIORITY_OPTIONS.toReversed();
 
-/** Renders the three priorities a chore can carry. */
+/** Renders the three priorities a task can carry. */
 export function PriorityPills({ value, onPick }: Readonly<PriorityPillsProps>) {
   return (
     <div className={TRACK}>
@@ -36,7 +36,12 @@ export function PriorityPills({ value, onPick }: Readonly<PriorityPillsProps>) {
         const on = value === priority;
 
         return (
-          <label key={priority} className={`${SEGMENT} ${on ? SEGMENT_ON : SEGMENT_OFF}`}>
+          // The chosen one wears the colour the task's own pill will, rather
+          // than the brand fill, so the form shows what the board will say.
+          <label
+            key={priority}
+            className={`${SEGMENT} ${on ? PRIORITY_TONE[priority] : SEGMENT_OFF}`}
+          >
             <input
               type="radio"
               name="priority"

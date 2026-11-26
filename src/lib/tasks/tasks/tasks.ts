@@ -20,7 +20,7 @@ import type {
 /**
  * Reads one page of a group's board.
  *
- * @param groupUid The group whose chores these are, which scopes the path.
+ * @param groupUid The group whose tasks these are, which scopes the path.
  * @param query The narrowing and ordering, already in the endpoint's own
  * vocabulary: `taskApiQuery` is the one place our tokens become these.
  */
@@ -32,7 +32,7 @@ export async function getBoard(
 }
 
 /**
- * Reads one chore in full.
+ * Reads one task in full.
  *
  * @param uid The task's own uid, not its group's.
  */
@@ -41,19 +41,19 @@ export async function getTask(uid: string): Promise<Task> {
 }
 
 /**
- * Creates a chore, authored by the caller.
+ * Creates a task, authored by the caller.
  *
- * @param fields The chore as it will be, including the group it belongs to.
+ * @param fields The task as it will be, including the group it belongs to.
  */
 export async function createTask(fields: TaskCreateRequest): Promise<Task> {
   return serverApi<Task>("/api/tasks", { method: "POST", body: fields });
 }
 
 /**
- * Saves a chore, replacing it.
+ * Saves a task, replacing it.
  *
  * @param uid The task's own uid.
- * @param fields The chore as it will then be: an omitted field is cleared, so
+ * @param fields The task as it will then be: an omitted field is cleared, so
  * a save carries everything it is keeping.
  */
 export async function updateTask(uid: string, fields: TaskWriteRequest): Promise<Task> {
@@ -61,7 +61,7 @@ export async function updateTask(uid: string, fields: TaskWriteRequest): Promise
 }
 
 /**
- * Retires a chore, which cannot be undone: there is no unarchive, and the save
+ * Retires a task, which cannot be undone: there is no unarchive, and the save
  * above carries no status, so nothing brings one back.
  *
  * @param uid The task's own uid.
@@ -71,7 +71,7 @@ export async function archiveTask(uid: string): Promise<Task> {
 }
 
 /**
- * Deletes a chore, which releases its photo and takes its rounds off a share.
+ * Deletes a task, which releases its photo and takes its rounds off a share.
  *
  * @param uid The task's own uid.
  */

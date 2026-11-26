@@ -1,5 +1,5 @@
 /**
- * What a chore is set to, as marks on its row: how often it comes back and
+ * What a task is set to, as marks on its row: how often it comes back and
  * whether it has to be photographed. No pill around either, so the line reads
  * as a note under the name rather than as more labels.
  */
@@ -9,7 +9,7 @@ import { Tooltip } from "@/components/common/tooltip/tooltip";
 import { recurrenceLabel } from "@/lib/tasks/recurrence/recurrence";
 
 type TaskMarksProps = {
-  // Absent for a chore that happens once, which is most of them.
+  // Absent for a task that happens once, which is most of them.
   recurrence: string | undefined;
   photoProof: boolean;
   // False on a phone, where the icons ride in the row of pills and there is
@@ -20,7 +20,7 @@ type TaskMarksProps = {
 const MARK =
   "text-label-sm text-muted-foreground gap-1 flex shrink-0 items-center whitespace-nowrap";
 
-/** Renders the marks this chore has earned, in order. */
+/** Renders the marks this task has earned, in order. */
 export function TaskMarks({ recurrence, photoProof, words = true }: Readonly<TaskMarksProps>) {
   const marks = [
     ...(recurrence ? [{ Icon: Repeat2, label: recurrenceLabel(recurrence), tip: "Repeats" }] : []),

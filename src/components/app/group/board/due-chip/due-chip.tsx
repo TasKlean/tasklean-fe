@@ -1,5 +1,5 @@
 /**
- * When a chore is next due, named rather than dated for the nearest days. The
+ * When a task is next due, named rather than dated for the nearest days. The
  * full date goes in the bubble over it, so a reader can still see which day
  * "tomorrow" is without doing the arithmetic.
  */
@@ -12,7 +12,7 @@ type DueChipProps = {
   due: DueLabel;
 };
 
-/** Renders a chore's due date. */
+/** Renders a task's due date. */
 export function DueChip({ due }: Readonly<DueChipProps>) {
   return (
     <span className={`${CHIP} ${DUE_TONE[due.tone]}`}>

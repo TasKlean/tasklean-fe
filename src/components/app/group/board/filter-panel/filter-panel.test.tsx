@@ -179,7 +179,7 @@ describe("FilterPanel", () => {
   it("ticks the states the board is already showing", async () => {
     await open({ status: ["open", "archived"] });
 
-    expect(screen.getByRole("checkbox", { name: "To-Do" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "To do" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Archived" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Completed" })).not.toBeChecked();
   });
@@ -194,14 +194,14 @@ describe("FilterPanel", () => {
   it("names the member a board is narrowed to on the closed dropdown", async () => {
     await open({ who: { kind: "member", memberUid: "m2" } });
 
-    expect(screen.getByRole("combobox", { name: "Show chores assigned to" })).toHaveTextContent(
+    expect(screen.getByRole("combobox", { name: "Show tasks assigned to" })).toHaveTextContent(
       "Dan Kos",
     );
   });
 
   it("offers the reader one row, not a second under their own name", async () => {
     await open();
-    await userEvent.click(screen.getByRole("combobox", { name: "Show chores assigned to" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Show tasks assigned to" }));
 
     expect(screen.getByRole("option", { name: "Me (Maja Novak)" })).toBeVisible();
     expect(screen.queryByRole("option", { name: "Maja Novak" })).toBeNull();
@@ -210,14 +210,14 @@ describe("FilterPanel", () => {
   it("reads the reader's own membership as that one row, since a URL may name either", async () => {
     await open({ who: { kind: "member", memberUid: "m1" } });
 
-    expect(screen.getByRole("combobox", { name: "Show chores assigned to" })).toHaveTextContent(
+    expect(screen.getByRole("combobox", { name: "Show tasks assigned to" })).toHaveTextContent(
       "Me (Maja Novak)",
     );
   });
 
   it("puts the two answers naming nobody above the rule, and the people below", async () => {
     await open();
-    await userEvent.click(screen.getByRole("combobox", { name: "Show chores assigned to" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Show tasks assigned to" }));
 
     const rows = screen.getAllByRole("option").map((row) => row.textContent);
     expect(rows).toEqual(["Anyone", "Unassigned", "Me (Maja Novak)", "Dan Kos (left)"]);
@@ -225,7 +225,7 @@ describe("FilterPanel", () => {
 
   it("marks a member who has left, since a dropdown row has no divider to sit under", async () => {
     await open();
-    await userEvent.click(screen.getByRole("combobox", { name: "Show chores assigned to" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Show tasks assigned to" }));
 
     expect(screen.getByRole("option", { name: /Dan Kos \(left\)/ })).toBeVisible();
   });

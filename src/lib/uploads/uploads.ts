@@ -26,7 +26,8 @@ export const UPLOAD_NOT_USABLE = "UPLOAD_NOT_USABLE";
 const REFUSED: Record<UploadPurpose, string> = {
   GROUP_PHOTO: "You cannot add a picture to that group. You may no longer be an admin of it.",
   USER_PHOTO: "You cannot add a picture to that account.",
-  TASK_PHOTO: "You cannot add a picture to a chore in that group. You may no longer be a member.",
+  TASK_PHOTO: "You cannot add a picture to a task in that group. You may no longer be a member.",
+  COMPLETION_PHOTO: "You cannot add proof to that task. You may no longer be a member.",
 };
 
 /**

@@ -50,7 +50,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
               </p>
               <p className="text-headline-md text-foreground">Clean tasks, clear minds.</p>
               <p className="text-body-md text-muted-foreground">
-                Household chores without the urgency of a corporate ticket queue.
+                Household tasks without the urgency of a corporate ticket queue.
               </p>
             </div>
 

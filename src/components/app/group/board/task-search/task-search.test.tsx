@@ -64,7 +64,7 @@ describe("TaskSearch", () => {
   it("posts the box under the name the URL reads it from", () => {
     render(<TaskSearch path={PATH} query={query({ q: "floor" })} />);
 
-    expect(screen.getByRole("searchbox", { name: "Search chores" })).toHaveAttribute("name", "q");
+    expect(screen.getByRole("searchbox", { name: "Search tasks" })).toHaveAttribute("name", "q");
   });
 
   it("stops typing at the length the backend refuses past", () => {

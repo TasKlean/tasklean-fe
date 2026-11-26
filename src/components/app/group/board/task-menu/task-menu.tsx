@@ -1,5 +1,5 @@
 /**
- * What a reader can do to a chore without reading it first: open it, edit it,
+ * What a reader can do to a task without reading it first: open it, edit it,
  * delete it. The three dots are a desktop control, and a long press on the
  * row opens the same menu on a phone, which has no width for one per row.
  *
@@ -19,7 +19,7 @@ import { deleteTaskAction } from "@/app/(app)/app/groups/[uid]/actions/actions";
 import type { TaskMenuProps } from "@/components/app/group/board/task-menu/task-menu.types";
 
 // Hidden rather than shrunk on a phone, where the long press replaces it.
-// Nothing is lost: the open chore carries Edit and Delete of its own, which
+// Nothing is lost: the open task carries Edit and Delete of its own, which
 // is the way anybody not holding a finger down still reaches them.
 const TRIGGER =
   "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring hidden size-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex";
@@ -76,7 +76,7 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
     if (open) place();
   }, [open, place]);
 
-  /** Deletes the chore, or reports why it is still there. */
+  /** Deletes the task, or reports why it is still there. */
   async function remove() {
     setBusy(true);
     const answer = await deleteTaskAction(groupUid, taskUid);
@@ -114,7 +114,7 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
         <div className={`${PANEL} ${up ? HANGS.up : HANGS.down}`}>
           {asking ? (
             <>
-              <p className={QUESTION}>Delete this chore? Nothing brings it back.</p>
+              <p className={QUESTION}>Delete this task? Nothing brings it back.</p>
 
               <button
                 type="button"

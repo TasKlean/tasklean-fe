@@ -71,7 +71,7 @@ describe("getBoard", () => {
 });
 
 describe("getTask", () => {
-  it("reads one chore by its own uid, not its group's", async () => {
+  it("reads one task by its own uid, not its group's", async () => {
     server.use(http.get(`${BASE}/api/tasks/t1`, () => envelope({ uid: "t1", name: "Floor" })));
 
     await expect(getTask("t1")).resolves.toMatchObject({ uid: "t1" });
@@ -79,7 +79,7 @@ describe("getTask", () => {
 });
 
 describe("createTask", () => {
-  it("posts the chore with the group named in the body", async () => {
+  it("posts the task with the group named in the body", async () => {
     const seen: Seen = {};
     server.use(
       http.post(`${BASE}/api/tasks`, async ({ request }) => {
@@ -95,7 +95,7 @@ describe("createTask", () => {
 });
 
 describe("updateTask", () => {
-  it("puts the chore as it will then be, addressed by its uid", async () => {
+  it("puts the task as it will then be, addressed by its uid", async () => {
     const seen: Seen = {};
     server.use(
       http.put(`${BASE}/api/tasks/t1`, async ({ request }) => {
@@ -113,7 +113,7 @@ describe("updateTask", () => {
 });
 
 describe("archiveTask", () => {
-  it("posts to the chore's own archive path, carrying no body", async () => {
+  it("posts to the task's own archive path, carrying no body", async () => {
     const seen: Seen = {};
     server.use(
       http.post(`${BASE}/api/tasks/t1/archive`, async ({ request }) => {

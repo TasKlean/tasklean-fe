@@ -35,7 +35,7 @@ describe("AddTaskButton", () => {
     );
   });
 
-  it("is drawn nowhere but inside a group, a chore having none to belong to", () => {
+  it("is drawn nowhere but inside a group, a task having none to belong to", () => {
     path.mockReturnValueOnce("/app/settings/profile");
     render(<AddTaskButton />);
 

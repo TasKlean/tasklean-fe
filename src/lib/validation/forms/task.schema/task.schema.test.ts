@@ -11,19 +11,19 @@ function posted(overrides: Record<string, unknown> = {}) {
 }
 
 describe("parseTask", () => {
-  it("refuses a repeating chore with no date, which the backend answers 400 with no code", () => {
+  it("refuses a repeating task with no date, which the backend answers 400 with no code", () => {
     const result = parseTask(posted({ recurrenceType: "WEEKLY" }));
 
     expect(result.ok).toBe(false);
     if (!result.ok)
-      expect(result.errors.dueDate).toBe("A chore that repeats needs a date to repeat from.");
+      expect(result.errors.dueDate).toBe("A task that repeats needs a date to repeat from.");
   });
 
-  it("allows a repeating chore that has one", () => {
+  it("allows a repeating task that has one", () => {
     expect(parseTask(posted({ recurrenceType: "WEEKLY", dueDate: "2026-01-15" })).ok).toBe(true);
   });
 
-  it("allows a one-off chore with no date at all", () => {
+  it("allows a one-off task with no date at all", () => {
     expect(parseTask(posted()).ok).toBe(true);
   });
 
@@ -31,10 +31,10 @@ describe("parseTask", () => {
     const result = parseTask(posted({ name: "   " }));
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.name).toBe("Name this chore.");
+    if (!result.ok) expect(result.errors.name).toBe("Name this task.");
   });
 
-  it("takes a chore nobody gave a priority, which the backend no longer asks for", () => {
+  it("takes a task nobody gave a priority, which the backend no longer asks for", () => {
     const result = parseTask(posted({ priority: "" }));
 
     expect(result.ok).toBe(true);
@@ -52,7 +52,7 @@ describe("parseTask", () => {
     const result = parseTask(posted({ tagNames: ["a", "b", "c", "d", "e", "f"] }));
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.tagNames).toBe("A chore takes 5 tags at most.");
+    if (!result.ok) expect(result.errors.tagNames).toBe("A task takes 5 tags at most.");
   });
 
   it("treats empty minutes as none rather than as zero, which the backend refuses", () => {
@@ -64,7 +64,7 @@ describe("parseTask", () => {
 
   it.each([
     ["0", "Give it at least 1 minute."],
-    ["1441", "A chore cannot take more than 1440 minutes."],
+    ["1441", "A task cannot take more than 1440 minutes."],
     ["half an hour", "Enter the minutes as a whole number."],
   ])("refuses %j minutes", (value, message) => {
     const result = parseTask(posted({ estimatedTimeMinutes: value }));

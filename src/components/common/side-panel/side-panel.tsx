@@ -52,7 +52,7 @@ export function SidePanel({
   const router = useRouter();
   const href = "href" in close ? close.href : null;
   const press = "press" in close ? close.press : null;
-  const mark = "press" in close && close.back ? MARKS.back : MARKS.close;
+  const mark = close.back ? MARKS.back : MARKS.close;
 
   // On arrival only. Tied to the close href as well, it fired on every render
   // and took focus back off whatever was being typed into.

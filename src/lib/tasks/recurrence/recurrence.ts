@@ -1,5 +1,5 @@
 /**
- * How often a chore comes back, in words. One module because the form offers
+ * How often a task comes back, in words. One module because the form offers
  * the schedules and the panel reads back whichever was chosen: two copies drift
  * the moment the backend grows a fourth.
  */

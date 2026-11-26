@@ -1,5 +1,5 @@
 /**
- * The tags a chore carries, in a box of their own: the ones on it, and one
+ * The tags a task carries, in a box of their own: the ones on it, and one
  * press that opens the way to another.
  *
  * Each name is posted by a hidden input rather than a tickbox, the household's
@@ -17,7 +17,6 @@ import {
   CHOICE_OFF,
 } from "@/components/app/group/board/task-panel/task-form/task-form.styles";
 import { LabelChip } from "@/components/common/label-chip/label-chip";
-import { Swatch } from "@/components/common/swatch/swatch";
 import type { LabelChoice } from "@/lib/tasks/filter/filter.types";
 import { TASK_TAGS_MAX } from "@/lib/validation/rules/rules";
 
@@ -33,12 +32,22 @@ const BOX = "border-border/60 p-space-sm rounded-xl border";
 
 const REMOVE = "text-muted-foreground hover:text-foreground -mr-1 ml-1 shrink-0 rounded-full";
 
+// How many of the five are used, at the end of the row the chips are in. It
+// turns bold at the cap, which is the only thing saying why the press died:
+// `label-sm` already carries 600, so the weight has to come from its own token.
+const COUNT = "ml-auto pl-space-xs shrink-0";
+
+const COUNT_TONE = {
+  off: "text-label-sm text-muted-foreground",
+  full: "text-label-sm-strong text-foreground",
+} as const;
+
 /** Reports whether a name is already picked, the way the backend matches. */
 function holds(picked: readonly string[], name: string): boolean {
   return picked.some((held) => held.toLowerCase() === name.toLowerCase());
 }
 
-/** Renders the chore's tags and the way to add one. */
+/** Renders the task's tags and the way to add one. */
 export function TagEditor({ groupUid, tags, picked, onChange }: Readonly<TagEditorProps>) {
   const [open, setOpen] = useState(false);
   // A tag made from here reaches the household only on the next read of the
@@ -65,7 +74,7 @@ export function TagEditor({ groupUid, tags, picked, onChange }: Readonly<TagEdit
             <LabelChip
               name={name}
               color={colorOf(name)}
-              icon={<Swatch color={colorOf(name)} />}
+              kind="tag"
               trailing={
                 <button
                   type="button"
@@ -88,17 +97,27 @@ export function TagEditor({ groupUid, tags, picked, onChange }: Readonly<TagEdit
             className={`${CHOICE} ${CHOICE_OFF} disabled:cursor-not-allowed disabled:opacity-50`}
           >
             <Plus className="mr-1 size-3.5 shrink-0" aria-hidden />
-            {full ? `${TASK_TAGS_MAX} tags is the most a chore takes` : "Add tag"}
+            Add tag
           </button>
         )}
+
+        <p className={`${COUNT} ${full ? COUNT_TONE.full : COUNT_TONE.off}`}>
+          <span aria-hidden>
+            {picked.length} / {TASK_TAGS_MAX}
+          </span>
+          <span className="sr-only">{`${picked.length} of ${TASK_TAGS_MAX} tags used`}</span>
+        </p>
       </div>
 
       {open ? (
         <AddTagPanel
           groupUid={groupUid}
           suggestions={suggestions}
+          full={full}
           onAdd={(name, color) => {
-            if (holds(picked, name)) return;
+            // The panel stays open across adds, so the cap is enforced here
+            // rather than by the press that opened it.
+            if (full || holds(picked, name)) return;
 
             if (color) setLearned((held) => ({ ...held, [name.toLowerCase()]: color }));
             onChange([...picked, name]);

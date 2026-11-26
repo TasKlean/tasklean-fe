@@ -33,7 +33,7 @@ function row(task: Partial<Task>, canEdit = true) {
 }
 
 describe("TaskRow", () => {
-  it("opens the chore, which is a URL rather than a press", () => {
+  it("opens the task, which is a URL rather than a press", () => {
     row({});
 
     expect(screen.getByRole("link", { name: /Mop the floor/ })).toHaveAttribute("href", HREF);
@@ -45,32 +45,32 @@ describe("TaskRow", () => {
     expect(screen.getByRole("button", { name: "More for Mop the floor" })).toBeInTheDocument();
   });
 
-  it("dates a chore in digits, the column having room for nothing else", () => {
+  it("dates a task in digits, the column having room for nothing else", () => {
     row({ nextDueDate: "2026-03-11T18:00:00" });
 
     expect(screen.getByText("11/3")).toBeInTheDocument();
     expect(screen.getAllByText("Due tomorrow").length).toBeGreaterThan(0);
   });
 
-  it("dates one in another year with that year, which a yearly chore needs", () => {
+  it("dates one in another year with that year, which a yearly task needs", () => {
     row({ nextDueDate: "2027-01-02T18:00:00" });
 
     expect(screen.getByText("2/1/27")).toBeInTheDocument();
   });
 
-  it("says a chore has to be photographed, which is otherwise only an icon", () => {
+  it("says a task has to be photographed, which is otherwise only an icon", () => {
     row({ requiresPhotoProof: true });
 
     expect(screen.getAllByText("Photo proof").length).toBeGreaterThan(0);
   });
 
-  it("says how often a chore repeats, which is an icon alone on a phone", () => {
+  it("says how often a task repeats, which is an icon alone on a phone", () => {
     row({ recurrenceType: "WEEKLY" });
 
     expect(screen.getAllByText("Every week").length).toBeGreaterThan(0);
   });
 
-  it("says nothing about repeating for a chore that does not", () => {
+  it("says nothing about repeating for a task that does not", () => {
     row({});
 
     expect(screen.queryByText(/^Every/)).toBeNull();

@@ -15,7 +15,7 @@ import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
   title: "Log in",
-  description: "Sign in to see today's chores and keep your household in sync.",
+  description: "Sign in to see today's tasks and keep your household in sync.",
 };
 
 // Keyed by the `signedOut` an action redirected with, so each way out says
@@ -47,7 +47,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Welcome back to TasKlean
         </h1>
         <p className="text-body-lg text-muted-foreground">
-          Sign in to see today&apos;s chores and keep your household in sync.
+          Sign in to see today&apos;s tasks and keep your household in sync.
         </p>
       </header>
 

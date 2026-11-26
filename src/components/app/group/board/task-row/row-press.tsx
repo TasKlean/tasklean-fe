@@ -1,11 +1,11 @@
 /**
- * A chore's own row element, and the menu it opens. A client component for
+ * A task's own row element, and the menu it opens. A client component for
  * those two things alone: everything inside a row arrives as children and
  * stays server-rendered.
  *
  * The long press is how a phone reaches the menu, there being no width for a
  * control on every row. It is touch only, and it swallows the click it ends
- * in, which would otherwise open the chore over the menu just asked for.
+ * in, which would otherwise open the task over the menu just asked for.
  */
 
 "use client";

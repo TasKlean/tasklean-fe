@@ -10,6 +10,7 @@ vi.mock("@/app/(app)/app/groups/[uid]/actions/actions", () => ({
   createTaskAction: () => createTaskAction(),
   updateTaskAction: vi.fn(),
   deleteTaskAction: vi.fn(),
+  completeTaskAction: vi.fn(async () => ({ error: null, done: null })),
   createTaskTagAction: vi.fn(),
 }));
 
@@ -37,12 +38,16 @@ function panel(view: React.ReactNode | null, startEditing = false) {
       groupUid="g1"
       taskUid={view ? "t9" : undefined}
       values={taskValues(null, ZONE)}
+      today="2026-03-10"
       photoUid={null}
       categories={[]}
       tags={[]}
       members={[{ memberUid: "m1", name: "Maja Novak", former: false, self: true }]}
       byline={null}
       canEdit
+      canComplete
+      heldBy={null}
+      doneFor={null}
       path={CLOSE}
       query={QUERY}
       closeHref={CLOSE}
@@ -57,10 +62,10 @@ beforeEach(() => {
 });
 
 describe("TaskPanel", () => {
-  it("opens the form for a chore that does not exist yet", () => {
+  it("opens the form for a task that does not exist yet", () => {
     render(panel(null));
 
-    expect(screen.getAllByRole("button", { name: "Create task" })[0]).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "Add task" })[0]).toBeVisible();
   });
 
   it("leaves the form by the board's own link, which the URL named", () => {
@@ -69,26 +74,26 @@ describe("TaskPanel", () => {
     expect(screen.getByRole("link", { name: "Close" })).toHaveAttribute("href", CLOSE);
   });
 
-  it("shows the facts once a created chore has them, not the form again", async () => {
+  it("shows the facts once a created task has them, not the form again", async () => {
     const { rerender } = render(panel(null));
     await userEvent.type(screen.getByLabelText(/^Task title/), "Mop the floor");
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith(`${CLOSE}?task=t9`));
 
     rerender(panel(<p>Every week</p>));
 
     expect(screen.getByText("Every week")).toBeVisible();
-    expect(screen.queryAllByRole("button", { name: "Create task" })).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: "Add task" })).toHaveLength(0);
   });
 
-  it("puts the facts back on a discard, leaving no history entry", async () => {
+  it("puts the facts back on Cancel, leaving no history entry", async () => {
     render(panel(<p>Every week</p>));
     await userEvent.click(screen.getByRole("button", { name: "Edit task" }));
 
     expect(screen.getAllByRole("button", { name: "Save changes" })[0]).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
 
     expect(screen.getByText("Every week")).toBeVisible();
     expect(router.push).not.toHaveBeenCalled();
@@ -100,15 +105,15 @@ describe("TaskPanel", () => {
     expect(screen.getAllByRole("button", { name: "Save changes" })[0]).toBeVisible();
   });
 
-  it("takes the request out of the URL on a discard, so a reload reads", async () => {
+  it("takes the request out of the URL on Cancel, so a reload reads", async () => {
     render(panel(<p>Every week</p>, true));
-    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
 
     expect(screen.getByText("Every week")).toBeVisible();
     expect(router.replace).toHaveBeenCalledWith(`${CLOSE}?task=t9`);
   });
 
-  it("opens the editor again for a second chore the URL names", () => {
+  it("opens the editor again for a second task the URL names", () => {
     const { rerender } = render(panel(<p>Every week</p>, true));
     rerender(panel(<p>Every week</p>, false));
     rerender(panel(<p>Every week</p>, true));

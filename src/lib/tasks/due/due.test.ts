@@ -10,7 +10,7 @@ function task(fields: Partial<Task>): Task {
 }
 
 describe("dueLabel", () => {
-  it("says nothing for a chore nobody put a date on", () => {
+  it("says nothing for a task nobody put a date on", () => {
     expect(dueLabel(task({}), NOW, ZONE)).toBeNull();
   });
 
@@ -47,17 +47,17 @@ describe("dueLabel", () => {
 });
 
 describe("dueDigits", () => {
-  it("says nothing for a chore nobody put a date on", () => {
+  it("says nothing for a task nobody put a date on", () => {
     expect(dueDigits(task({}), NOW, ZONE)).toBeNull();
   });
 
-  it("dates a chore in digits, keeping the wording as the title", () => {
+  it("dates a task in digits, keeping the wording as the title", () => {
     const digits = dueDigits(task({ nextDueDate: "2026-11-22T07:00:00" }), NOW, ZONE);
 
     expect(digits).toMatchObject({ text: "22/11", tone: "soon", title: "Due tomorrow" });
   });
 
-  it("carries the tone, so the numbers alone still say a chore is late", () => {
+  it("carries the tone, so the numbers alone still say a task is late", () => {
     const digits = dueDigits(
       task({ nextDueDate: "2026-11-20T08:00:00", overdue: true }),
       NOW,

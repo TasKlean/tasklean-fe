@@ -18,7 +18,7 @@ export function NoGroups() {
       <div className="gap-space-xs flex flex-col">
         <h2 className="text-headline-sm text-foreground">You are not in a group yet</h2>
         <p className="text-body-md text-muted-foreground max-w-prose">
-          A group is the household you share chores with. Make one and send the invite code to the
+          A group is the household you share tasks with. Make one and send the invite code to the
           people you live with, or redeem a code somebody already sent you.
         </p>
       </div>

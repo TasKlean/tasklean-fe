@@ -1,12 +1,21 @@
 /**
- * One chore, read: what it is at a glance, then the words, the picture, what
+ * One task, read: what it is at a glance, then the words, the picture, what
  * it is set to, its tags and who wrote it down.
  *
  * Body only. The panel's own header and footer belong to the shell around it,
  * which is where the presses live.
  */
 
-import { CalendarClock, Camera, ImageIcon, Repeat2, Timer, UserRound } from "lucide-react";
+import {
+  CalendarClock,
+  Camera,
+  ImageIcon,
+  Repeat2,
+  Timer,
+  UserRound,
+  UserRoundCheck,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assignee-chip";
 import { DueChip } from "@/components/app/group/board/due-chip/due-chip";
 import { PriorityMark } from "@/components/app/group/board/priority-mark/priority-mark";
@@ -20,7 +29,9 @@ import {
   repeatsLabel,
 } from "@/components/app/group/board/task-panel/task-view/task-view.helpers";
 import { CategoryIcon } from "@/components/common/category-icon/category-icon";
+import { ClippedName } from "@/components/common/clipped-name/clipped-name";
 import { LabelChip } from "@/components/common/label-chip/label-chip";
+import { Tooltip } from "@/components/common/tooltip/tooltip";
 import type { Category } from "@/lib/labels/categories/categories.types";
 import { dueLabel } from "@/lib/tasks/due/due";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
@@ -31,6 +42,9 @@ type TaskViewProps = {
   category: Category | undefined;
   now: Date;
   timeZone: string;
+  // The rounds this task has recorded, read by the page and rendered inside
+  // this body because the body is what scrolls.
+  history: ReactNode;
 };
 
 const BODY =
@@ -47,8 +61,8 @@ const PHOTO = "bg-muted h-48 w-full shrink-0 rounded-xl bg-cover bg-center";
 
 const ICON = "size-4 shrink-0";
 
-/** Renders the chore the URL names. */
-export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewProps>) {
+/** Renders the task the URL names. */
+export function TaskView({ task, category, now, timeZone, history }: Readonly<TaskViewProps>) {
   const due = dueLabel(task, now, timeZone);
   const tags = task.tags ?? [];
   const photo = uploadedImageSrc(task.photoUid);
@@ -56,21 +70,33 @@ export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewPro
 
   return (
     <div className={BODY}>
+      {/* The bubbles hang below their row: this is the first row of a box
+          that scrolls, which clips whatever sits above it. */}
       <div className="gap-space-xs flex flex-wrap items-center">
-        <StatusPill status={task.status} />
+        <Tooltip text="Status" place="below">
+          <StatusPill status={task.status} />
+        </Tooltip>
 
-        {task.priority ? <PriorityMark priority={task.priority} /> : null}
+        {task.priority ? (
+          <Tooltip text="Priority" place="below">
+            <PriorityMark priority={task.priority} />
+          </Tooltip>
+        ) : null}
 
         {category?.name ? (
-          <LabelChip
-            name={category.name}
-            color={category.color}
-            icon={<CategoryIcon name={category.icon} />}
-          />
+          <Tooltip text="Category" place="below" width="shrink">
+            <LabelChip
+              name={category.name}
+              color={category.color}
+              icon={<CategoryIcon name={category.icon} />}
+            />
+          </Tooltip>
         ) : null}
       </div>
 
-      <h2 className={TITLE}>{task.name}</h2>
+      <h2 className="min-w-0">
+        <ClippedName name={task.name ?? ""} className={TITLE} />
+      </h2>
 
       {task.description ? <DescriptionBlock text={task.description} /> : null}
 
@@ -86,7 +112,7 @@ export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewPro
               would draw the browser's broken glyph. */}
           <div
             role="img"
-            aria-label="What this chore should look like"
+            aria-label="What this task should look like"
             style={{ backgroundImage: `url(${photo})` }}
             className={PHOTO}
           />
@@ -97,6 +123,14 @@ export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewPro
         <FactRow icon={<UserRound className={ICON} aria-hidden />} label="Assigned to">
           <AssigneeChip member={task.assignedTo} />
         </FactRow>
+
+        {/* Only where there are rounds to come, or where somebody owns it
+            anyway: a one-off nobody owns has nothing to hand back. */}
+        {task.recurrenceType || task.defaultAssignee ? (
+          <FactRow icon={<UserRoundCheck className={ICON} aria-hidden />} label="Task owner">
+            {task.defaultAssignee ? <AssigneeChip member={task.defaultAssignee} /> : "Anybody"}
+          </FactRow>
+        ) : null}
 
         <FactRow icon={<CalendarClock className={ICON} aria-hidden />} label="Due date">
           {due ? <DueChip due={due} /> : "No date"}
@@ -121,7 +155,12 @@ export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewPro
         <div className="gap-space-xs flex flex-wrap items-center">
           {tags.length > 0 ? (
             tags.map((tag) => (
-              <LabelChip key={tag.id ?? tag.name} name={tag.name ?? ""} color={tag.color} />
+              <LabelChip
+                key={tag.id ?? tag.name}
+                name={tag.name ?? ""}
+                color={tag.color}
+                kind="tag"
+              />
             ))
           ) : (
             <span className="text-body-md text-muted-foreground">None</span>
@@ -130,6 +169,8 @@ export function TaskView({ task, category, now, timeZone }: Readonly<TaskViewPro
       </section>
 
       {byline ? <p className="text-label-sm text-muted-foreground text-right">{byline}</p> : null}
+
+      {history}
     </div>
   );
 }

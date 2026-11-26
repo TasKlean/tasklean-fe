@@ -8,7 +8,7 @@ import { NONCE_HEADER_NAME } from "@/lib/auth/google-nonce/google-nonce";
 
 export const metadata: Metadata = {
   title: "Sign up",
-  description: "Create a TasKlean account and start sharing chores with your household.",
+  description: "Create a TasKlean account and start sharing tasks with your household.",
 };
 
 /** Renders the account creation page. */

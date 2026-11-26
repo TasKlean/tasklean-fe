@@ -6,7 +6,7 @@ import {
 } from "@/components/app/group/board/task-panel/task-view/task-view.helpers";
 
 describe("repeatsLabel", () => {
-  it("reads a one-off chore as the answer to the question, not as a blank", () => {
+  it("reads a one-off task as the answer to the question, not as a blank", () => {
     expect(repeatsLabel(undefined)).toBe("No");
   });
 

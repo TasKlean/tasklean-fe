@@ -24,6 +24,7 @@ import {
   type TaskState,
   type TaskWho,
 } from "@/lib/tasks/filter/filter.types";
+import { statusLabel } from "@/lib/tasks/status/status";
 import { QUERY_MAX_LENGTH } from "@/lib/validation/rules/rules";
 
 // The one value `?task=` carries that is not a uid. Safe as a reserved value
@@ -39,14 +40,14 @@ export const EDIT_TASK = "1";
 export const DEFAULT_SORT: TaskSort = "due-asc";
 
 // What the endpoint answers when no status is sent, so writing it would be
-// writing the default: the board opens on the chores still waiting to be done.
+// writing the default: the board opens on the tasks still waiting to be done.
 export const DEFAULT_STATES: readonly TaskState[] = ["open"];
 
-export const STATE_OPTIONS: readonly { value: TaskState; label: string }[] = [
-  { value: "open", label: "To-Do" },
-  { value: "done", label: "Completed" },
-  { value: "archived", label: "Archived" },
-];
+// Worded by `statusLabel` off the status each state stands for, so a filter
+// and the pill on the task it finds cannot say different things.
+export const STATE_OPTIONS: readonly { value: TaskState; label: string }[] = TASK_STATES.map(
+  (value) => ({ value, label: statusLabel(STATUS_FOR_STATE[value][0]) }),
+);
 
 export const PRIORITY_OPTIONS: readonly { value: TaskPriorityToken; label: string }[] = [
   { value: "high", label: "High" },
@@ -221,9 +222,9 @@ export function boardHref(path: string, query: TaskQuery, change: Partial<TaskQu
 }
 
 /**
- * Builds the URL that opens one chore over the board it is on.
+ * Builds the URL that opens one task over the board it is on.
  *
- * @returns The board's own URL with `?task=` added, so the open chore is a
+ * @returns The board's own URL with `?task=` added, so the open task is a
  * link somebody can send and the back press closes it.
  */
 export function openTaskHref(path: string, query: TaskQuery, taskUid: string): string {
@@ -234,7 +235,30 @@ export function openTaskHref(path: string, query: TaskQuery, taskUid: string): s
 }
 
 /**
- * Builds the URL that opens one chore with its editor already up.
+ * Reads the round `?round=` names.
+ *
+ * @returns Its id, or null for anything that is not one: a stale link opens
+ * the task's own facts rather than an error.
+ */
+export function roundId(value: string): number | null {
+  return labelId(value);
+}
+
+/**
+ * Builds the URL that opens one recorded round of the open task.
+ *
+ * @param taskHref The task's own link, which already carries `?task=` and
+ * whatever narrows the board behind it.
+ * @returns That link plus `round=`. A round is read-only, so it lives in the
+ * URL where the editor does not: there is nothing half-typed to lose, and a
+ * reader can send the round itself.
+ */
+export function roundHref(taskHref: string, id: number): string {
+  return `${taskHref}&round=${id}`;
+}
+
+/**
+ * Builds the URL that opens one task with its editor already up.
  *
  * @returns The same link as `openTaskHref` plus `edit=1`. For a press that
  * does not sit inside the panel, which is the only place editing is state.
@@ -248,7 +272,7 @@ export function editTaskHref(path: string, query: TaskQuery, taskUid: string): s
 }
 
 /**
- * Builds the URL that opens the form for a chore that does not exist yet.
+ * Builds the URL that opens the form for a task that does not exist yet.
  *
  * @param path The screen the press sits on, which is the board only sometimes:
  * the form belongs to the board, so a press elsewhere goes there first.
@@ -306,10 +330,10 @@ export function activeFilterCount(query: TaskQuery): number {
 }
 
 /**
- * Says whether a query hides any chore the board could have shown.
+ * Says whether a query hides any task the board could have shown.
  *
- * @returns False for a sort or a page, which move chores about and remove none,
- * so an empty board under either holds no chores at all.
+ * @returns False for a sort or a page, which move tasks about and remove none,
+ * so an empty board under either holds no tasks at all.
  */
 export function narrowsBoard(query: TaskQuery): boolean {
   return (

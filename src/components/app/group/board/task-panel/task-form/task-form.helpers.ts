@@ -1,10 +1,10 @@
 /**
- * What the chore form's parts work out rather than draw. The stretches live
+ * What the task form's parts work out rather than draw. The stretches live
  * here because the field offers them and the editor has to tell a stored value
  * that is one of them from a typed number.
  */
 
-// The four stretches most chores are, in minutes.
+// The four stretches most tasks are, in minutes.
 export const ESTIMATE_PRESETS = [15, 30, 45, 60];
 
 /** Words a stretch the way a press should read it. */

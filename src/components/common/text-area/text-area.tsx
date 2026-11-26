@@ -9,6 +9,10 @@
  * It grows with what is typed, and `field-sizing` makes `rows` stop applying,
  * so `min-h` is what keeps an empty field from collapsing to a single line. A
  * browser without the property falls back to `rows` and the old scrollbar.
+ *
+ * `fixed` turns that off for a field that loads with something already in it,
+ * where growing to fit means the box is a different size every time it opens.
+ * It is still dragged taller by hand.
  */
 
 import type { TextareaHTMLAttributes } from "react";
@@ -25,10 +29,21 @@ type TextAreaProps = {
   hint?: string;
   // What the field is for, which goes in a bubble beside its name.
   info?: string;
+  // A set height rather than one that follows the content, for a field whose
+  // value arrives with it. The reader may still drag it taller.
+  fixed?: boolean;
 } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "className">;
 
 /** Renders a labelled textarea with its own error and hint line. */
-export function TextArea({ label, name, error, hint, info, ...textarea }: Readonly<TextAreaProps>) {
+export function TextArea({
+  label,
+  name,
+  error,
+  hint,
+  info,
+  fixed = false,
+  ...textarea
+}: Readonly<TextAreaProps>) {
   const errorId = `${name}-error`;
   const hintId = `${name}-hint`;
   const describedBy = describedById(errorId, hintId, { error, hint });
@@ -55,7 +70,8 @@ export function TextArea({ label, name, error, hint, info, ...textarea }: Readon
         aria-describedby={describedBy}
         className={[
           "bg-muted text-foreground placeholder:text-muted-foreground text-body-md w-full",
-          "field-sizing-content min-h-24 resize-y rounded-md px-4 py-3.5 transition-all duration-200 outline-none",
+          fixed ? "h-28" : "field-sizing-content min-h-24",
+          "resize-y rounded-md px-4 py-3.5 transition-all duration-200 outline-none",
           "focus:bg-card focus:shadow-level-1",
           "focus-visible:ring-ring/40 focus-visible:ring-2",
           error ? "ring-destructive/60 ring-2" : "",

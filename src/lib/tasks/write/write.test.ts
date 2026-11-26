@@ -46,7 +46,7 @@ describe("taskWriteRequest", () => {
     expect(taskWriteRequest(fields(), ZONE).nextDueDate).toBeUndefined();
   });
 
-  it("carries every field the chore will then have, since a save replaces it", () => {
+  it("carries every field the task will then have, since a save replaces it", () => {
     const body = taskWriteRequest(
       fields({
         description: "Kitchen and hall",
@@ -99,7 +99,7 @@ describe("dueFields", () => {
     });
   });
 
-  it("holds nothing for a chore with no due date", () => {
+  it("holds nothing for a task with no due date", () => {
     expect(dueFields(null, ZONE)).toEqual({ date: "", time: "" });
   });
 
@@ -114,7 +114,7 @@ describe("dueFields", () => {
 });
 
 describe("taskValues", () => {
-  it("empties every field for a chore that does not exist yet", () => {
+  it("empties every field for a task that does not exist yet", () => {
     expect(taskValues(null, ZONE)).toEqual({
       name: "",
       description: "",
@@ -122,6 +122,7 @@ describe("taskValues", () => {
       categoryId: "",
       tagNames: [],
       assignedToUid: "",
+      defaultAssigneeUid: "",
       dueDate: "",
       dueTime: "",
       recurrenceType: "",
@@ -130,7 +131,7 @@ describe("taskValues", () => {
     });
   });
 
-  it("fills the form from the chore, in the reader's own zone", () => {
+  it("fills the form from the task, in the reader's own zone", () => {
     const values = taskValues(
       {
         name: "Mop the floor",
@@ -139,6 +140,7 @@ describe("taskValues", () => {
         categoryId: 4,
         tags: [{ id: 1, name: "weekly" }, { id: 2 }],
         assignedTo: { memberUid: "member-1" },
+        defaultAssignee: { memberUid: "member-2" },
         nextDueDate: "2026-01-15T08:00:00",
         recurrenceType: "WEEKLY",
         estimatedTimeMinutes: 30,
@@ -154,6 +156,7 @@ describe("taskValues", () => {
       categoryId: "4",
       tagNames: ["weekly"],
       assignedToUid: "member-1",
+      defaultAssigneeUid: "member-2",
       dueDate: "2026-01-15",
       dueTime: "09:00",
       recurrenceType: "WEEKLY",
@@ -162,7 +165,7 @@ describe("taskValues", () => {
     });
   });
 
-  it("round-trips a chore through the form without moving its due date", () => {
+  it("round-trips a task through the form without moving its due date", () => {
     const stored = "2026-07-15T07:00:00";
     const values = taskValues({ name: "Water plants", nextDueDate: stored }, ZONE);
     const parsed = parseTask(values);

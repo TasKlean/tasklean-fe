@@ -1,7 +1,7 @@
 /**
- * One chore on the board, in two lines: when it is wanted at the head of the
+ * One task on the board, in two lines: when it is wanted at the head of the
  * row, what it is on the upper line and how it behaves on the lower. A link
- * rather than a button, since the open chore is a URL (`?task=`).
+ * rather than a button, since the open task is a URL (`?task=`).
  *
  * The marks are written once and placed twice, because no one container can
  * be both the line under the name and the end of the row of pills, which is
@@ -31,22 +31,22 @@ import type { Category } from "@/lib/labels/categories/categories.types";
 
 type TaskRowProps = {
   task: Task;
-  // The chore's own category, already looked up: a row holds a numeric id and
+  // The task's own category, already looked up: a row holds a numeric id and
   // the list is read once for the whole board rather than once per row.
   category: Category | undefined;
   href: string;
-  // The same chore with the editor already open, which the menu's Edit leads
+  // The same task with the editor already open, which the menu's Edit leads
   // to. Editing is the panel's own state, and a row cannot reach it.
   editHref: string;
   groupUid: string;
-  // False where the chore is not the reader's to change, which leaves the
+  // False where the task is not the reader's to change, which leaves the
   // menu with View alone. UX only: each press handles its own 403.
   canEdit: boolean;
   now: Date;
   timeZone: string;
 };
 
-/** Renders one chore as a row on the board. */
+/** Renders one task as a row on the board. */
 export function TaskRow({
   task,
   category,
@@ -65,7 +65,7 @@ export function TaskRow({
       actions={{
         groupUid,
         taskUid: task.uid ?? "",
-        name: task.name ?? "this chore",
+        name: task.name ?? "this task",
         viewHref: href,
         editHref,
         canEdit,
@@ -80,6 +80,10 @@ export function TaskRow({
       </span>
 
       <Link href={href} className={ROW_MAIN}>
+        <Tooltip text="Status">
+          <StatusPill status={task.status} compact />
+        </Tooltip>
+
         <span className={`${ROW_TITLE} min-w-0 truncate`}>{task.name}</span>
 
         {/* Its own line on a phone, which is what `w-full` buys: the name
@@ -87,6 +91,12 @@ export function TaskRow({
         <span className="gap-space-xs flex w-full min-w-0 flex-wrap items-center gap-y-1 sm:w-auto sm:flex-nowrap">
           {/* A chip is `max-w-full` and truncates inside, which needs a flex
               parent that may shrink: a long category would push the rest out. */}
+          {task.priority ? (
+            <Tooltip text="Priority">
+              <PriorityMark priority={task.priority} />
+            </Tooltip>
+          ) : null}
+
           {category?.name ? (
             <Tooltip text="Category" width="shrink">
               <LabelChip
@@ -95,16 +105,6 @@ export function TaskRow({
                 size="sm"
                 icon={<CategoryIcon name={category.icon} />}
               />
-            </Tooltip>
-          ) : null}
-
-          <Tooltip text="Status">
-            <StatusPill status={task.status} />
-          </Tooltip>
-
-          {task.priority ? (
-            <Tooltip text="Priority">
-              <PriorityMark priority={task.priority} />
             </Tooltip>
           ) : null}
 

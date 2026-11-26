@@ -41,14 +41,14 @@ export function TaskPager({
 
   const first = (page - 1) * size + 1;
   const last = first + shown - 1;
-  const chores = totalTasks === 1 ? "chore" : "chores";
+  const word = totalTasks === 1 ? "task" : "tasks";
 
   return (
     <div className="gap-space-sm pt-space-xs flex flex-wrap items-center justify-between">
       <p className="text-label-md text-muted-foreground">
         {totalPages > 1
-          ? `Showing ${first} to ${last} of ${totalTasks} ${chores}`
-          : `${totalTasks} ${chores}`}
+          ? `Showing ${first} to ${last} of ${totalTasks} ${word}`
+          : `${totalTasks} ${word}`}
       </p>
 
       {totalPages > 1 ? (

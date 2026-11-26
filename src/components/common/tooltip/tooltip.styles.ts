@@ -42,6 +42,9 @@ export const TIP_PLACE = {
   above: "bottom-full left-1/2 mb-1.5 -translate-x-1/2",
   "above-start": "bottom-full left-0 mb-1.5",
   "above-end": "right-0 bottom-full mb-1.5",
+  // Under the row, for a field at the top of a box that scrolls: a box with
+  // `overflow-y-auto` clips what sits above its first row, z-index or not.
+  below: "top-full left-0 mt-1.5",
   // Beside the words from `sm`, under them on a phone: measured, a 224px
   // bubble off the end of a heading runs out of a 360px screen.
   right: "top-full left-0 mt-1.5 sm:top-1/2 sm:left-full sm:mt-0 sm:ml-1.5 sm:-translate-y-1/2",

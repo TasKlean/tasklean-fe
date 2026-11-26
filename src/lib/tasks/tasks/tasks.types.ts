@@ -55,6 +55,8 @@ export type Task = {
   estimatedTimeMinutes?: number;
   categoryId?: number;
   assignedTo?: MemberSummary;
+  // Whose task it is between rounds, where `assignedTo` is who has this one.
+  defaultAssignee?: MemberSummary;
   createdBy?: MemberSummary;
   tags?: TaskTag[];
 };
@@ -75,6 +77,7 @@ export type TaskWriteRequest = {
   categoryId?: number;
   tagNames?: string[];
   assignedToUid?: string;
+  defaultAssigneeUid?: string;
   // Carries an offset, unlike every other date we write: the request binds to
   // an `OffsetDateTime` where the response answers with a naive one.
   nextDueDate?: string;

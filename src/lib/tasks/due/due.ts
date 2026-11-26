@@ -1,5 +1,5 @@
 /**
- * How a chore's due date reads on the board. The nearest days are named rather
+ * How a task's due date reads on the board. The nearest days are named rather
  * than dated, because "Due today" is what a reader acts on and a date is what
  * they then have to work out.
  *
@@ -24,14 +24,14 @@ export type DueLabel = {
 };
 
 /**
- * Words a chore's next due date.
+ * Words a task's next due date.
  *
- * @param task The chore, whose `overdue` is the backend's own verdict against
+ * @param task The task, whose `overdue` is the backend's own verdict against
  * its clock: it is trusted rather than recomputed, so one slow render cannot
  * disagree with the row beside it.
  * @param now What counts as today, passed down so a whole board agrees.
  * @param timeZone The reader's zone.
- * @returns The label, or null for a chore with no due date, which is a chore
+ * @returns The label, or null for a task with no due date, which is a task
  * nobody has put a date on rather than one that is late.
  */
 export function dueLabel(task: Task, now: Date, timeZone: string): DueLabel | null {
@@ -50,10 +50,10 @@ export function dueLabel(task: Task, now: Date, timeZone: string): DueLabel | nu
 }
 
 /**
- * Dates a chore in digits, for the column at the head of a row.
+ * Dates a task in digits, for the column at the head of a row.
  *
  * @returns The same tone the worded label carries, so the numbers alone still
- * say a chore is late, and that wording as the title: a date in a column this
+ * say a task is late, and that wording as the title: a date in a column this
  * narrow cannot also say "tomorrow".
  */
 export function dueDigits(task: Task, now: Date, timeZone: string): DueLabel | null {

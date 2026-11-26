@@ -1,10 +1,10 @@
 /**
- * What a chore is created and saved with. One schema for both, because `PUT
- * /api/tasks/{uid}` takes the chore as it will then be: a field left out is
+ * What a task is created and saved with. One schema for both, because `PUT
+ * /api/tasks/{uid}` takes the task as it will then be: a field left out is
  * cleared, so an edit posts every field a create does.
  *
  * The due date is two fields here and one on the wire. A date with no time
- * means the end of that day, which is what makes a chore due "Tuesday" read
+ * means the end of that day, which is what makes a task due "Tuesday" read
  * as overdue on Wednesday rather than at Tuesday midnight.
  */
 
@@ -28,7 +28,7 @@ import {
 
 // The backend refuses this pair with a 400 carrying no code, so it is settled
 // here: a recurrence is the schedule's anchor and has nothing to count from.
-const NEEDS_DUE_DATE = "A chore that repeats needs a date to repeat from.";
+const NEEDS_DUE_DATE = "A task that repeats needs a date to repeat from.";
 
 export const taskSchema = z
   .object({
@@ -38,6 +38,7 @@ export const taskSchema = z
     categoryId: optionalLabelIdRule,
     tagNames: tagNamesRule,
     assignedToUid: optionalUidRule,
+    defaultAssigneeUid: optionalUidRule,
     dueDate: dayRule,
     dueTime: timeOfDayRule,
     recurrenceType: recurrenceRule,
@@ -59,6 +60,7 @@ const taskEchoSchema = z.object({
   priority: optionalTextRule,
   categoryId: optionalTextRule,
   assignedToUid: optionalTextRule,
+  defaultAssigneeUid: optionalTextRule,
   dueDate: optionalTextRule,
   dueTime: optionalTextRule,
   recurrenceType: optionalTextRule,
@@ -75,7 +77,7 @@ export const createTaskTargetSchema = z.object({
 
 export const editTaskTargetSchema = z.object({
   groupUid: uidRule("Pick a group."),
-  taskUid: uidRule("Pick a chore."),
+  taskUid: uidRule("Pick a task."),
 });
 
 export type TaskFields = z.infer<typeof taskSchema>;
@@ -95,6 +97,7 @@ export type TaskValues = {
   categoryId: string;
   tagNames: string[];
   assignedToUid: string;
+  defaultAssigneeUid: string;
   dueDate: string;
   dueTime: string;
   recurrenceType: string;
@@ -102,22 +105,22 @@ export type TaskValues = {
   requiresPhotoProof: boolean;
 };
 
-/** Parses the chore a write was asked for. */
+/** Parses the task a write was asked for. */
 export function parseTask(input: unknown): Parsed<TaskFields> {
   return parseWith(taskSchema, input);
 }
 
-/** Parses the group a chore was added to. */
+/** Parses the group a task was added to. */
 export function parseCreateTaskTarget(input: unknown): Parsed<CreateTaskTarget> {
   return parseWith(createTaskTargetSchema, input);
 }
 
-/** Parses the chore a save was pressed for, and the group it is on. */
+/** Parses the task a save was pressed for, and the group it is on. */
 export function parseEditTaskTarget(input: unknown): Parsed<EditTaskTarget> {
   return parseWith(editTaskTargetSchema, input);
 }
 
-/** Pulls a rejected chore back out, so a submit without JS loses nothing. */
+/** Pulls a rejected task back out, so a submit without JS loses nothing. */
 export function echoTask(input: unknown, tagNames: string[]): TaskValues {
   const result = z.safeParse(taskEchoSchema, input);
   const echoed = result.success ? result.data : {};
@@ -129,6 +132,7 @@ export function echoTask(input: unknown, tagNames: string[]): TaskValues {
     categoryId: echoed.categoryId ?? "",
     tagNames,
     assignedToUid: echoed.assignedToUid ?? "",
+    defaultAssigneeUid: echoed.defaultAssigneeUid ?? "",
     dueDate: echoed.dueDate ?? "",
     dueTime: echoed.dueTime ?? "",
     recurrenceType: echoed.recurrenceType ?? "",

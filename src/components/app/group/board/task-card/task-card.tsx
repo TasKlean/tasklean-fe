@@ -1,5 +1,5 @@
 /**
- * One chore as a card, with its reference photo as the face. A chore with no
+ * One task as a card, with its reference photo as the face. A task with no
  * photo wears its category's colour instead, so the grid reads as a grid
  * rather than as a row of grey boxes.
  */
@@ -33,7 +33,7 @@ const CARD =
 const FACE =
   "relative grid h-28 w-full shrink-0 place-items-center rounded-t-xl bg-cover bg-center";
 
-/** Renders one chore as a card. */
+/** Renders one task as a card. */
 export function TaskCard({ task, category, href, now, timeZone }: Readonly<TaskCardProps>) {
   const due = dueLabel(task, now, timeZone);
   const photo = uploadedImageSrc(task.photoUid);

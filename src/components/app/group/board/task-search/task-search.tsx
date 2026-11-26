@@ -25,7 +25,7 @@ type TaskSearchProps = {
   query: TaskQuery;
 };
 
-// Longer than the group list's 300ms: a chore is searched for by phrase rather
+// Longer than the group list's 300ms: a task is searched for by phrase rather
 // than by one word, so a mid-sentence pause should not cost a round trip.
 const SETTLE_MS = 600;
 
@@ -90,8 +90,8 @@ export function TaskSearch({ path, query }: Readonly<TaskSearchProps>) {
       <input
         type="search"
         name="q"
-        aria-label="Search chores"
-        placeholder="Search chores"
+        aria-label="Search tasks"
+        placeholder="Search tasks"
         maxLength={QUERY_MAX_LENGTH}
         value={text}
         onChange={(event) => setText(event.target.value)}

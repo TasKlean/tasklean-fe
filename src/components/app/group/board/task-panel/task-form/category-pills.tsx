@@ -1,5 +1,5 @@
 /**
- * Which room or kind of work a chore belongs to, as pills. One at most, and
+ * Which room or kind of work a task belongs to, as pills. One at most, and
  * none is a real choice, so the household's list is led by it.
  *
  * Each pill wears its category's own colour and icon, deepening rather than
@@ -28,7 +28,7 @@ type CategoryPillsProps = {
   onPick: (categoryId: string) => void;
 };
 
-/** Renders the categories a chore can be filed under. */
+/** Renders the categories a task can be filed under. */
 export function CategoryPills({ categories, value, onPick }: Readonly<CategoryPillsProps>) {
   return (
     <div className="gap-space-xs flex flex-wrap">

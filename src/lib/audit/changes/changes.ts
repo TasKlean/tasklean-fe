@@ -36,6 +36,10 @@ const FIELD_LABELS: Record<string, string> = {
   // A GroupMember id, never a user's: naming it after the person it points at
   // is what keeps the three id namespaces apart.
   assignedToId: "Assignee",
+  // What the task endpoints actually send, despite the name: the value is a
+  // membership id like the one above it.
+  assignedToUid: "Assignee",
+  defaultAssigneeUid: "Task owner",
   categoryId: "Category",
   requiresPhotoProof: "Photo proof",
   estimatedTimeMinutes: "Estimated time",

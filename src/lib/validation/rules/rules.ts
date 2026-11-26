@@ -58,7 +58,11 @@ export const TASK_NAME_MAX_LENGTH = 255;
 // group's description is also capped at 500 for.
 export const TASK_DESCRIPTION_MAX_LENGTH = 2000;
 
-// The minutes a chore may be estimated at, which the backend bounds on both
+// `CompleteTaskRequest.note`'s own `@Size`, which is what a reader may say
+// about one round rather than about the task.
+export const TASK_NOTE_MAX_LENGTH = 1000;
+
+// The minutes a task may be estimated at, which the backend bounds on both
 // sides: a day's worth is the ceiling.
 export const TASK_MINUTES_MIN = 1;
 export const TASK_MINUTES_MAX = 1440;
@@ -327,7 +331,7 @@ export const labelIdRule = z.pipe(
   z.transform(Number),
 );
 
-/** A label a chore may be filed under, where nothing at all is none. */
+/** A label a task may be filed under, where nothing at all is none. */
 export const optionalLabelIdRule = z.optional(
   z.pipe(
     z.union([z.string().check(z.regex(/^\d+$/, "Pick a category from the list.")), z.literal("")]),
@@ -335,16 +339,16 @@ export const optionalLabelIdRule = z.optional(
   ),
 );
 
-/** What a chore is called, which is the one thing it cannot be saved without. */
+/** What a task is called, which is the one thing it cannot be saved without. */
 export const taskNameRule = z
-  .string({ error: "Name this chore." })
+  .string({ error: "Name this task." })
   .check(
     z.trim(),
-    z.minLength(1, "Name this chore."),
+    z.minLength(1, "Name this task."),
     z.maxLength(TASK_NAME_MAX_LENGTH, `Use ${TASK_NAME_MAX_LENGTH} characters or fewer.`),
   );
 
-/** What a chore involves, which is optional and generously bounded. */
+/** What a task involves, which is optional and generously bounded. */
 export const taskDescriptionRule = z.optional(
   z.pipe(
     z
@@ -360,7 +364,20 @@ export const taskDescriptionRule = z.optional(
   ),
 );
 
-/** How urgent a chore is, where nothing at all means nobody said. */
+/** What a reader says about one recorded round, which is optional. */
+export const taskNoteRule = z.optional(
+  z.pipe(
+    z
+      .string()
+      .check(
+        z.trim(),
+        z.maxLength(TASK_NOTE_MAX_LENGTH, `Use ${TASK_NOTE_MAX_LENGTH} characters or fewer.`),
+      ),
+    z.transform((value) => value || undefined),
+  ),
+);
+
+/** How urgent a task is, where nothing at all means nobody said. */
 export const taskPriorityRule = z.optional(
   z.pipe(
     z.union([z.enum(TASK_PRIORITY_VALUES), z.literal("")]),
@@ -368,7 +385,7 @@ export const taskPriorityRule = z.optional(
   ),
 );
 
-/** How often a chore comes back, where nothing at all means it happens once. */
+/** How often a task comes back, where nothing at all means it happens once. */
 export const recurrenceRule = z.optional(
   z.pipe(
     z.union([z.enum(RECURRENCE_TYPES), z.literal("")]),
@@ -377,7 +394,7 @@ export const recurrenceRule = z.optional(
 );
 
 /**
- * How long a chore takes, typed as text and bounded on both sides.
+ * How long a task takes, typed as text and bounded on both sides.
  *
  * Empty is not zero: the field is left out of the request entirely, where a 0
  * would fail the backend's own minimum.
@@ -393,14 +410,14 @@ export const taskMinutesRule = z.optional(
         .int({ error: "Enter the minutes as a whole number." })
         .check(
           z.gte(TASK_MINUTES_MIN, `Give it at least ${TASK_MINUTES_MIN} minute.`),
-          z.lte(TASK_MINUTES_MAX, `A chore cannot take more than ${TASK_MINUTES_MAX} minutes.`),
+          z.lte(TASK_MINUTES_MAX, `A task cannot take more than ${TASK_MINUTES_MAX} minutes.`),
         ),
     ),
   ),
 );
 
 /**
- * The labels on a chore, as the names the backend matches and creates by.
+ * The labels on a task, as the names the backend matches and creates by.
  *
  * Folded case-insensitively before the cap, because the backend matches that
  * way: `Weekly` and `weekly` are one label and must not cost two of the five.
@@ -422,7 +439,7 @@ export const tagNamesRule = z.pipe(
   ),
   z
     .array(z.string())
-    .check(z.maxLength(TASK_TAGS_MAX, `A chore takes ${TASK_TAGS_MAX} tags at most.`)),
+    .check(z.maxLength(TASK_TAGS_MAX, `A task takes ${TASK_TAGS_MAX} tags at most.`)),
 );
 
 /** A clock time as a form posts one, which is optional beside its date. */

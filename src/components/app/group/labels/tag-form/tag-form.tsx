@@ -139,7 +139,7 @@ export function TagForm({
           {/* The editor replaces the row, so without this nothing on screen
               says which tag is being recoloured. */}
           <div className="flex">
-            <LabelChip name={fields.name} color={fields.color} />
+            <LabelChip name={fields.name} color={fields.color} kind="tag" />
           </div>
         </>
       )}

@@ -1,5 +1,5 @@
 /**
- * How long a chore takes: the four stretches most of them are and a box for
+ * How long a task takes: the four stretches most of them are and a box for
  * anything else, as one row of five.
  *
  * The stretches are `aria-pressed` buttons rather than radios because the
@@ -23,6 +23,11 @@ import {
 import { TASK_MINUTES_MAX } from "@/lib/validation/rules/rules";
 
 type EstimateFieldProps = {
+  // What the row is for, which names the group of presses: the task's own
+  // estimate in its form, and what a round took in the completion view.
+  label: string;
+  // The field the answer posts under, which differs between the two.
+  name: string;
   value: string;
   custom: boolean;
   onPick: (minutes: string) => void;
@@ -32,10 +37,17 @@ type EstimateFieldProps = {
 const DIGITS = String(TASK_MINUTES_MAX).length;
 
 /** Renders the stretches on offer and the box that takes anything else. */
-export function EstimateField({ value, custom, onPick, onType }: Readonly<EstimateFieldProps>) {
+export function EstimateField({
+  label,
+  name,
+  value,
+  custom,
+  onPick,
+  onType,
+}: Readonly<EstimateFieldProps>) {
   return (
     <>
-      <div role="group" aria-label="Estimated time" className="gap-space-xs grid grid-cols-5">
+      <div role="group" aria-label={label} className="gap-space-xs grid grid-cols-5">
         {ESTIMATE_PRESETS.map((preset) => {
           const on = !custom && value === String(preset);
 
@@ -57,7 +69,7 @@ export function EstimateField({ value, custom, onPick, onType }: Readonly<Estima
           type="text"
           inputMode="numeric"
           aria-label="Custom minutes"
-          name={custom ? "estimatedTimeMinutes" : undefined}
+          name={custom ? name : undefined}
           maxLength={DIGITS}
           placeholder="Custom"
           value={custom ? value : ""}
@@ -66,7 +78,7 @@ export function EstimateField({ value, custom, onPick, onType }: Readonly<Estima
         />
       </div>
 
-      {custom ? null : <input type="hidden" name="estimatedTimeMinutes" value={value} />}
+      {custom ? null : <input type="hidden" name={name} value={value} />}
     </>
   );
 }

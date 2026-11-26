@@ -1,22 +1,23 @@
 /**
- * A group's name on one line in its card, with the whole of it a press away.
- * The ellipsis is the only affordance it needs, and CSS draws that one exactly
- * when the name overflows, so nothing here measures the text or counts its
- * characters the way the description's clamp has to.
+ * A name on one line, with the whole of it a press away: a group's in its card,
+ * a task's in the panel. The ellipsis is the only affordance it needs, and CSS
+ * draws that one exactly when the name overflows, so nothing here measures the
+ * text or counts its characters the way a description's clamp has to.
  */
 
 "use client";
 
 import { useState } from "react";
 
-type GroupNameProps = {
+type ClippedNameProps = {
   name: string;
-  // The type token and the placement, both of which the card decides.
+  // The type token and the placement, both of which the screen around it
+  // decides: this one owns the clipping and nothing else.
   className?: string;
 };
 
-/** Renders a group's name, clipped to one line until it is pressed. */
-export function GroupName({ name, className = "" }: Readonly<GroupNameProps>) {
+/** Renders a name, clipped to one line until it is pressed. */
+export function ClippedName({ name, className = "" }: Readonly<ClippedNameProps>) {
   const [whole, setWhole] = useState(false);
 
   return (

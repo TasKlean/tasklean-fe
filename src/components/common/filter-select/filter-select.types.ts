@@ -13,4 +13,7 @@ export type FilterSelectProps = {
   name: string;
   options: readonly SelectOption[];
   value: string;
+  // Told what was picked, for a caller holding the answer in state of its own.
+  // Passing it also makes the field follow a `value` written from outside.
+  onPick?: (value: string) => void;
 };

@@ -1,9 +1,9 @@
 /**
- * The board's own presses: creating a chore, saving one, and the layout, which
+ * The board's own presses: creating a task, saving one, and the layout, which
  * is a cookie and so can only be written from an action or a Route Handler.
  *
  * Neither write redirects. The panel's hrefs carry the board's filter and only
- * the form holds them, so it navigates back to the saved chore itself; an
+ * the form holds them, so it navigates back to the saved task itself; an
  * action redirecting would either lose the filter or take a path from the
  * request, which is an open redirect waiting to happen.
  */
@@ -14,11 +14,23 @@ import { revalidatePath } from "next/cache";
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { labelNameTakenMessage } from "@/lib/labels/refusals/refusals";
 import { createTag } from "@/lib/labels/tags/tags";
-import { taskRefusalMessage } from "@/lib/tasks/refusals/refusals";
+import { completeTask, getTaskHistory } from "@/lib/tasks/completions/completions";
+import { recordedLine } from "@/lib/tasks/completions/completions.helpers";
+import type { RoundPageResult } from "@/lib/tasks/completions/completions.types";
+import {
+  completionRefusalMessage,
+  taskFieldRefusal,
+  taskRefusalMessage,
+} from "@/lib/tasks/refusals/refusals";
 import { createTask, deleteTask, updateTask } from "@/lib/tasks/tasks/tasks";
 import { asBoardView, writeBoardView } from "@/lib/tasks/view/view";
 import { taskWriteRequest } from "@/lib/tasks/write/write";
 import { readTimeZone } from "@/lib/time/zone/zone-cookie";
+import {
+  parseCompleteTask,
+  type CompleteTaskErrors,
+} from "@/lib/validation/forms/complete-task.schema/complete-task.schema";
+import { parseRoundPage } from "@/lib/validation/forms/round-page.schema/round-page.schema";
 import { parseCreateTag } from "@/lib/validation/forms/tag.schema/tag.schema";
 import {
   echoTask,
@@ -33,6 +45,13 @@ export type TaskPressState = {
   error: string | null;
 };
 
+export type CompleteTaskState = {
+  error: string | null;
+  // What to say once the round is in, which is where the task goes next.
+  done: string | null;
+  fieldErrors?: CompleteTaskErrors;
+};
+
 export type NewTagState = {
   // The name to attach, which is the stored one rather than what was typed.
   name: string | null;
@@ -41,7 +60,7 @@ export type NewTagState = {
 
 export type TaskFormState = {
   error: string | null;
-  // The chore the write ended at, which is what the form navigates to.
+  // The task the write ended at, which is what the form navigates to.
   savedUid: string | null;
   fieldErrors?: TaskErrors;
   // Echoed so a submit without JavaScript keeps what was typed.
@@ -65,7 +84,7 @@ export async function setBoardViewAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Reads the chore a write posted.
+ * Reads the task a write posted.
  *
  * @returns The fields, or the state that reports what is wrong with them. Tags
  * are read with `getAll`: the name repeats, where `fromEntries` keeps the last.
@@ -80,16 +99,16 @@ function askedTask(formData: FormData) {
   };
 }
 
-/** Re-renders the board, and the shell, which counts a group's chores. */
+/** Re-renders the board, and the shell, which counts a group's tasks. */
 function revalidateBoard(groupUid: string): void {
   revalidatePath(`/app/groups/${groupUid}`, "layout");
 }
 
 /**
- * Adds a chore to a group.
+ * Adds a task to a group.
  *
  * @param formData The form, carrying the group it belongs to.
- * @returns The new chore's uid on success, so the panel can open it.
+ * @returns The new task's uid on success, so the panel can open it.
  */
 export async function createTaskAction(
   _previous: TaskFormState,
@@ -113,15 +132,19 @@ export async function createTaskAction(
     revalidateBoard(groupUid);
     return { error: null, savedUid: task.uid ?? null };
   } catch (error) {
+    const fieldErrors = taskFieldRefusal(error);
+
+    if (fieldErrors) return { error: null, savedUid: null, fieldErrors, values };
+
     return { error: actionFailureMessage(error), savedUid: null, values };
   }
 }
 
 /**
- * Saves a chore as it will then be.
+ * Saves a task as it will then be.
  *
- * @param formData The form, carrying the chore's own uid and its group's.
- * @returns The chore's uid on success, so the panel returns to reading it.
+ * @param formData The form, carrying the task's own uid and its group's.
+ * @returns The task's uid on success, so the panel returns to reading it.
  */
 export async function updateTaskAction(
   _previous: TaskFormState,
@@ -130,7 +153,7 @@ export async function updateTaskAction(
   const target = parseEditTaskTarget(Object.fromEntries(formData));
   const { parsed, values } = askedTask(formData);
 
-  if (!target.ok) return { error: "That chore could not be found.", savedUid: null, values };
+  if (!target.ok) return { error: "That task could not be found.", savedUid: null, values };
   if (!parsed.ok) {
     return { error: null, savedUid: null, fieldErrors: parsed.errors, values };
   }
@@ -144,6 +167,10 @@ export async function updateTaskAction(
     revalidateBoard(groupUid);
     return { error: null, savedUid: taskUid };
   } catch (error) {
+    const fieldErrors = taskFieldRefusal(error);
+
+    if (fieldErrors) return { error: null, savedUid: null, fieldErrors, values };
+
     return {
       error: taskRefusalMessage(error) ?? actionFailureMessage(error),
       savedUid: null,
@@ -153,7 +180,7 @@ export async function updateTaskAction(
 }
 
 /**
- * Deletes one chore for good.
+ * Deletes one task for good.
  *
  * @returns The refusal to show in the footer, or null once it is gone, which
  * is the panel's cue to close.
@@ -161,7 +188,7 @@ export async function updateTaskAction(
 export async function deleteTaskAction(groupUid: string, taskUid: string): Promise<TaskPressState> {
   const target = parseEditTaskTarget({ groupUid, taskUid });
 
-  if (!target.ok) return { error: "That chore could not be found." };
+  if (!target.ok) return { error: "That task could not be found." };
 
   try {
     await deleteTask(target.values.taskUid);
@@ -174,8 +201,69 @@ export async function deleteTaskAction(groupUid: string, taskUid: string): Promi
 }
 
 /**
- * Adds a tag to the household so a chore can carry it in the colour it was
- * given, a chore's own save posting names alone.
+ * Records a round of a task as done.
+ *
+ * @param formData The task and its group, and what the round took: minutes,
+ * a note and proof, each of which the simple press leaves out entirely.
+ * @returns The line naming what happened, or the refusal to show in its place.
+ */
+export async function completeTaskAction(
+  _previous: CompleteTaskState,
+  formData: FormData,
+): Promise<CompleteTaskState> {
+  const asked = Object.fromEntries(formData);
+  const target = parseEditTaskTarget(asked);
+
+  if (!target.ok) return { error: "That task could not be found.", done: null };
+
+  const parsed = parseCompleteTask(asked);
+
+  if (!parsed.ok) return { error: null, done: null, fieldErrors: parsed.errors };
+
+  const { groupUid, taskUid } = target.values;
+
+  try {
+    const recorded = await completeTask(taskUid, parsed.values);
+    const timeZone = await readTimeZone();
+
+    revalidateBoard(groupUid);
+    return { error: null, done: recordedLine(recorded, new Date(), timeZone) };
+  } catch (error) {
+    return { error: completionRefusalMessage(error) ?? actionFailureMessage(error), done: null };
+  }
+}
+
+/**
+ * Loads the page of a task's history that follows a cursor.
+ *
+ * @param taskUid The task, bound on the server rather than posted, so a press
+ * can only ever ask for the history of the task it sits in.
+ * @param fields The cursor the last page handed back.
+ * @returns The page, or the line to show above the press. A refusal is an
+ * answer rather than a throw: the list holding the pages has a failure slot
+ * and revalidating would throw away what is on screen.
+ */
+export async function loadRoundPageAction(
+  taskUid: string,
+  fields: unknown,
+): Promise<RoundPageResult> {
+  const asked = typeof fields === "object" && fields !== null ? fields : {};
+  const parsed = parseRoundPage({ ...asked, taskUid });
+
+  if (!parsed.ok) {
+    return { ok: false, message: parsed.errors.cursor ?? "That page cannot be loaded." };
+  }
+
+  try {
+    return { ok: true, page: await getTaskHistory(parsed.values.taskUid, parsed.values.cursor) };
+  } catch (error) {
+    return { ok: false, message: actionFailureMessage(error) };
+  }
+}
+
+/**
+ * Adds a tag to the household so a task can carry it in the colour it was
+ * given, a task's own save posting names alone.
  *
  * @returns The name to attach. A name the household already holds comes back
  * as itself rather than as a failure: the reader asked for that tag, and only

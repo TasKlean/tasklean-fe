@@ -22,13 +22,13 @@ export const TASK_SORTS = ["due-asc", "due-desc", "priority", "newest", "name"] 
 
 export type TaskSort = (typeof TASK_SORTS)[number];
 
-// Who a chore is for. `me` and `free` are the two the board answers without
+// Who a task is for. `me` and `free` are the two the board answers without
 // naming anybody; anything else is a membership uid typed into the URL.
 export type TaskWho =
   { kind: "anyone" } | { kind: "me" } | { kind: "free" } | { kind: "member"; memberUid: string };
 
 export type TaskQuery = {
-  // Trimmed and capped, matched against a chore's name and description.
+  // Trimmed and capped, matched against a task's name and description.
   q: string;
   // Never empty: `["open"]` is the default, which is also what the endpoint
   // answers when no status is sent at all.

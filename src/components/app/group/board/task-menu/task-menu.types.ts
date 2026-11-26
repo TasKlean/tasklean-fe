@@ -9,14 +9,14 @@ import type { Disclosure } from "@/hooks/use-disclosure/use-disclosure";
 export type TaskActions = {
   groupUid: string;
   taskUid: string;
-  // The chore's own name, which is what the press is announced as: a board of
+  // The task's own name, which is what the press is announced as: a board of
   // identical "More" buttons names nothing a reader could choose between.
   name: string;
-  // Reading the chore, which is the row's own link and the one thing every
+  // Reading the task, which is the row's own link and the one thing every
   // member may do with it.
   viewHref: string;
   editHref: string;
-  // False where the chore is not the reader's to change, leaving the menu
+  // False where the task is not the reader's to change, leaving the menu
   // with View alone. UX only: the delete behind it handles its own 403.
   canEdit: boolean;
 };

@@ -1,9 +1,10 @@
 /**
- * Reading everything a board draws. Five reads, run together and reported
- * separately: the rows, the roster and the two label lists answer different
- * questions, so a failed label read costs a filter menu rather than the board.
+ * Reading everything a board draws. Seven reads at the most, run together and
+ * reported separately: the rows, the roster, the two label lists and the open
+ * task's own history answer different questions, so a failed label read costs
+ * a filter menu rather than the board.
  *
- * The open chore is read by uid rather than picked out of the page, because
+ * The open task is read by uid rather than picked out of the page, because
  * `?task=` may name one the current filter or page does not hold.
  */
 
@@ -18,6 +19,8 @@ import { getCategories } from "@/lib/labels/categories/categories";
 import type { Category } from "@/lib/labels/categories/categories.types";
 import { getTags } from "@/lib/labels/tags/tags";
 import type { Tag } from "@/lib/labels/tags/tags.types";
+import { getCompletion, getTaskHistory } from "@/lib/tasks/completions/completions";
+import type { RoundPage, TaskCompletion } from "@/lib/tasks/completions/completions.types";
 import { taskApiQuery } from "@/lib/tasks/filter/filter";
 import type { LabelChoice, TaskQuery, WhoChoice } from "@/lib/tasks/filter/filter.types";
 import { getBoard, getTask } from "@/lib/tasks/tasks/tasks";
@@ -32,9 +35,15 @@ export type LoadedBoard = {
   members: WhoChoice[];
   categories: Category[];
   tags: LabelChoice[];
-  // The chore `?task=` named, or null when it named none or named one that is
+  // The task `?task=` named, or null when it named none or named one that is
   // gone: a stale link opens the board rather than an error.
   open: Task | null;
+  // The first page of that task's rounds. A failed read costs the history
+  // section and nothing else.
+  history: RoundPage | null;
+  // The round `?round=` named, or null when it named none or named one that is
+  // gone, which opens the task's own facts instead.
+  round: TaskCompletion | null;
 };
 
 /**
@@ -113,20 +122,25 @@ function labelChoices(tags: Tag[]): LabelChoice[] {
  * @param groupUid The group in the route.
  * @param query The board's query, already read out of the URL.
  * @param myMemberUid The reader's own membership, which `who=me` needs.
- * @param openUid The chore `?task=` named, if any.
+ * @param openUid The task `?task=` named, if any.
+ * @param openRound The round `?round=` named, if any, read by id because the
+ * page it sits on may not be the one the list has loaded.
  */
 export async function loadBoard(
   groupUid: string,
   query: TaskQuery,
   myMemberUid: string | null,
   openUid: string,
+  openRound: number | null,
 ): Promise<LoadedBoard> {
-  const [result, roster, categories, tags, open] = await Promise.all([
+  const [result, roster, categories, tags, open, history, round] = await Promise.all([
     readBoard(groupUid, query, myMemberUid),
     quietly(() => listGroupMembers(groupUid, "ALL"), []),
     quietly(() => getCategories(groupUid), []),
     quietly(() => getTags(groupUid), []),
     openUid ? quietly(() => getTask(openUid), null) : Promise.resolve(null),
+    openUid ? quietly(() => getTaskHistory(openUid), null) : Promise.resolve(null),
+    openRound ? quietly(() => getCompletion(openRound), null) : Promise.resolve(null),
   ]);
 
   return {
@@ -136,5 +150,7 @@ export async function loadBoard(
     categories,
     tags: labelChoices(tags),
     open,
+    history,
+    round,
   };
 }

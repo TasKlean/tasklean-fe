@@ -1,9 +1,9 @@
 /**
- * One chore, opened over the board. `?task=<uid>` reads one and `?task=new` is
+ * One task, opened over the board. `?task=<uid>` reads one and `?task=new` is
  * the form for one that does not exist yet, so both are links somebody can
  * send, survive a reload and close with an ordinary navigation.
  *
- * **Editing an existing chore is the panel's own state**, because it crosses no
+ * **Editing an existing task is the panel's own state**, because it crosses no
  * navigation: Discard puts the facts straight back with no round trip and no
  * history entry nobody wants to walk back through. Creating one does cross a
  * navigation, the presses that start it being in the chrome, which is what the
@@ -14,20 +14,22 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
+import { CompleteForm } from "@/components/app/group/board/task-panel/complete-form/complete-form";
 import { TaskEditor } from "@/components/app/group/board/task-panel/task-editor";
 import { TaskReader } from "@/components/app/group/board/task-panel/task-reader";
+import type { PanelNotice } from "@/components/app/group/board/task-panel/task-panel.types";
 import { openTaskHref } from "@/lib/tasks/filter/filter";
 import type { LabelChoice, TaskQuery, WhoChoice } from "@/lib/tasks/filter/filter.types";
 import type { TaskValues } from "@/lib/validation/forms/task.schema/task.schema";
 
 type TaskPanelProps = {
-  // The chore as it reads, rendered on the server and handed down, since this
+  // The task as it reads, rendered on the server and handed down, since this
   // component holds the press that puts the form in its place. Null for one
   // that does not exist yet.
   view: ReactNode | null;
-  // The chore's own name, which is what the panel is announced as.
+  // The task's own name, which is what the panel is announced as.
   label: string;
-  // True for `?task=new`, which opens the form rather than any chore.
+  // True for `?task=new`, which opens the form rather than any task.
   creating: boolean;
   // True for `?edit=1`, which is how a press outside the panel asks for the
   // editor: a row on the board cannot reach the state this component holds.
@@ -39,19 +41,31 @@ type TaskPanelProps = {
   categories: readonly LabelChoice[];
   tags: readonly LabelChoice[];
   members: readonly WhoChoice[];
-  // Who wrote the chore down and when, which the editor keeps in its header.
+  // Today where the reader is, as `YYYY-MM-DD`, for the due date picker's own
+  // floor. Named for what it is: `now` is taken here.
+  today: string;
+  // Who wrote the task down and when, which the editor keeps in its header.
   byline: string | null;
-  // False where the chore is not the reader's to change. UX only: every write
+  // False where the task is not the reader's to change. UX only: every write
   // handles its own 403.
   canEdit: boolean;
-  // The board's own path and filter, so the panel can name the chore it saved
+  // False where the task has no round left to record, which is a one-off that
+  // is done and anything archived.
+  canComplete: boolean;
+  // The member the task is assigned to, where that is somebody other than the
+  // reader, whom the endpoint refuses.
+  heldBy: string | null;
+  // The round already recorded, where the task has been done ahead of its
+  // schedule, which is the other reason a round cannot be recorded now.
+  doneFor: string | null;
+  // The board's own path and filter, so the panel can name the task it saved
   // without a function crossing into the browser.
   path: string;
   query: TaskQuery;
   closeHref: string;
 };
 
-/** Renders the chore the URL names, as facts or as the form. */
+/** Renders the task the URL names, as facts or as the form. */
 export function TaskPanel({
   view,
   label,
@@ -64,26 +78,34 @@ export function TaskPanel({
   categories,
   tags,
   members,
+  today,
   byline,
   canEdit,
+  canComplete,
+  heldBy,
+  doneFor,
   path,
   query,
   closeHref,
 }: Readonly<TaskPanelProps>) {
   const router = useRouter();
   const [editing, setEditing] = useState(startEditing);
+  const [completing, setCompleting] = useState(false);
+  const [notice, setNotice] = useState<PanelNotice | null>(null);
 
   // The URL's own answer, kept so a change to it wins over the state left by
-  // the chore before it: Edit on a second row must open the second editor.
+  // the task before it: Edit on a second row must open the second editor.
   const [asked, setAsked] = useState(`${taskUid}:${startEditing}`);
   const now = `${taskUid}:${startEditing}`;
 
   if (now !== asked) {
     setAsked(now);
     setEditing(startEditing);
+    setCompleting(false);
+    setNotice(null);
   }
 
-  /** Puts the chore's own URL back, where the editor was asked for by one. */
+  /** Puts the task's own URL back, where the editor was asked for by one. */
   const stopAsking = useCallback(
     (uid: string) => {
       router.replace(openTaskHref(path, query, uid));
@@ -95,7 +117,7 @@ export function TaskPanel({
     (uid: string) => {
       setEditing(false);
 
-      // A new chore has a URL of its own to take up, which is what fetches the
+      // A new task has a URL of its own to take up, which is what fetches the
       // facts. The form stays up until they arrive, both props changing at
       // once, so nothing flashes in between. One opened by `?edit=1` only has
       // to stop saying so, or a reload would reopen the form over the facts.
@@ -103,6 +125,13 @@ export function TaskPanel({
     },
     [creating, startEditing, stopAsking],
   );
+
+  // What a round was recorded as is said where the facts are, so the view
+  // that recorded it closes and the reader carries the line.
+  const onRecorded = useCallback((text: string) => {
+    setCompleting(false);
+    setNotice({ tone: "success", text });
+  }, []);
 
   const onDiscard = useCallback(() => {
     setEditing(false);
@@ -120,6 +149,7 @@ export function TaskPanel({
         categories={categories}
         tags={tags}
         members={members}
+        today={today}
         byline={byline}
         closeHref={closeHref}
         onDiscard={onDiscard}
@@ -130,14 +160,34 @@ export function TaskPanel({
 
   if (!view) return null;
 
+  if (completing && taskUid) {
+    return (
+      <CompleteForm
+        groupUid={groupUid}
+        taskUid={taskUid}
+        label={label}
+        requiresProof={values.requiresPhotoProof}
+        onCancel={() => setCompleting(false)}
+        onDone={onRecorded}
+      />
+    );
+  }
+
   return (
     <TaskReader
       label={label}
       groupUid={groupUid}
       taskUid={taskUid}
       closeHref={closeHref}
+      requiresProof={values.requiresPhotoProof}
+      canComplete={canComplete}
+      heldBy={heldBy}
+      doneFor={doneFor}
       canEdit={canEdit}
+      notice={notice}
+      onNotice={setNotice}
       onEdit={() => setEditing(true)}
+      onComplete={() => setCompleting(true)}
     >
       {view}
     </TaskReader>

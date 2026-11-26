@@ -75,7 +75,7 @@ export function shortDate(date: Date, timeZone: string): string {
  * @param now What counts as this year, passed in like every other reading of
  * the clock here so a whole board agrees and a test can fix it.
  * @returns Day and month, and the year too where it is not the one being read
- * in: a yearly chore due next January must not read as one due this month.
+ * in: a yearly task due next January must not read as one due this month.
  */
 export function numericDate(date: Date, now: Date, timeZone: string): string {
   const [year, month, day] = dayKey(date, timeZone).split("-");

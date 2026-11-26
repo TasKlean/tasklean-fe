@@ -1,6 +1,6 @@
 /**
- * A chore, created or saved. One form for both, because `PUT /api/tasks/{uid}`
- * takes the chore as it will then be: a field left out is cleared, so an edit
+ * A task, created or saved. One form for both, because `PUT /api/tasks/{uid}`
+ * takes the task as it will then be: a field left out is cleared, so an edit
  * posts everything a create does and the two differ only by which action runs.
  *
  * The submit is intercepted, like a group's picture, because the bytes have to
@@ -71,15 +71,18 @@ type TaskEditorProps = {
   // Absent while creating, which is what empties every field.
   taskUid?: string;
   values: TaskValues;
-  // The picture the chore holds now, which a save carries again unless it is
+  // The picture the task holds now, which a save carries again unless it is
   // being replaced or taken away.
   photoUid: string | null;
   categories: readonly LabelChoice[];
   tags: readonly LabelChoice[];
   members: readonly WhoChoice[];
-  // Who wrote the chore down and when, kept from the panel this replaced.
+  // Today where the reader is, as `YYYY-MM-DD`: the floor the due date picker
+  // stops at, worked out on the server like every other zone-aware value.
+  today: string;
+  // Who wrote the task down and when, kept from the panel this replaced.
   byline: string | null;
-  // Where a delete leaves the reader, the chore being gone from the URL.
+  // Where a delete leaves the reader, the task being gone from the URL.
   closeHref: string;
   onDiscard: () => void;
   onSaved: (taskUid: string) => void;
@@ -94,18 +97,20 @@ const SAVE =
   "bg-primary text-primary-foreground hover:bg-primary-strong focus-visible:ring-ring text-label-lg px-space-lg flex min-h-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-70 focus-visible:ring-2 focus-visible:outline-none";
 
 /**
- * Turns the roster into the rows the assignee dropdown offers.
+ * Turns the roster into the rows either member dropdown offers.
  *
- * @returns Nobody, then the reader, then everybody else. People who have left
- * are not offered: a chore cannot be given to somebody who is gone. The rows
- * carry membership uids, unlike the filter's, which posts a `me` token.
+ * @param empty What nobody at all is called, which the two fields word
+ * differently: a round is unassigned where a task is owned by nobody.
+ * @returns That row, then the reader, then everybody else. People who have
+ * left are not offered: a task cannot be given to somebody who is gone. The
+ * rows carry membership uids, unlike the filter's, which posts a `me` token.
  */
-function assigneeOptions(members: readonly WhoChoice[]): SelectOption[] {
+function assigneeOptions(members: readonly WhoChoice[], empty: string): SelectOption[] {
   const here = members.filter((member) => !member.former);
   const me = here.find((member) => member.self);
 
   return [
-    { value: "", label: "Unassigned" },
+    { value: "", label: empty },
     ...(me ? [{ value: me.memberUid, label: `Me (${me.name})`, divider: true }] : []),
     ...here
       .filter((member) => !member.self)
@@ -113,7 +118,7 @@ function assigneeOptions(members: readonly WhoChoice[]): SelectOption[] {
   ];
 }
 
-/** Renders the chore form in the panel, creating or saving. */
+/** Renders the task form in the panel, creating or saving. */
 export function TaskEditor({
   mode,
   groupUid,
@@ -123,6 +128,7 @@ export function TaskEditor({
   categories,
   tags,
   members,
+  today,
   byline,
   closeHref,
   onDiscard,
@@ -136,6 +142,7 @@ export function TaskEditor({
   const [submitted, setSubmitted] = useState(false);
   const [edited, setEdited] = useState(false);
   const [removed, setRemoved] = useState(false);
+  const [ownerSet, setOwnerSet] = useState(false);
   const [handled, setHandled] = useState<TaskFormState>(state);
   const [custom, setCustom] = useState(
     () => values.estimatedTimeMinutes !== "" && !isPreset(values.estimatedTimeMinutes),
@@ -161,7 +168,7 @@ export function TaskEditor({
   }
 
   // Leaving the editor is a side effect, so it belongs here rather than above.
-  // Once per chore saved: the handler carries the board's filter, so it is a
+  // Once per task saved: the handler carries the board's filter, so it is a
   // new function on every render and the effect would otherwise run again.
   useEffect(() => {
     if (!saved || announced.current === saved) return;
@@ -178,6 +185,26 @@ export function TaskEditor({
   function set(change: Partial<TaskValues>) {
     setEdited(true);
     setFields({ ...fields, ...change });
+  }
+
+  /** Picks who has this round, filling the owner while nobody has named one. */
+  function pickAssignee(assignedToUid: string) {
+    // The backend hands an open round to an owner the moment one is named, so
+    // the two mirror until either is set deliberately: the form would
+    // otherwise show one thing and save another.
+    const mirror = !ownerSet && fields.defaultAssigneeUid === "";
+
+    set(mirror ? { assignedToUid, defaultAssigneeUid: assignedToUid } : { assignedToUid });
+  }
+
+  /** Picks whose task it is, which stops the two mirroring from here on. */
+  function pickOwner(defaultAssigneeUid: string) {
+    setOwnerSet(true);
+    const mirror = fields.assignedToUid === "";
+
+    set(
+      mirror ? { defaultAssigneeUid, assignedToUid: defaultAssigneeUid } : { defaultAssigneeUid },
+    );
   }
 
   /** Takes a stretch off the presses, which empties the box beside them. */
@@ -215,6 +242,32 @@ export function TaskEditor({
 
     startTransition(() => formAction(data));
   }
+
+  const repeats = fields.recurrenceType !== "";
+
+  const assignee = (
+    <FormRow label="Assigned to" info={FIELD_INFO.assignee}>
+      <FilterSelect
+        label="Who this round is for"
+        name="assignedToUid"
+        options={assigneeOptions(members, "Unassigned")}
+        value={fields.assignedToUid}
+        onPick={pickAssignee}
+      />
+    </FormRow>
+  );
+
+  const owner = (
+    <FormRow label="Task owner" info={FIELD_INFO.owner} infoEnd>
+      <FilterSelect
+        label="Whose task this normally is"
+        name="defaultAssigneeUid"
+        options={assigneeOptions(members, "Nobody")}
+        value={fields.defaultAssigneeUid}
+        onPick={pickOwner}
+      />
+    </FormRow>
+  );
 
   return (
     <SidePanel
@@ -264,6 +317,7 @@ export function TaskEditor({
             label="Description"
             name="description"
             info={FIELD_INFO.description}
+            fixed
             rows={3}
             maxLength={TASK_DESCRIPTION_MAX_LENGTH}
             placeholder="What doing it involves, if it needs saying"
@@ -272,19 +326,21 @@ export function TaskEditor({
             error={errors.description ?? refused?.description}
           />
 
-          <FormRow label="Assigned to" info={FIELD_INFO.assignee}>
-            <FilterSelect
-              label="Who this chore is for"
-              name="assignedToUid"
-              options={assigneeOptions(members)}
-              value={fields.assignedToUid}
-            />
-          </FormRow>
+          {/* Beside the round's own assignee, and only where there are rounds
+              to come: a one-off is handed back to nobody. */}
+          {repeats ? (
+            <div className={HALVES}>
+              {assignee}
+              {owner}
+            </div>
+          ) : (
+            assignee
+          )}
 
           <div className={HALVES}>
             <FormRow label="Repeats" info={FIELD_INFO.recurrence}>
               <FilterSelect
-                label="How often this chore repeats"
+                label="How often this task repeats"
                 name="recurrenceType"
                 options={[
                   { value: "", label: "Never" },
@@ -294,6 +350,7 @@ export function TaskEditor({
                   })),
                 ]}
                 value={fields.recurrenceType}
+                onPick={(recurrenceType) => set({ recurrenceType })}
               />
             </FormRow>
 
@@ -310,6 +367,7 @@ export function TaskEditor({
           <DueFields
             date={fields.dueDate}
             time={fields.dueTime}
+            min={today}
             error={(submitted ? errors.dueDate : undefined) ?? refused?.dueDate}
             onDate={(dueDate) => set({ dueDate })}
             onTime={(dueTime) => set({ dueTime })}
@@ -321,6 +379,8 @@ export function TaskEditor({
             error={errors.estimatedTimeMinutes ?? refused?.estimatedTimeMinutes}
           >
             <EstimateField
+              label="Estimated time"
+              name="estimatedTimeMinutes"
               value={fields.estimatedTimeMinutes}
               custom={custom}
               onPick={pickEstimate}

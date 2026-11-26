@@ -4,13 +4,17 @@ import { loadBoard } from "@/app/(app)/app/groups/[uid]/page.helpers";
 import { BoardBar } from "@/components/app/group/board/board-bar/board-bar";
 import { TaskList } from "@/components/app/group/board/task-list/task-list";
 import { TaskPager } from "@/components/app/group/board/task-pager/task-pager";
+import { RoundPanel } from "@/components/app/group/board/task-panel/round-panel/round-panel";
 import { TaskPanel } from "@/components/app/group/board/task-panel/task-panel";
+import { HistoryList } from "@/components/app/group/board/task-panel/task-view/history/history-list";
 import { TaskView } from "@/components/app/group/board/task-panel/task-view/task-view";
 import { bylineLabel } from "@/components/app/group/board/task-panel/task-view/task-view.helpers";
 import { SECTION_COLUMN } from "@/components/app/group/shell/shell.styles";
 import { LoadError } from "@/components/common/load-error";
+import { loadRoundPageAction } from "@/app/(app)/app/groups/[uid]/actions/actions";
 import { getGroup } from "@/lib/groups/groups";
 import { groupLabel } from "@/lib/groups/labels/labels";
+import { canRecordRound, roundAlreadyDone } from "@/lib/tasks/completions/completions.helpers";
 import {
   boardHref,
   EDIT_TASK,
@@ -18,13 +22,16 @@ import {
   narrowsBoard,
   NEW_TASK,
   openTaskHref,
+  roundId,
   taskQuery,
 } from "@/lib/tasks/filter/filter";
 import type { TaskSearchParams } from "@/lib/tasks/filter/filter.types";
-import { canEditTask } from "@/lib/tasks/permissions/permissions";
+import { assignedElsewhere, canEditTask } from "@/lib/tasks/permissions/permissions";
 import { readBoardView } from "@/lib/tasks/view/view";
 import { taskValues } from "@/lib/tasks/write/write";
+import { dayKey } from "@/lib/time/day/day";
 import { readTimeZone } from "@/lib/time/zone/zone-cookie";
+import { fullName } from "@/lib/users/name/name";
 
 /**
  * Titles the tab with the group's own name.
@@ -73,24 +80,36 @@ export default async function GroupTasksPage({
   const myMemberUid = group.myMemberUid ?? null;
 
   const asking = one(asked.task);
+  const askedRound = roundId(one(asked.round));
 
   const [loaded, timeZone, view] = await Promise.all([
-    // Nothing to read for a chore being created, which has no uid yet.
-    loadBoard(uid, query, myMemberUid, asking === NEW_TASK ? "" : asking),
+    // Nothing to read for a task being created, which has no uid yet.
+    loadBoard(uid, query, myMemberUid, asking === NEW_TASK ? "" : asking, askedRound),
     readTimeZone(),
     readBoardView(),
   ]);
-  const { board, failure, members, categories, tags, open } = loaded;
+  const { board, failure, members, categories, tags, open, history, round } = loaded;
 
   // One instant for the whole board, so every row agrees about what "today"
   // means and the browser hydrates to what the server drew.
   const now = new Date();
   const items = board.items ?? [];
   const closeHref = boardHref(path, query, { page: query.page });
+  const taskHref = open?.uid ? openTaskHref(path, query, open.uid) : closeHref;
   const editable = open ? canEditTask(open, myMemberUid, group.myRole) : false;
+  // Named rather than merely flagged, so the dead press says whose task it is.
+  // A name the roster could not resolve still blocks the press.
+  const heldBy =
+    open && assignedElsewhere(open, myMemberUid)
+      ? fullName(open.assignedTo?.name, open.assignedTo?.lastName) || "somebody else"
+      : null;
 
-  // Only where the chore is the reader's to change: the panel would otherwise
-  // open a form on a chore every save of which the backend refuses.
+  // A round recorded ahead of schedule holds the next one back, so the press
+  // says which round is done instead of refusing a form somebody filled in.
+  const doneFor = open && history ? roundAlreadyDone(open, history.rounds, now, timeZone) : null;
+
+  // Only where the task is the reader's to change: the panel would otherwise
+  // open a form on a task every save of which the backend refuses.
   const startEditing = editable && one(asked.edit) === EDIT_TASK;
 
   const creating = asking === NEW_TASK;
@@ -154,7 +173,17 @@ export default async function GroupTasksPage({
             />
           </div>
 
-          {open || creating ? (
+          {open && round ? (
+            <RoundPanel
+              round={round}
+              label={open.name ?? "Task details"}
+              backHref={taskHref}
+              now={now}
+              timeZone={timeZone}
+            />
+          ) : null}
+
+          {(open && !round) || creating ? (
             <TaskPanel
               view={
                 open ? (
@@ -163,6 +192,21 @@ export default async function GroupTasksPage({
                     category={categories.find((held) => held.id === open.categoryId)}
                     now={now}
                     timeZone={timeZone}
+                    history={
+                      history && open.uid ? (
+                        <HistoryList
+                          // Keyed on the count, so a round recorded just now
+                          // remounts the list: it holds its pages in state and
+                          // a revalidated page would not reach them.
+                          key={history.total}
+                          loadMore={loadRoundPageAction.bind(null, open.uid)}
+                          first={history}
+                          taskHref={taskHref}
+                          now={now}
+                          timeZone={timeZone}
+                        />
+                      ) : null
+                    }
                   />
                 ) : null
               }
@@ -176,8 +220,12 @@ export default async function GroupTasksPage({
               categories={labels}
               tags={tags}
               members={members}
+              today={dayKey(now, timeZone)}
               byline={bylineLabel(open ?? null, now, timeZone)}
               canEdit={editable}
+              canComplete={open ? canRecordRound(open) : true}
+              heldBy={heldBy}
+              doneFor={doneFor}
               path={path}
               query={query}
               closeHref={closeHref}

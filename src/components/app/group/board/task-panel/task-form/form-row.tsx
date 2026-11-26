@@ -21,6 +21,10 @@ type FormRowProps = {
   // row needs: half a row is narrower than the bubble, so anchored to the left
   // it reaches past the panel.
   infoEnd?: boolean;
+  // Drops it under the row instead, for the first field of a box that
+  // scrolls: above it the bubble is clipped by that box rather than drawn
+  // over the panel's own header.
+  infoBelow?: boolean;
   children: ReactNode;
 };
 
@@ -32,6 +36,7 @@ export function FormRow({
   hint,
   info,
   infoEnd,
+  infoBelow,
   children,
 }: Readonly<FormRowProps>) {
   return (
@@ -46,7 +51,11 @@ export function FormRow({
           </span>
         ) : null}
         {info ? (
-          <InfoTip label={label} text={info} place={infoEnd ? "above-end" : "above"} />
+          <InfoTip
+            label={label}
+            text={info}
+            place={infoBelow ? "below" : infoEnd ? "above-end" : "above"}
+          />
         ) : null}
       </div>
 

@@ -55,7 +55,7 @@ export function TagRow({ groupUid, tag, admin }: Readonly<TagRowProps>) {
   return (
     <li className={ROW}>
       <div className={ROW_LINE}>
-        <LabelChip name={tag.name} color={tag.color} />
+        <LabelChip name={tag.name} color={tag.color} kind="tag" />
 
         <div className={ROW_ACTIONS}>
           {confirming ? (

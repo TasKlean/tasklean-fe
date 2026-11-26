@@ -31,7 +31,7 @@ function query(overrides: Partial<TaskQuery> = {}): TaskQuery {
 }
 
 describe("taskQuery", () => {
-  it("opens on the chores still waiting, which is what no status means", () => {
+  it("opens on the tasks still waiting, which is what no status means", () => {
     expect(taskQuery({}).status).toEqual(["open"]);
   });
 
@@ -175,7 +175,7 @@ describe("narrowsBoard", () => {
   it.each([
     ["a sort", { sort: "name" as const }],
     ["a page", { page: 3 }],
-  ])("does not count %s, which hides no chore", (_label, overrides) => {
+  ])("does not count %s, which hides no task", (_label, overrides) => {
     expect(narrowsBoard(query(overrides))).toBe(false);
   });
 });
@@ -228,7 +228,7 @@ describe("carriedFields", () => {
 describe("openTaskHref", () => {
   const PATH = "/app/groups/g1";
 
-  it("opens a chore over an untouched board", () => {
+  it("opens a task over an untouched board", () => {
     expect(openTaskHref(PATH, query(), "t1")).toBe(`${PATH}?task=t1`);
   });
 
@@ -242,7 +242,7 @@ describe("openTaskHref", () => {
 describe("editTaskHref", () => {
   const PATH = "/app/groups/g1";
 
-  it("opens a chore on its editor, which a row cannot ask for any other way", () => {
+  it("opens a task on its editor, which a row cannot ask for any other way", () => {
     expect(editTaskHref(PATH, query(), "t1")).toBe(`${PATH}?task=t1&edit=1`);
   });
 

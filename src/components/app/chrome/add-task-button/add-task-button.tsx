@@ -1,6 +1,6 @@
 /**
  * The one thing the header offers rather than navigates to. Drawn only inside a
- * group, since a chore has nowhere to go without one.
+ * group, since a task has nowhere to go without one.
  *
  * A link to the board, because the form belongs to that screen: pressed from a
  * group's other screens it takes the reader there with `?task=new` on the URL,

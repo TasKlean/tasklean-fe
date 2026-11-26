@@ -1,5 +1,5 @@
 /**
- * What the chore form's own parts share. The panel is a fixed width, so these
+ * What the task form's own parts share. The panel is a fixed width, so these
  * are written once rather than per field.
  */
 
@@ -32,8 +32,6 @@ export const TRACK = "bg-muted gap-1 flex rounded-full p-1";
 
 export const SEGMENT =
   "text-label-md has-[:focus-visible]:ring-ring flex min-h-9 flex-1 cursor-pointer items-center justify-center rounded-full transition-colors has-[:focus-visible]:ring-2";
-
-export const SEGMENT_ON = "bg-primary text-primary-foreground";
 
 export const SEGMENT_OFF = "text-muted-foreground hover:text-foreground";
 

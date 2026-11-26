@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditTask, isUnclaimed } from "@/lib/tasks/permissions/permissions";
+import { assignedElsewhere, canEditTask, isUnclaimed } from "@/lib/tasks/permissions/permissions";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 const MINE = "member-1";
@@ -14,15 +14,15 @@ describe("canEditTask", () => {
     expect(canEditTask(task(), MINE, "GROUP_ADMIN")).toBe(true);
   });
 
-  it("lets the author change their own chore", () => {
+  it("lets the author change their own task", () => {
     expect(canEditTask(task({ createdBy: { memberUid: MINE } }), MINE, "GROUP_MEMBER")).toBe(true);
   });
 
-  it("refuses a member somebody else's chore", () => {
+  it("refuses a member somebody else's task", () => {
     expect(canEditTask(task(), MINE, "GROUP_MEMBER")).toBe(false);
   });
 
-  it("refuses a member a chore whose author the response did not name", () => {
+  it("refuses a member a task whose author the response did not name", () => {
     expect(canEditTask(task({ createdBy: undefined }), MINE, "GROUP_MEMBER")).toBe(false);
   });
 
@@ -38,5 +38,23 @@ describe("isUnclaimed", () => {
 
   it("counts a named membership as taken", () => {
     expect(isUnclaimed(task({ assignedTo: { memberUid: THEIRS } }))).toBe(false);
+  });
+});
+
+describe("assignedElsewhere", () => {
+  it("counts a task assigned to another member as theirs", () => {
+    expect(assignedElsewhere(task({ assignedTo: { memberUid: THEIRS } }), MINE)).toBe(true);
+  });
+
+  it("counts the reader's own task as theirs to record", () => {
+    expect(assignedElsewhere(task({ assignedTo: { memberUid: MINE } }), MINE)).toBe(false);
+  });
+
+  it.each([undefined, {}])("counts %j as anybody's, recording it being the claim", (assignedTo) => {
+    expect(assignedElsewhere(task({ assignedTo }), MINE)).toBe(false);
+  });
+
+  it("blocks a reader whose own membership is unknown, where every assignee is somebody else", () => {
+    expect(assignedElsewhere(task({ assignedTo: { memberUid: THEIRS } }), null)).toBe(true);
   });
 });

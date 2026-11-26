@@ -72,7 +72,7 @@ export function useLongPress(onHold: () => void): LongPressHandlers {
     onPointerLeave: stop,
 
     // The finger comes up on whatever it was held over, which on a row is the
-    // link: without this the chore opens over the menu that just appeared.
+    // link: without this the task opens over the menu that just appeared.
     onClickCapture(event) {
       if (!held.current) return;
 

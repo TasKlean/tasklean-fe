@@ -1,5 +1,5 @@
 /**
- * Who may change one chore. A third permission model: a group's settings go by
+ * Who may change one task. A third permission model: a group's settings go by
  * role and a label's presses go by control, but a task is its author's, with an
  * admin able to tidy up after a member who has lost interest in it.
  *
@@ -10,13 +10,13 @@ import { isGroupAdmin } from "@/lib/groups/role/role";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 /**
- * Whether the reader may edit, archive or delete this chore.
+ * Whether the reader may edit, archive or delete this task.
  *
- * @param task The chore, whose `createdBy` names the author's membership.
+ * @param task The task, whose `createdBy` names the author's membership.
  * @param myMemberUid The reader's own membership in this group, which rides on
  * the group read rather than costing a roster call.
  * @param myRole The reader's role in the group.
- * @returns True for the author and for any admin. A chore whose author the
+ * @returns True for the author and for any admin. A task whose author the
  * response did not name is nobody's but an admin's, since there is nothing to
  * match the reader against.
  */
@@ -32,9 +32,23 @@ export function canEditTask(
 }
 
 /**
- * Whether the chore is waiting for somebody to take it.
+ * Whether the task is somebody else's to record a round on.
  *
- * @returns True only for a chore nobody holds, which is the one a member may
+ * @returns True only where it is assigned to another member. An unassigned
+ * task is anybody's, recording a round claiming it, and an admin is no
+ * exception here: the endpoint refuses anybody but the assignee, whatever their
+ * role, which is why this question is not `canEditTask`.
+ */
+export function assignedElsewhere(task: Task, myMemberUid: string | null): boolean {
+  const assignee = task.assignedTo?.memberUid;
+
+  return Boolean(assignee) && assignee !== myMemberUid;
+}
+
+/**
+ * Whether the task is waiting for somebody to take it.
+ *
+ * @returns True only for a task nobody holds, which is the one a member may
  * claim without the right to hand it to anybody.
  */
 export function isUnclaimed(task: Task): boolean {

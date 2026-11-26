@@ -64,7 +64,7 @@ describe("requestUploadAction", () => {
   });
 
   it("refuses a purpose the backend has no rule for", async () => {
-    const ticket = await requestUploadAction({ ...REQUEST, purpose: "COMPLETION_PHOTO" });
+    const ticket = await requestUploadAction({ ...REQUEST, purpose: "RECEIPT_PHOTO" });
 
     expect(ticket).toEqual({ ok: false, message: "Pick what the upload is for." });
   });

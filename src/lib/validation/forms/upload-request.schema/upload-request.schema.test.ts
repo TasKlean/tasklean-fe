@@ -15,7 +15,7 @@ describe("parseUploadRequest", () => {
   });
 
   it("refuses a purpose the backend has no rule for", () => {
-    expect(parseUploadRequest({ ...VALID, purpose: "COMPLETION_PHOTO" })).toEqual({
+    expect(parseUploadRequest({ ...VALID, purpose: "RECEIPT_PHOTO" })).toEqual({
       ok: false,
       errors: { purpose: "Pick what the upload is for." },
     });

@@ -76,6 +76,7 @@ function editor(overrides: Partial<Parameters<typeof TaskEditor>[0]> = {}) {
       categories={CATEGORIES}
       tags={TAGS}
       members={MEMBERS}
+      today="2026-03-10"
       byline={null}
       closeHref="/app/groups/g1"
       onDiscard={onDiscard}
@@ -113,21 +114,22 @@ describe("TaskEditor", () => {
   it("puts the facts back on Cancel while editing, which is the panel's own state", async () => {
     const user = userEvent.setup();
     editor({ mode: "edit", taskUid: "t1" });
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getAllByRole("button", { name: "Cancel" })[0]);
 
     expect(onDiscard).toHaveBeenCalled();
   });
 
-  it("names itself a new chore rather than an edit of one", () => {
+  it("names itself a new task rather than an edit of one", () => {
     editor();
 
     expect(screen.getByRole("heading", { name: "New task" })).toBeVisible();
-    expect(screen.getAllByRole("button", { name: "Create task" })).toHaveLength(2);
-    // Nothing to discard back to, the facts behind the form being the chore's.
-    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Add task" })).toHaveLength(2);
+    // Nothing to go back to, the facts behind the form being the task's, so
+    // the way out is the board's own link rather than a press.
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
   });
 
-  it("starts a new chore empty, with no priority on it", () => {
+  it("starts a new task empty, with no priority on it", () => {
     editor();
 
     expect(screen.getByLabelText(/^Task title/)).toHaveValue("");
@@ -143,18 +145,18 @@ describe("TaskEditor", () => {
     expect(screen.getByRole("radio", { name: "High" })).not.toBeChecked();
   });
 
-  it("will not create a chore with no name", async () => {
+  it("will not create a task with no name", async () => {
     editor();
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(createTaskAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Name this chore.")).toBeVisible();
+    expect(screen.getByText("Name this task.")).toBeVisible();
   });
 
-  it("creates a chore, naming the group it belongs to", async () => {
+  it("creates a task, naming the group it belongs to", async () => {
     editor();
     await userEvent.type(screen.getByLabelText(/^Task title/), "Mop the floor");
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(posted(createTaskAction)).toMatchObject({
       groupUid: ["g1"],
@@ -163,7 +165,7 @@ describe("TaskEditor", () => {
     expect(posted(createTaskAction).priority).toBeUndefined();
   });
 
-  it("posts every field on a save, because the endpoint replaces the whole chore", async () => {
+  it("posts every field on a save, because the endpoint replaces the whole task", async () => {
     const values: TaskValues = {
       name: "Mop the floor",
       description: "Kitchen and hall",
@@ -171,6 +173,7 @@ describe("TaskEditor", () => {
       categoryId: "3",
       tagNames: ["weekly"],
       assignedToUid: "m2",
+      defaultAssigneeUid: "m1",
       dueDate: "2026-01-15",
       dueTime: "09:00",
       recurrenceType: "WEEKLY",
@@ -191,6 +194,7 @@ describe("TaskEditor", () => {
       categoryId: ["3"],
       tagNames: ["weekly"],
       assignedToUid: ["m2"],
+      defaultAssigneeUid: ["m1"],
       dueDate: ["2026-01-15"],
       dueTime: ["09:00"],
       recurrenceType: ["WEEKLY"],
@@ -199,17 +203,17 @@ describe("TaskEditor", () => {
     });
   });
 
-  it("refuses a repeating chore with no date, which the endpoint answers 400 with no code", async () => {
+  it("refuses a repeating task with no date, which the endpoint answers 400 with no code", async () => {
     editor({ values: { ...taskValues(null, ZONE), name: "Bins", recurrenceType: "WEEKLY" } });
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(createTaskAction).not.toHaveBeenCalled();
-    expect(screen.getByText("A chore that repeats needs a date to repeat from.")).toBeVisible();
+    expect(screen.getByText("A task that repeats needs a date to repeat from.")).toBeVisible();
   });
 
-  it("tells the panel which chore it saved, so the facts can come back", async () => {
+  it("tells the panel which task it saved, so the facts can come back", async () => {
     editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("t9"));
   });
@@ -221,9 +225,9 @@ describe("TaskEditor", () => {
     await waitFor(() => expect(updateTaskAction).toHaveBeenCalled());
   });
 
-  it("offers nobody who has left, since a chore cannot be given to them", async () => {
+  it("offers nobody who has left, since a task cannot be given to them", async () => {
     editor();
-    await userEvent.click(screen.getByRole("combobox", { name: "Who this chore is for" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Who this round is for" }));
 
     expect(screen.getByRole("option", { name: "Dan Kos" })).toBeVisible();
     expect(screen.queryByRole("option", { name: /Ana Horvat/ })).toBeNull();
@@ -231,29 +235,80 @@ describe("TaskEditor", () => {
 
   it("offers the reader by name, carrying their membership rather than a token", async () => {
     editor();
-    await userEvent.click(screen.getByRole("combobox", { name: "Who this chore is for" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Who this round is for" }));
     await userEvent.click(screen.getByRole("option", { name: "Me (Maja Novak)" }));
     await userEvent.type(screen.getByLabelText(/^Task title/), "Mop the floor");
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(posted(createTaskAction).assignedToUid).toEqual(["m1"]);
+  });
+
+  it("offers no owner picker where a task does not repeat, having no rounds to come", () => {
+    editor();
+
+    expect(screen.getByRole("combobox", { name: "Who this round is for" })).toBeVisible();
+    expect(screen.queryByRole("combobox", { name: "Whose task this normally is" })).toBeNull();
+  });
+
+  it("fills the owner from the round while nobody has named one", async () => {
+    editor({ values: { ...taskValues(null, ZONE), name: "Bins", recurrenceType: "WEEKLY" } });
+    await userEvent.click(screen.getByRole("combobox", { name: "Who this round is for" }));
+    await userEvent.click(screen.getByRole("option", { name: "Dan Kos" }));
+
+    expect(screen.getByRole("combobox", { name: "Whose task this normally is" })).toHaveTextContent(
+      "Dan Kos",
+    );
+  });
+
+  it("leaves an owner alone once one is picked, so a stand-in covers one round", async () => {
+    editor({ values: { ...taskValues(null, ZONE), name: "Bins", recurrenceType: "WEEKLY" } });
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Whose task this normally is" }));
+    await userEvent.click(screen.getByRole("option", { name: "Me (Maja Novak)" }));
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Who this round is for" }));
+    await userEvent.click(screen.getByRole("option", { name: "Dan Kos" }));
+
+    expect(screen.getByRole("combobox", { name: "Whose task this normally is" })).toHaveTextContent(
+      "Maja Novak",
+    );
   });
 
   it("attaches a tag the household already has without making another", async () => {
     editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
     await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
     await userEvent.click(screen.getByRole("button", { name: /weekly/ }));
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(createTaskTagAction).not.toHaveBeenCalled();
     expect(posted(createTaskAction).tagNames).toEqual(["weekly"]);
   });
 
-  it("makes a new tag with its colour before the chore carries it", async () => {
+  it("offers the group's own tags first, and focus lands on one", async () => {
+    editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
+    await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
+
+    expect(screen.getByRole("button", { name: /weekly/ })).toHaveFocus();
+  });
+
+  it("stays open across adds, and a tag taken off comes back to the list", async () => {
+    editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
+    await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
+    await userEvent.click(screen.getByRole("button", { name: "weekly" }));
+
+    expect(screen.getByRole("button", { name: "Done" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "weekly" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Remove weekly" }));
+
+    expect(screen.getByRole("button", { name: "weekly" })).toBeVisible();
+  });
+
+  it("makes a new tag with its colour before the task carries it", async () => {
     editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
     await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
     await userEvent.type(screen.getByLabelText("Tag name"), "downstairs");
-    await userEvent.click(screen.getByRole("button", { name: "Add tag" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create tag" }));
 
     await waitFor(() =>
       expect(createTaskTagAction).toHaveBeenCalledWith("g1", "downstairs", DEFAULT_SWATCH),
@@ -263,14 +318,14 @@ describe("TaskEditor", () => {
   it("posts a stretch picked off the presses", async () => {
     editor({ values: { ...taskValues(null, ZONE), name: "Bins" } });
     await userEvent.click(screen.getByRole("button", { name: "45m" }));
-    await userEvent.click(screen.getAllByRole("button", { name: "Create task" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add task" })[1]);
 
     expect(posted(createTaskAction).estimatedTimeMinutes).toEqual(["45"]);
   });
 
   it("reports a refused save where it was pressed", async () => {
     updateTaskAction.mockResolvedValueOnce({
-      error: "This chore is not yours to change. Its author or an admin can.",
+      error: "This task is not yours to change. Its author or an admin can.",
       savedUid: null,
     });
 

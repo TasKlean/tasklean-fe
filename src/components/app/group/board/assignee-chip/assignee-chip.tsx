@@ -1,5 +1,5 @@
 /**
- * Who a chore is for. An unassigned chore says so rather than showing
+ * Who a task is for. An unassigned task says so rather than showing
  * nothing: the pool is a state somebody can act on, where a blank is just a
  * gap. It is drawn exactly like an assigned one, down to the circle, so a
  * column of these reads as one column rather than as two kinds of thing.
@@ -12,7 +12,7 @@ import type { MemberSummary } from "@/lib/tasks/tasks/tasks.types";
 type AssigneeChipProps = {
   member: MemberSummary | undefined;
   // The circle alone until `sm`, for a row on a phone, which has no width for
-  // a name beside the chore's own. The name is still read out.
+  // a name beside the task's own. The name is still read out.
   compact?: boolean;
 };
 
@@ -25,7 +25,7 @@ const SHELL =
 // a circle rather than a pill with a gap in it.
 const ROOM = { full: "pr-2.5", tight: "pr-0.5 sm:pr-2.5" } as const;
 
-/** Renders the member a chore is assigned to, or the pool. */
+/** Renders the member a task is assigned to, or the pool. */
 export function AssigneeChip({ member, compact = false }: Readonly<AssigneeChipProps>) {
   // The avatar falls back to a person where it is given no name and no
   // picture, which is the pool drawn for nothing.

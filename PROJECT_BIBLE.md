@@ -31,7 +31,7 @@ different product.
 **The frontend is the whole product surface.** The backend is a stateless REST API with no UI, so
 every part a person touches gets built here.
 
-**Mobile-first, genuinely.** The core interaction is someone standing in a kitchen marking a chore
+**Mobile-first, genuinely.** The core interaction is someone standing in a kitchen marking a task
 done: two taps from a cold start, one hand, 375px.
 
 A native app is a possible future sibling. It would talk to Spring **directly** with Bearer tokens
@@ -310,7 +310,7 @@ KB and full `zod` measured +30 KB, so the figure quoted online is the mini one a
 over-states real usage. The weight lands on the first *client* import, because `validation/` is
 deliberately client-importable.
 
-**A field shows only its first unmet rule.** Zod emits one issue per failed check, so `"choresaaa"`
+**A field shows only its first unmet rule.** Zod emits one issue per failed check, so `"tasksaaa"`
 yields three messages where the hand-written validator returned one sentence. Keeping that sentence
 needs custom aggregation, which cancels the saving; showing the first needs none and asks for one
 fix at a time. The order of the checks in `rules.ts` is therefore the order a user is asked to fix
@@ -400,7 +400,7 @@ records but nobody can create one. And tags exist as group-scoped entities with 
 no task field references them. Both are in the backend's MVP list, so the copy is a promise with a
 date rather than an invention, but it is still a promise.
 
-**The copy uses the product's nouns: group and task, not household and chore.** The warmer words
+**The copy uses the product's nouns: group and task, not household and task.** The warmer words
 read better on a landing page and worse everywhere after it, because the app says "group" and the
 API says `Group`. "Household" and "home" survive only as human description.
 
@@ -1807,8 +1807,8 @@ is already showing reads as a mistake. One place per width.
 
 ### Tasks are what opening a group shows, and the overview earned a route
 
-**`/app/groups/[uid]` renders Tasks.** A group exists to share chores, so the screen a group opens on
-is the chores, not a description of the group. The overview moved to `/overview` and the rail's
+**`/app/groups/[uid]` renders Tasks.** A group exists to share tasks, so the screen a group opens on
+is the tasks, not a description of the group. The overview moved to `/overview` and the rail's
 Workspace band starts at the group's own path, which is also why Tasks is the entry marked current on
 a bare group URL.
 
@@ -2298,7 +2298,7 @@ open form at the head of each section is 250px of empty inputs above the thing a
 
 ### The board is read from the URL, and the backend answers all of it
 
-`/app/groups/[uid]` is the chores. Nine parameters carry the whole of what it shows, so a narrowed
+`/app/groups/[uid]` is the tasks. Nine parameters carry the whole of what it shows, so a narrowed
 board is a link somebody can paste and a reload lands on the same screen. Nothing is filtered,
 ordered or paged in the browser, which is the opposite of what phase 5 originally planned: the
 endpoint took every axis in the end, so a client-side pass would only be a second, disagreeing
@@ -2319,7 +2319,7 @@ filter starts at the first one.
 
 **The cards layout gives up the app's column, and the list keeps it.** 1200px is the width the whole
 app is framed at, which leaves a 1920px display about 336px of the content area unused. A card is
-worth about 300px, so that space is another column of chores, where a list row spanning 1536px is
+worth about 300px, so that space is another column of tasks, where a list row spanning 1536px is
 only harder to read. The cap therefore moved off the shell's wrapper and onto each section as
 `SECTION_COLUMN`, which the board drops in the cards layout and nothing else does. The shell still
 owns the padding, so a section only chooses its own ceiling.
@@ -2333,10 +2333,10 @@ its priority mark and due chip on one line rather than stacking them.
 
 **The board carries no heading.** It had an `h2` and a line under it saying what a board is, which
 is a sentence a reader reads once. The rail's card already holds the group's name as the `h1`, and
-the screen opens on the chores instead.
+the screen opens on the tasks instead.
 
-**One panel does every job, and the URL says which chore and whether it is a new one.** Reading a
-chore, editing it and creating one are the same shape of thing in the same place, so they are one
+**One panel does every job, and the URL says which task and whether it is a new one.** Reading a
+task, editing it and creating one are the same shape of thing in the same place, so they are one
 panel rather than a panel plus a route plus a modal. `?task=<uid>` reads and `?task=new` creates,
 which keeps the board's rule that what is on screen is the URL: each is a link somebody can send,
 each survives a reload, and the way out of either is an ordinary navigation. `new` is safe as a
@@ -2345,7 +2345,7 @@ reserved value for the same reason the `new` and `join` group segments are, a ui
 **Editing is state, though, and that is a reversal.** `?edit=1` was the URL's job until it was not
 worth what it cost: editing is something the reader is doing rather than a place they are, and every
 press of Discard was a navigation, a server round trip and a history entry to walk back through. As
-state it is instant, the facts come straight back, and the chore's own link still means the chore.
+state it is instant, the facts come straight back, and the task's own link still means the task.
 The two things it gives up are a link that opens the editor and an editor that survives a reload,
 neither of which anybody asked for.
 
@@ -2361,27 +2361,27 @@ outright. The URL has none of these problems, which is rather the point of it: a
 outlive a navigation is what a URL is for. Editing crosses no navigation, so it keeps none of the
 cost.
 
-**A created chore's facts arrive with the URL that names them.** The save answers with a uid, which
-the panel replaces `?task=new` with, so `creating` and the chore's facts change in the same render:
+**A created task's facts arrive with the URL that names them.** The save answers with a uid, which
+the panel replaces `?task=new` with, so `creating` and the task's facts change in the same render:
 the form stays up until they are there and nothing flashes in between.
 
 **Only a panel the URL holds wears a cross.** The editor's leading press was a cross too, and it
-read as a lie: it put the facts back and then navigated away from them, so a reader saw the chore
+read as a lie: it put the facts back and then navigated away from them, so a reader saw the task
 they had been editing appear and vanish. It leads back into the panel rather than out of it, so it is
-an arrow, and the facts behind it keep the one cross. A chore being created has nothing behind it,
+an arrow, and the facts behind it keep the one cross. A task being created has nothing behind it,
 so there it is a cross again, and a real link, the URL being what holds it.
 
 **The panel is an overlay, not a column.** It was in flow beside the list, which cost the board
 22rem and left the cards grid reasoning about a width it could not see. As an overlay it costs
-nothing, and the grid is the same whether a chore is open.
+nothing, and the grid is the same whether a task is open.
 
-**The form posts every field, because the endpoint replaces the chore.** `PUT /api/tasks/{uid}` takes
-the chore as it will then be, so a form holding ten of its eleven fields would quietly clear the
+**The form posts every field, because the endpoint replaces the task.** `PUT /api/tasks/{uid}` takes
+the task as it will then be, so a form holding ten of its eleven fields would quietly clear the
 eleventh on every save. That is the whole reason creating and editing are one component: a create
 form missing a field is merely incomplete, where an edit form missing one is destructive. The two
 modes differ by which action runs and whether a `taskUid` rides along, and nothing else.
 
-**The due date is two fields for the reader and one instant on the wire.** A chore due Tuesday needs
+**The due date is two fields for the reader and one instant on the wire.** A task due Tuesday needs
 no time, and asking for one makes everybody type a number they do not mean. So the form holds a day
 and an optional clock time, and an empty time means the end of that day, which is also what makes
 overdue read correctly: due Tuesday is overdue on Wednesday, not at Tuesday midnight. Turning that
@@ -2390,14 +2390,14 @@ action reads it and `taskWriteRequest` takes it as an argument like every other 
 Reading it back blanks a 23:59 time, because nobody typed it and showing it would invite them to
 change a value that means "no time".
 
-**A repeating chore needs a date, settled in the schema.** The backend refuses that pair with a 400
+**A repeating task needs a date, settled in the schema.** The backend refuses that pair with a 400
 carrying no code, which is indistinguishable from any other malformed request, so the rule is a
 refine on the object reporting itself on `dueDate` rather than a line the reader only sees after a
 round trip.
 
-**A chore no longer has to carry a priority, and a radio is what makes that awkward.** The backend
+**A task no longer has to carry a priority, and a radio is what makes that awkward.** The backend
 dropped it from the fields a write requires, leaving the name as the only one, so the schema takes
-an empty value and the form starts a new chore with nothing on the track rather than defaulting it
+an empty value and the form starts a new task with nothing on the track rather than defaulting it
 to Medium, which was only ever there because the write would have been refused without it. A radio
 group has no way back to nothing, so the press on the one already ticked clears it, which hangs
 off the click rather than the change, a value that has not moved firing none. A fourth pill for
@@ -2405,8 +2405,8 @@ nothing was the alternative and reads as a fourth priority.
 
 **Neither write redirects.** An action that redirected would have to be handed a path by the request,
 which is an open redirect waiting to happen, or build one itself and lose the board's filter. The
-form already holds the path and the query, so it navigates to the chore it saved; without JavaScript
-the panel simply reports the save, and the chore is saved either way.
+form already holds the path and the query, so it navigates to the task it saved; without JavaScript
+the panel simply reports the save, and the task is saved either way.
 
 **Two rules about optional fields came out of this.** A rule for a field nobody filled has to accept
 the empty string, which `dayRule` did not: it checked the shape first, so the `|| undefined` written
@@ -2448,7 +2448,7 @@ was rid of. On the picked one it earns its place: it says which pill is on outri
 asking the reader to tell two strengths of one mix apart, which is all the deepened tint says by
 itself. `markOn` gates it, the input being the `peer` and the mark hidden until it is checked, so
 the panel still needs no JavaScript for it. The wrapper is `flex` and not `block`, a block one
-laying the sized dot out inline and drawing it at no size at all. The chore's own tag chips wear
+laying the sized dot out inline and drawing it at no size at all. The task's own tag chips wear
 the dot unconditionally, their tint being the pale 16% one and no pick to speak of.
 
 **A strip is scrolled by the wheel and by hand, because its scrollbar is 6px at the foot of a
@@ -2505,29 +2505,38 @@ on a phone.
 document navigation, so every settled keystroke reloaded the page and the arriving document put its
 own older `q` back in the box. The group list's search avoided that by calling `router.replace` in a
 transition, and the board now does the same, keeping the form only for a browser with no
-JavaScript. Its debounce is 600ms against the group list's 300, a chore being searched for by
+JavaScript. Its debounce is 600ms against the group list's 300, a task being searched for by
 phrase rather than by one word.
 
-**Who may change a chore is a third permission model.** `canEdit` on the backend is the author or a
+**Who may change a task is a third permission model.** `canEdit` on the backend is the author or a
 group admin, where every member may view, complete, skip and claim. It is read per row rather than
 per screen, and like every role check here it is UX: each press still handles its own 403.
 
 **A row carries two lines, because one line could not hold the answers a reader scans for.** When
-a chore is wanted leads the row, what it is goes on the upper line and how it behaves on the
+a task is wanted leads the row, what it is goes on the upper line and how it behaves on the
 lower: the date, then the name, the category, the status and the priority; the repeat and the
 photo proof below. One flex row had already run out of width at a desk once a category's full name
 was in it, and a phone had nothing left for the assignee. A grid is what lets one tree draw both
 shapes, the pills riding beside the name where there is room and dropping under it where there is
 not. The date, the assignee and the menu **span both lines and are centred down them**, each
-answering for the whole chore rather than for its upper line.
+answering for the whole task rather than for its upper line.
 
 **The date is digits in a fixed slot, kept even where there is no date.** A column this narrow
-cannot also say "tomorrow", so the wording went to the title and the urgency to the colour, which
-is the tone the pill elsewhere already wears. It is drawn in the chore's own name's size and
-colour, overdue and due-soon apart: a muted date beside a full-strength name read as a footnote to
-it rather than as the first thing on the row. The width is fixed rather than the content's, or
+cannot also say "tomorrow", so the wording went to the title and the bubble over it. It is drawn in
+the task's own name's size: a muted date beside a full-strength name read as a footnote to it
+rather than as the first thing on the row.
+
+**The digits keep one colour, and the warning is a rule under them.** Colouring the date itself
+made a board read as three kinds of date rather than one column of them, and the two warning tones
+are the quietest text on the card at 16px. Now the digits are the foreground colour at Semi-Bold
+and a 2px rule under them carries the tone, full strength rather than subtle, since 2px of colour
+has nothing to be read against. Nothing is drawn under an ordinary date, so a board of them is a
+clean column and the two that matter are the only marks on it. `--text-body-lg-strong` is a new
+token: the design's own task card asks for a Semi-Bold title at that size and its scale has no
+entry for one, and a `font-semibold` beside `text-body-lg` would have been two utilities fighting
+over one property. The width is fixed rather than the content's, or
 every name down the board starts at a different left edge, and the year is left off unless it is
-not the one being read in, which only a yearly chore reaches. The camera that led the row before
+not the one being read in, which only a yearly task reaches. The camera that led the row before
 now sits with the repeat on the lower line, where there is room for its word.
 
 **The open menu has to outrank the rows under it, and a sheet on a phone.** Every row is
@@ -2549,11 +2558,11 @@ nothing is announced twice.
 
 **The three dots are a desktop control, and a phone holds the row instead.** A 44px press on every
 row is width a phone has not got, and keeping it for assistive tech alone would leave a focus ring
-on something invisible. Nothing is lost by dropping it, because the open chore carries Edit and
+on something invisible. Nothing is lost by dropping it, because the open task carries Edit and
 Delete of its own, which is the path for anybody who cannot hold a finger down. `useLongPress` is
 touch and pen only, a mouse having the dots and a held mouse meaning to select; it gives up once
 the finger moves, every scroll starting as a press, and it **swallows the click the press ends
-in**, which would land on the stretched link and open the chore over the menu just asked for.
+in**, which would land on the stretched link and open the task over the menu just asked for.
 
 **The row became a client component for that hold alone.** The handlers belong on the row's own
 element and cannot be pushed further down, so `RowPress` takes the cells as `children` instead and
@@ -2564,7 +2573,7 @@ opening it.
 would do nothing on most rows of most boards. View is the row's own link, so the menu is never
 empty, while Edit and Delete stay gated.
 
-**An unassigned chore is drawn exactly like an assigned one.** A small "Anyone" pill beside a
+**An unassigned task is drawn exactly like an assigned one.** A small "Anyone" pill beside a
 column of avatars read as a different kind of thing and the eye stopped on it. `Avatar` already
 falls back to a person where it is given no name and no picture, so the pool wears the same
 circle.
@@ -2573,14 +2582,14 @@ circle.
 URL.** Editing is the panel's own state precisely because it crosses no navigation, but a press on
 the board does cross one: the panel is not open yet. `?edit=1` is that request, the same reasoning
 `?task=new` already rests on, and it is taken back out of the URL on a discard or a save, so a
-reload never reopens a form nobody is in. The panel resets that state when the chore or the flag
+reload never reopens a form nobody is in. The panel resets that state when the task or the flag
 changes, or Edit on a second row would show the first one's facts, which is what the plain
 `useState` did.
 
 **A whole-row link and a menu inside it cannot both be elements.** A button nested in an anchor is
 invalid, and a menu outside the anchor leaves most of the row unclickable. The link is therefore
 stretched over the row with `after:inset-0` and the menu sits above it on `z-10`, which is the one
-arrangement where the row opens the chore, the menu opens the menu, and there is still exactly one
+arrangement where the row opens the task, the menu opens the menu, and there is still exactly one
 link per row. The row wears the focus ring on the link's behalf with `has-[a:focus-visible]:`.
 
 **The layout picker had to become one control, because the phone's could never have worked.** Two
@@ -2595,7 +2604,7 @@ layout carrying its name and the other drawn as its icon alone, with the name st
 fits a phone, it is the same control everywhere, and nothing in it closes anything.
 
 **Five reads, run together and reported separately.** Only the board's own failure costs the reader
-anything they came for; a failed roster or label read costs a filter field. The open chore is read
+anything they came for; a failed roster or label read costs a filter field. The open task is read
 by uid rather than found in the page, because `?task=` may name one the current filter or page does
 not hold, and a uid that is gone opens the board rather than an error.
 
@@ -2604,22 +2613,22 @@ overlay modal in fact, and the panel started that way; without the dim the board
 usable, so every piece of modality had to go with it. A focus trap behind a page that looks
 interactive is worse than no trap, since nothing on screen explains why Tab will not leave. A
 transparent full-screen link would swallow presses on a board the reader can see. Freezing the
-page's scroll stops them reading the list the chore came from, which is the point of leaving it
+page's scroll stops them reading the list the task came from, which is the point of leaving it
 visible. What is left is a named `role="dialog"` that takes focus on arrival, because it arrives by
 navigation, and closes on the one press in its header, on Escape, or on a press anywhere outside
 it.
 
 **The last two are the reader's only, because the editor has work to lose.** A press outside is how
 an overlay is dismissed, and nothing behind this one is dimmed, so a reader pressing the board
-plainly means to leave the chore. The same press over a half-typed chore would throw it away with
+plainly means to leave the task. The same press over a half-typed task would throw it away with
 no warning, which is why `dismissable` is a flag the caller sets rather than something the panel
 does. It listens on `pointerdown` rather than `click`, so a press on a row behind the panel closes
-the chore it holds and still follows the link to the one pressed.
+the task it holds and still follows the link to the one pressed.
 
 **Escape is the same flag, because in the editor the key already means something else.** It was
 bound unconditionally at first, which read as the standard for a dialog. Inside the form it is the
 key that closes the colour grid and the tag box, and neither stops it bubbling to the document, so
-one press closed the picker and discarded the whole chore with it. Nor is there an undo: the form
+one press closed the picker and discarded the whole task with it. Nor is there an undo: the form
 is state, and what was typed is gone. A dialog with visible ways out and no scrim loses little by
 leaving Escape to the panel that has nothing unsaved, and the two dismissals then say one thing
 rather than disagreeing.
@@ -2627,25 +2636,25 @@ rather than disagreeing.
 **Taking focus is tied to arrival, not to the close href.** The effect that focuses the panel also
 held the Escape listener, so its dependencies were the href and the router, and it ran again on
 every render: each keystroke in the editor moved focus back to the panel and the next character
-went nowhere. Only the first letter of a chore's name ever landed. Splitting the two effects is the
+went nowhere. Only the first letter of a task's name ever landed. Splitting the two effects is the
 fix, and it is the right shape anyway, since focus belongs to opening rather than to the target of
 a press. A test caught it only because the router mock returned a fresh object per render, which is
 what the real one must never do.
 
 **The header carries the way out and what the mode puts beside it.** A title there had about 300px
-on a 390px phone next to a 44px press, where a chore's name runs to 100 characters, so the name is
+on a 390px phone next to a 44px press, where a task's name runs to 100 characters, so the name is
 the body's own heading instead and the bar holds the presses: Complete and Edit while reading,
 Discard and Save while editing. That the editor's Save sits outside its `<form>` is what `form=`
 exists for, and it beats lifting the whole form's state up a level to reach it.
 
-**The facts are one card, and the chore's own state is pills above the name.** Status, priority and
+**The facts are one card, and the task's own state is pills above the name.** Status, priority and
 category are what a reader checks first and they fit on one line, where assigned to, due date,
 repeat, estimated time and photo proof are five labelled rows that only make sense read down. Tiles
 in a row were tried for all of it and dropped: four of them need about 120px each, which a phone
 cannot give, so half the panel's facts reflowed to two by two and the grouping stopped meaning
 anything.
 
-**A new tag is written before the chore is.** A chore's save posts tag names alone, so a colour can
+**A new tag is written before the task is.** A task's save posts tag names alone, so a colour can
 only be kept by the tag existing in the household, and the choice was between creating it on the
 press or creating it on save. The press wins because the reader sees the tag in its colour straight
 away, and the cost is honest: a discard leaves the tag behind, exactly as adding it on the labels
@@ -2653,19 +2662,240 @@ screen would. A name the household already holds needs no call at all, and the 4
 taken is treated as the tag being there rather than as a failure, a create being the only thing
 that revives a deleted label.
 
-**Deleting is permanent, and Complete is not built.** The backend has both a delete and an archive,
-and archive was turned down because nothing in the UI brings an archived chore back, so it would
-read as a delete that lies. The press confirms in place, the way every other destructive press
-here does. Complete has no endpoint at all yet, so it is a disabled button in both the header and
-the footer rather than a press that does nothing: it keeps its brand colour, since a greyed primary
-action reads as a bug, and the reason rides in its name where there is no room beside it.
+**Deleting is permanent, and archiving was turned down.** The backend has both, and archive loses
+because nothing in the UI brings an archived task back, so it would read as a delete that lies. The
+press confirms in place, the way every other destructive press here does.
+
+**One press is the whole of finishing a task.** `POST /api/tasks/{uid}/complete` takes an empty
+body, and omitting `minutes` makes the backend snapshot the task's own estimate, so the common case
+has nothing worth typing and a round nobody timed is never counted as zero. Everything else a
+completion can carry is a way off that press rather than a second press beside it: a chevron in the
+same pill, one menu row, and the primary action stays one thing. It is a real `<form>` posting the
+same action the longer view posts, which is one write path and works with no JavaScript.
+
+**A task asking for proof has no one-press path at all.** With `requiresPhotoProof` the backend
+refuses a round carrying no photo, so offering the simple press there would be a press that always
+fails: both presses read `Complete with proof` and open the view instead. The photo is offered on
+**every** task, not only those that demand one, because somebody may want to show the work whether
+or not the household insists and an empty field costs nothing.
+
+**The round's own view is the panel's third mode, not a dialog.** Editing is panel state so a
+discard leaves no history entry, and recording a round is the same kind of thing: a half-typed note
+must not survive in the URL and backing out must put the facts straight back. `COMPLETION_PHOTO`
+presigns against the **task** rather than the group, which the backend's own `UploadSecurity` says
+(`canView` on the target uid), and unlike a task being created the task here always exists, so the
+submit only has to wait for the bytes.
+
+**Not due yet was questioned, and the backend changed instead.** The rule had been kept once, on
+the grounds that recording early rolls the schedule forward. It was wrong for the product: a due
+date is a deadline, not a start date, and somebody who mopped the floor on Thursday for a Saturday
+task had no way to record work that really happened, where late was allowed all along. The backend
+now takes a round against a date still ahead, leaves the repeat on the task's own day, and caps it
+at one run ahead per period with `TASK_ROUND_ALREADY_AHEAD`. Skipping early is still refused, a skip
+being a statement that a round went by and nobody did it.
+
+**The dated refusal went with it.** `TASK_ROUND_NOT_DUE` is now reachable only on a skip, which does
+not exist here, so the read of the task that existed to date that one line is gone and
+`recordableFrom` with it: it will come back with skip, where it means something again. The line
+itself stays, phrased without a date, because an older backend build is plausible and the sentence
+costs nothing.
+
+**The double tap is ours to stop, not the backend's to report.** The cap on running ahead is what
+answers a second request, but it answers it as a refusal, and a refusal after a success reads as
+something having gone wrong. The two presses are two forms with two pending flags, so `TaskReader`
+holds one `recording` flag and hands each press the other's state. Swallowing the refusal instead
+was turned down: it hides the genuine case, somebody pressing again a minute later, where the
+sentence is true and the facts beside it have already moved.
+
+**A past due date is the picker's job and the field's refusal.** The endpoint refuses a new task
+dated before the caller's own today, judged in the offset we send, which is one more reason the
+write carries one. `min` on the date input is the whole of the prevention, and it is set on an edit
+too: the backend lets a task keep a date that has gone by, since a PUT carries the whole task and
+refusing it would leave every overdue task unrenameable, but there is no way to say "today, or
+exactly the value already here" to a date input, and a stored past date shows and posts whether the
+browser calls it in range or not. The rule cannot live in `taskSchema`, which knows neither today
+in the reader's zone nor the task's stored date, so `TASK_DUE_DATE_PAST` is routed to the field
+like the member pickers' own 404s, and `taskFieldRefusal` is now the one place a write's
+field-level refusals are read.
+
+**A task with nothing left to record offers nothing.** The press was drawn whatever the task's
+state, and a one-off that was already done therefore offered a press the backend answers with
+`TASK_INSTANCE_ALREADY_RECORDED`. The rule is read off the backend's own behaviour rather than
+guessed: recording a round on a repeating task rolls it forward and sets `TODO`, so `COMPLETED` is
+only ever a one-off that is finished, and `ARCHIVED` takes nothing at all. Drawing it disabled was
+turned down: a disabled press is for something unbuilt, where this is a task that is simply done,
+and the Done pill above its name already says so.
+
+**The filter's states are worded by the status they stand for.** The filter said "Completed" where
+the pill on the task it found said "Done", which is the same drift a hard-coded list always ends
+in, so `STATE_OPTIONS` is built from `statusLabel` instead. The archived state came along with it
+and now reads "Retired" in both places.
+
+**A task has an owner as well as an assignee, because recording a round used to inherit the
+task.** Doing an unassigned repeating task once made it yours for ever, which is the opposite of
+what a rota is for, so the backend now carries two members: `assignedTo`, the round in hand, and
+`defaultAssignee`, whose task it is between rounds. A finished round hands `assignedTo` back to
+`defaultAssignee`, so helping out costs nobody their Saturday and a task that belongs to one person
+still comes back to them. Only a one-off is claimed by being done, where there is no round to come
+and the credit is the assignment.
+
+**The two pickers sit side by side, and only a repeating task draws the second.** A one-off has
+nothing to hand back, so an owner on it says the same thing as its assignee: the field is drawn for
+a repeating task alone, and a task saved as a one-off is saved with no owner. Beside rather than
+under, because they are two answers to one question and a reader compares them: `Assigned to` then
+`Task owner`, halves of one row like repeat and priority. "Task owner" over "Default assignee",
+which is the backend's own word and reads like a database column, and over "Normally assigned to",
+which is the longest label on the form for the smallest field.
+
+**The pickers mirror each other while the other is empty, and stop for good once an owner is
+picked.** The backend hands an open round to an owner the moment one is first named, so a form that
+showed an empty assignee beside a new owner would save something it never displayed. Mirroring
+without end is just as wrong: "Mark covers this round for John" is the case the two fields exist
+for, so the first deliberate pick on the owner ends it. Our own form posts both fields on every
+save, so what it shows is what the backend stores, whatever that transition rule would have done on
+its own. The one case left is clearing the round right after naming an owner, which the backend
+fills anyway on that one save; the save after it holds.
+
+**`FilterSelect` had to report a pick, which it never did.** It held its own value and posted it
+through a hidden input, so the editor's state never learned what was chosen: nothing needed it until
+one field decided whether another was drawn and a second had to be written from outside. `onPick` is
+optional, so every filter keeps the shape it had, and the field follows an outside `value` by
+adjusting state in render, the way the search box already follows the URL.
+
+**A member picker's 404 is about the field.** The task, the assignee and the owner all answer 404
+carrying no code, so a bad member uid read as "That task has been removed. Refresh to see what is
+left.", which is alarming and wrong. The backend gives the two pickers separate messages precisely
+so a form sending both can tell them apart, so `taskMemberRefusal` reads the message and
+`taskGoneMessage` stands aside for those two. Matching on a message is what is available: a code
+would be better, and this is the one place in the task writes that does it.
+
+**No filter on the owner.** The board answers `assignedToUid`, which is the round in hand, and that
+is what somebody scanning a board wants: who is doing this now. A second axis for the owner would
+show the same rows most of the time and cost a field in a panel that already scrolls on a phone.
+
+**The history list is keyed on its count.** The pages live in the component, so a round recorded in
+the panel revalidated the board, redrew the facts and left the list exactly as it was, missing the
+round just added. A key off the total remounts it, which also resets the Load more position, and
+that is correct: the list it had is a page older than the task.
+
+**Whose task it is decides whether the press is alive, and an admin is no exception.** The endpoint
+refuses a round from anybody but the assignee, whatever their role, so this is a third question
+beside "may they edit it" and "is there a round left": `assignedElsewhere` answers it and the press
+is drawn dead, naming the member, rather than leading to a 403 nobody could have predicted. Grey
+rather than the brand colour, unlike the add-task press: that one waits on us to build something,
+where this is a task that is simply not the reader's to finish. An unassigned task stays live for
+everybody, and recording a round claims a one-off alone.
+
+**A long name widened the panel, so the clip the group card already had moved into `common/`.** A
+task's name runs to 100 characters and may be one unbroken word, which `overflow-wrap` alone leaves
+as a line nobody can read. `ClippedName` carries no group knowledge, so it is shared rather than
+copied: one line, an ellipsis CSS draws exactly when it overflows, and the whole of it a press away.
+The description keeps its own character-count clamp, because a paragraph is clamped by length rather
+than by a line, and the whole text became the control with the words at its right-hand end: a
+cut-off paragraph invites a press on itself, where a link under it is easy to miss.
+
+**The avatar centred its box, not its content.** The shell is a grid that centres its one item, but
+that item is a span, which blockifies as a grid item and takes its line box from the inherited line
+height rather than from the 11px initials inside it. The glyphs then sat on a baseline placed for
+16px text, a little below the circle's middle, and the placeholder person with them. The wrapper
+centres its own content now, so what is drawn is centred rather than the line it sits on. Measured
+nowhere jsdom can see: it loads no CSS, so this is a browser check.
+
+**The product says task, and so does everything written about it.** The screens said chore where
+the API, the column and the URL say task, which read warmly until a reader had to hold both words
+for one thing: "this chore has already been done" above a board headed Tasks. Every line a reader
+sees now says task, the press that writes one down says `Add task` wherever it appears, and the
+comments and these documents were swept with the copy, so nothing is left to put the old word back.
+
+**A box that grows is wrong for a value that arrives with it.** The description followed its
+content, which is right while somebody types and wrong the moment an editor opens on a stored
+paragraph: the box was a different height every time, and the fields under it moved. `fixed` is the
+flag for that case, and the field is still dragged taller by hand.
+
+**Picking tags one at a time cost a trip each.** The panel closed on the first press, so a task
+with three tags meant opening it three times, and the way back in was a press that said Add tag
+over a box that already held two. It stays open instead: a tag leaves the list when it goes on and
+returns when the chip's cross takes it off, so the list is always what the task does not carry, and
+the press out says Done because nothing is pending. The five-tag cap moved into the panel with it,
+the opener no longer being the only door.
+
+**The pills on a row had one shape and three meanings.** A status, a priority, a category and a tag
+all read as the same tinted pill, so a row was a line of colours a reader had to learn. They are
+three shapes now: the priority is the solid tone, square and tight, because it is the one thing on
+the row that should be read before the words; the category keeps the bordered pill with its icon,
+being the task's filing; and a tag drops the border and leads with a hash, which is what a tag
+looks like everywhere else and says more than the dot it replaces. The status leads the row in the
+bolder label, and on a phone it is the icon alone, where a word for the state cost the name the room
+it needed.
+
+**Picking a tag comes before making one.** The panel opened on a name box with the household's own
+tags under it, which read as "type a new tag, or maybe use one of these": the common case was the
+afterthought. The group's tags come first now, with the name box under a rule below them, and the
+box narrows the list as it is typed, so one control serves both jobs and a reader who finds nothing
+carries on typing into the thing that makes one. Focus follows the panel onto the first tag offered,
+as it does into the activity filter's own panels.
+
+**A status is worded as the backend stores it.** The screen said Done and Retired where the column
+holds `COMPLETED` and `ARCHIVED`, which read well enough until a round's own outcome, which really
+is Done, sat in the same panel as a task's status. The words are the constants now, so the filter,
+the pill and the database say one thing, and a round's Done is the only Done on the screen.
+
+**The status leads the name, as the outcome leads a round.** A board row carried its status among
+the pills after the name, where a history row puts the round's outcome first: the two read as
+different kinds of list for no reason. The pill is now the first thing on the row's upper line,
+which also fixes what the pills after a long name did on a phone, where the name truncates and
+everything behind it is what gets cut. The pill reads the same on every row of a default board,
+which shows the to-do list and nothing else, and that is the cost of the board reading one way
+whatever is filtered.
+
+**A press that cannot be used says so before the work, not after it.** A task done ahead of
+schedule refuses the next round until that one has passed, and the press led to the round's own
+view: a reader could type the minutes, write a note, attach a photo and only then be told
+`TASK_ROUND_ALREADY_AHEAD`. The panel now draws the dead grey press a task held by somebody else
+already has, naming the round that is done. The check is ours and the backend's is the authority,
+and the two judge the same thing in different zones, so the refusal is still phrased for the case
+where our answer and its answer differ by a day.
+
+**A history row leads with the round it is about.** It read as a line of its own with an outcome
+word, a timestamp and a circle, which told a reader nothing they could not get from the task
+itself. Two shapes were tried and dropped: the member stacked under the outcome read as two facts rather
+than one row, and the outcome pill stacked under the digits left a left-hand block that lined up
+with nothing. It is the board's own row now, the same four columns and two lines and the same
+`ROW_DUE` width, so a history under a task reads as the board it came from: the round's date
+leading in digits, the outcome and the marks above, the recording's own day and clock and what it
+took below, the member and the chevron centred down both. The chip is the same one the task's own assignee wears, `compact` like the
+board's, so a phone shows the circle and still reads the name out. The digits carry no tone, unlike
+the board's: a round that is recorded can never be late. The note and the photo became circles,
+which read as marks on the round where a bare glyph read as an icon somebody forgot to label. **The
+pill moved out to `OutcomePill`**, since the round's own panel already drew one: the two could have
+drifted, and the tones now say which outcome it is rather than painting all three alike.
+
+**A task's history is a list in its facts, and one round is a URL.** The list is at the end of the
+body rather than behind a press of its own, because somebody opening a repeating task wants to know
+whether it was done last week, and a press to find that out is a press most readers never make. It
+is cursor-paged like a group's trail, ten a page, and the cursor lives in the component rather than
+the URL for the same reason it does there: a shared link would carry a position the recipient has no
+rows for. One round, though, **is** in the URL, because a round is read-only: there is nothing
+half-typed to lose, the panel survives a reload, and a reader can send the round itself. It is read
+by id rather than picked out of the list, since the round a link names may sit on a page nobody has
+loaded, and the row already carrying every field is beside the point when the link arrives cold.
+
+**The back arrow is about where a control leads, not what it is.** `SidePanel` drew the arrow only
+for a press, so the round's own way back, which is a link, would have worn a cross and read as a way
+out of the panel. `back` is now a flag on either shape.
+
+**The line a round reports belongs to the panel.** The view that recorded it is gone by the time
+anybody reads the line, so the notice lives in `TaskPanel` and the reader draws it in the footer,
+which is already where a refused delete lands. Each press tells the panel once, through a ref
+holding the state it last reported: an action's answer outlives every unrelated render, and
+reporting it from the render itself would say it again on every keystroke elsewhere in the panel.
 
 **Five reads, run together and reported separately.** Only the board's own failure costs the reader
-anything they came for; a failed roster or label read costs a filter field. The open chore is read
+anything they came for; a failed roster or label read costs a filter field. The open task is read
 by uid rather than found in the page, because `?task=` may name one the current filter or page does
 not hold, and a uid that is gone opens the board rather than an error.
 
-**The author is a pill, like the assignee.** Who added the chore and who it is for are both a
+**The author is a pill, like the assignee.** Who added the task and who it is for are both a
 membership with a picture, so `MemberChip` draws them and `AssigneeChip` keeps only its own empty
 state. The line reads "Added by X, 2 days ago", which `sinceLabel` words against the one instant
 the whole screen is measured against.
@@ -2679,7 +2909,7 @@ editor's own picker never showed this because its preview carries `shrink-0` alr
 
 A row carries five pills and two marks, and each of them shows a value without saying which axis it
 belongs to: `High` is a priority, `Kitchen` a category, `11/3` a date, and nothing on the row says
-so. The bubble is what says it, and the (i) in the chore form is the same bubble put to the other
+so. The bubble is what says it, and the (i) in the task form is the same bubble put to the other
 use, explaining a field rather than naming a pill.
 
 **The browser's own `title` was what the row used, and it is not good enough.** It waits about a
@@ -2695,12 +2925,12 @@ over the row that was tapped, and the resting opacity and the revealed one are t
 in one place. Two utilities for one property resolve in the stylesheet, not in the class list.
 
 **The stretched link takes every hover, and that is why the anchor is raised.** `after:inset-0`
-covers the row so that all of it opens the chore, and it is a positioned box painted over the pills,
+covers the row so that all of it opens the task, and it is a positioned box painted over the pills,
 so hovering `Kitchen` hovers the overlay and the pill under it is never pointed at. The first build
 shipped without noticing, because a forced `:hover` in the probe proved the rule and a real pointer,
 which reported the hover landing nowhere, was read as the tool being unreliable. `pointer-fine:z-10`
 on the anchor is the fix, and it is a trade: a raised cell **outside** the link stops opening the
-chore, which costs the date its slot on a desk. The avatar was never a target anyway, `Avatar` being
+task, which costs the date its slot on a desk. The avatar was never a target anyway, `Avatar` being
 `relative` for its own picture layer, and a phone keeps every target it had, the raise not applying
 there.
 
@@ -2731,7 +2961,7 @@ and the bubble are siblings, so the reveal is `peer-hover` rather than a second 
 **above** that row: under it, it covered the control the reader had just asked about.
 
 **A field that shares a row hangs its bubble from the right.** The rule that a bubble anchored to
-the field's own row can never come out wider than the field holds only for a whole row. The chore
+the field's own row can never come out wider than the field holds only for a whole row. The task
 form puts Repeat beside Priority and the due day beside its time, and half a row is narrower than
 the bubble, so the right-hand one started at the middle of the panel and ran past its edge: the
 panel scrolled sideways at 440, the width where its field box crosses the `@sm` container query
@@ -3043,16 +3273,19 @@ workaround **before** the feature depending on it gets built.
    because the gaps below are referred to by number. Two things are still owed and noted where they
    matter: `addedBy` and `removedBy` exist and are always null, and a soft-deleted group neither
    deactivates its memberships nor stops answering a direct read.
-2. **Tags can't be attached to tasks.** The task request has no `tagIds`, the response has no tags,
-   and the `TaskTag` junction has no controller, so filter-by-tag is not buildable.
-3. **No file upload for a task.** **Partly closed.** `UploadPurpose` holds `GROUP_PHOTO` and
-   `USER_PHOTO`, and both ends of the earlier debt are paid: the backend resolves `targetUid` per
-   purpose and our presign refusal is per purpose too. What remains is photo proof: `taskPhotoUrl`
-   and `completionPhotoUrl` are still plain URL strings with nothing to point them at, so a
-   `TASK_PHOTO` purpose has to arrive before it is buildable.
+2. ~~**Tags can't be attached to tasks.**~~ **Closed.** A task's write takes `tagNames`, the
+   backend creating what it does not hold, and a task answers with its tags. Filtering a board by
+   one is `?tagId=` on the endpoint.
+3. ~~**No file upload for a task.**~~ **Closed.** `UploadPurpose` holds `TASK_PHOTO` and
+   `COMPLETION_PHOTO` as well, both resolved by `targetUid` per purpose, and a task and a
+   completion each carry a `photoUid` our own image route reads. The first signs against the
+   **group**, so a picture can be attached while the task is still being created; the second
+   signs against the **task**.
 4. **Notifications are read-only.** `GET` and `PATCH /{id}/read` exist but no create endpoint, so
    "ping a member about a task", an MVP feature, has no API.
-5. **No server-side task filtering.** Client-side only for now.
+5. ~~**No server-side task filtering.**~~ **Closed.** `GET /api/tasks` takes the search, every
+   axis the board offers and the page, and refuses a value it does not know rather than falling
+   back, so nothing on the board is narrowed, sorted or paged in the browser.
 6. **The dev profile's access token lasts a year and can't be shortened.**
    `application-dev.properties` hardcodes `jwt.expiration=31536000000` with no placeholder, so
    `accessTokenExpiresWithin` never returns true against a local backend and the single-flight
@@ -3228,9 +3461,9 @@ gap_ is still open does not get started; the gap gets raised with the backend in
 | **2** | **Auth screens** ✅ done | Register, verify, login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime. CI is what this phase unblocks. |
 | 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
 | **4** | **Groups and members** ✅ done | `/app` as the group list split by role, create, join by code, the no-group empty state, the header pill, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do, so nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state. |
-| **5** | **Tasks, the core loop** ← _current_ | The board and its detail panel, read-only so far. Still owed: create, edit, archive, delete, and complete, skip and claim. | This is the product. The app is useful at the end of this phase and not before. The filters went to the backend and the URL, so **React Query did not earn its place**: there is no client cache to invalidate. |
+| **5** | **Tasks, the core loop** ← _current_ | The board, its detail panel, create, edit, delete, complete and a task's own history. Archive was turned down. Still owed: skip, and claim through `PUT /api/tasks/{uid}/assignee`, which now exists and has no caller. | This is the product. The app is useful at the end of this phase and not before. The filters went to the backend and the URL, so **React Query did not earn its place**: there is no client cache to invalidate. |
 | 6     | ~~**Members and roles**~~  | Folded into phase 4: the roster, invite, role change, remove and the last-admin handling ship with the groups work. | It was only separate because a member's display name could not be resolved; the membership now carries its user. |
-| 7     | **Categories and tags** ✅ done | `/app/groups/[uid]/labels`: both lists on one screen, with the presses gated per control rather than per section. | Taken **before** phase 5, not after: the backend shipped labels and tasks together, and the chore form cannot offer a category or a tag that nothing manages. |
+| 7     | **Categories and tags** ✅ done | `/app/groups/[uid]/labels`: both lists on one screen, with the presses gated per control rather than per section. | Taken **before** phase 5, not after: the backend shipped labels and tasks together, and the task form cannot offer a category or a tag that nothing manages. |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`. | A second view on data phase 5 already fetches: cheap once tasks exist, pointless before. |
 | 9     | **Notifications**          | Inbox, unread badge, mark read. | Pinging a member is _blocked on API gap 4_. |
 | 10    | **PWA**                    | Manifest, icons, service worker, install prompt, offline shell. | Deliberately late: a capability layered onto a working app, and an offline shell for screens that do not exist yet is wasted work. |

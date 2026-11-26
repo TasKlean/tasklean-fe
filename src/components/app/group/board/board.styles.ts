@@ -1,6 +1,6 @@
 /**
  * The paint the board's rows and controls share. One file, because a chip in a
- * row and the same chip in the open chore have to measure the same.
+ * row and the same chip in the open task have to measure the same.
  */
 
 import type { DueTone } from "@/lib/tasks/due/due";
@@ -10,12 +10,19 @@ export const CHIP =
   "text-label-sm gap-1 flex max-w-full shrink-0 items-center rounded-full px-2 py-0.5 whitespace-nowrap";
 
 // Role tokens rather than a palette of its own: a priority is how loud the row
-// should be, which is what these three already mean everywhere else.
+// should be, and the solid tone rather than the tint, so it reads before the
+// words beside it. Low wears `accent`, the palette's own sky-blue wash, which
+// is quiet without reading as the grey a row uses for everything unset.
 export const PRIORITY_TONE: Record<TaskPriority, string> = {
-  HIGH: "bg-destructive-subtle text-destructive-subtle-foreground",
-  MEDIUM: "bg-warning-subtle text-warning-subtle-foreground",
-  LOW: "bg-muted text-muted-foreground",
+  HIGH: "bg-destructive text-destructive-foreground",
+  MEDIUM: "bg-warning text-warning-foreground",
+  LOW: "bg-accent text-accent-foreground",
 };
+
+// Squarer and tighter than every other chip on the row, which is what tells a
+// priority apart from a category or a tag at a glance.
+export const PRIORITY_CHIP =
+  "text-label-sm flex shrink-0 items-center rounded-sm px-1.5 py-0.5 whitespace-nowrap";
 
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   HIGH: "High priority",
@@ -29,14 +36,19 @@ export const DUE_TONE: Record<DueTone, string> = {
   later: "bg-muted text-muted-foreground",
 };
 
-// The same three tones as ink rather than as a pill, for the date at the head
-// of a row. A date nothing is urgent about reads in the name's own colour; the
-// `*-subtle-foreground` tokens are the ones that flip with the scheme, so the
-// other two read on the card in both.
-export const DUE_INK: Record<DueTone, string> = {
-  overdue: "text-destructive-subtle-foreground",
-  soon: "text-warning-subtle-foreground",
-  later: "text-foreground",
+// The date at the head of a row, which reads in the name's own colour whatever
+// it says: the warning is a rule under it instead, so a column of dates reads
+// as dates and the ones that matter are marked rather than recoloured.
+export const DUE_DIGITS =
+  "text-body-lg-strong text-foreground tabular-nums inline-flex flex-col items-center gap-0.5";
+
+export const DUE_MARK = "h-0.5 w-full rounded-full";
+
+// Empty for a date nothing is urgent about, which draws no rule at all.
+export const DUE_RULE: Record<DueTone, string> = {
+  overdue: "bg-destructive",
+  soon: "bg-warning",
+  later: "",
 };
 
 // A grid rather than a flex row: the pills ride beside the name on a wide
@@ -46,11 +58,11 @@ export const ROW =
   "bg-card border-border/60 p-space-md gap-x-space-sm gap-y-1 hover:bg-muted/40 has-[a:focus-visible]:ring-ring relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start rounded-xl border transition-colors select-none has-[a:focus-visible]:ring-2 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:select-text";
 
 // A fixed width, so every name on the board starts on one line whatever its
-// date reads and a chore with no date keeps the space. Centred down the row,
+// date reads and a task with no date keeps the space. Centred down the row,
 // since it answers for both of its lines rather than for the name alone.
 export const ROW_DUE = "col-start-1 row-span-2 row-start-1 w-14 shrink-0 self-center text-center";
 
-export const ROW_TITLE = "text-body-lg text-foreground";
+export const ROW_TITLE = "text-body-lg-strong text-foreground";
 
 // What the name and the pills sit in. The link is stretched over the whole
 // row by `after:inset-0`, so the press is the row and the menu beside it is

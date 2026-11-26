@@ -82,7 +82,7 @@ describe("numericDate", () => {
     expect(numericDate(new Date("2026-03-11T18:00:00Z"), now, "Europe/Ljubljana")).toBe("11/3");
   });
 
-  it("puts the year on one outside it, which a yearly chore reaches", () => {
+  it("puts the year on one outside it, which a yearly task reaches", () => {
     expect(numericDate(new Date("2027-01-02T18:00:00Z"), now, "Europe/Ljubljana")).toBe("2/1/27");
   });
 

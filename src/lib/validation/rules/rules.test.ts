@@ -78,21 +78,21 @@ describe("passwordRule", () => {
     ["", "Choose a password."],
     ["Ab1!cde", "Use at least 8 characters."],
     [`Ab1!${"x".repeat(61)}`, "Use no more than 64 characters."],
-    ["chores12!", "Add an uppercase letter."],
+    ["tasks12!", "Add an uppercase letter."],
     ["CHORES12!", "Add a lowercase letter."],
-    ["ChoresAb!", "Add a number."],
-    ["Chores123", "Add a special character."],
+    ["TasksAb!", "Add a number."],
+    ["Tasks123", "Add a special character."],
     ["Password1!", "This password is too easy to guess. Try something less common."],
   ])("reports %j as %s", (value, message) => {
     expect(check(passwordRule, value)).toBe(message);
   });
 
   it("reports only the first unmet rule", () => {
-    expect(check(passwordRule, "choresaaa")).toBe("Add an uppercase letter.");
+    expect(check(passwordRule, "tasksaaa")).toBe("Add an uppercase letter.");
   });
 
   it("does not trim, so a trailing space counts as a character", () => {
-    expect(check(passwordRule, "Chores1! ")).toBeNull();
+    expect(check(passwordRule, "Tasks1! ")).toBeNull();
   });
 });
 

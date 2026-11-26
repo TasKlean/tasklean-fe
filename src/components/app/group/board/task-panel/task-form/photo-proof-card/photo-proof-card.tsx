@@ -1,5 +1,5 @@
 /**
- * Whether finishing the chore means showing it. A card rather than a bare row,
+ * Whether finishing the task means showing it. A card rather than a bare row,
  * the rule being one a reader has to understand before switching it on, with
  * what it does behind the (i) rather than in a line under the switch.
  */

@@ -29,9 +29,10 @@ const OPTION =
   "px-space-md gap-space-sm text-body-md text-foreground flex min-h-10 items-center justify-between rounded-full text-left";
 
 /** Renders the field, its own dropdown and the input that posts it. */
-export function FilterSelect({ label, name, options, value }: Readonly<FilterSelectProps>) {
+export function FilterSelect({ label, name, options, value, onPick }: Readonly<FilterSelectProps>) {
   const baseId = useId();
   const [picked, setPicked] = useState(value);
+  const [seen, setSeen] = useState(value);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(
@@ -39,6 +40,14 @@ export function FilterSelect({ label, name, options, value }: Readonly<FilterSel
       0,
     ),
   );
+
+  // Adjusted in render rather than in an effect: a caller that mirrors one
+  // field onto another writes the value from outside, and the field has to
+  // show what the form will post.
+  if (seen !== value) {
+    setSeen(value);
+    setPicked(value);
+  }
 
   const listId = `${baseId}-list`;
   const current = options.find((option) => option.value === picked) ?? options[0];
@@ -59,6 +68,7 @@ export function FilterSelect({ label, name, options, value }: Readonly<FilterSel
     setPicked(options[index].value);
     setActiveIndex(index);
     setOpen(false);
+    onPick?.(options[index].value);
   }
 
   /** Moves the active row, or opens the list if it is closed. */

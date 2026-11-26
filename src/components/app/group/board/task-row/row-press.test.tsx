@@ -73,7 +73,7 @@ describe("RowPress", () => {
     expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", EDIT);
   });
 
-  it("offers reading alone where the chore is not the reader's to change", async () => {
+  it("offers reading alone where the task is not the reader's to change", async () => {
     const user = userEvent.setup();
     row(false);
     await user.click(screen.getByRole("button", { name: /^More/ }));
@@ -90,7 +90,7 @@ describe("RowPress", () => {
     expect(screen.getByRole("link", { name: "View" })).toBeVisible();
   });
 
-  it("swallows the press the hold ends in, so the chore does not open over it", () => {
+  it("swallows the press the hold ends in, so the task does not open over it", () => {
     row();
     const item = hold();
 
@@ -127,7 +127,7 @@ describe("RowPress", () => {
     expect(screen.getByText(/Nothing brings it back/)).toBeVisible();
   });
 
-  it("deletes the chore once the question is answered", async () => {
+  it("deletes the task once the question is answered", async () => {
     const user = userEvent.setup();
     row();
     await user.click(screen.getByRole("button", { name: /^More/ }));
@@ -137,14 +137,14 @@ describe("RowPress", () => {
     expect(deleteTaskAction).toHaveBeenCalledWith("g1", "t1");
   });
 
-  it("keeps the chore and says why it is still there when the delete is refused", async () => {
-    deleteTaskAction.mockResolvedValueOnce({ error: "Somebody else owns that chore." });
+  it("keeps the task and says why it is still there when the delete is refused", async () => {
+    deleteTaskAction.mockResolvedValueOnce({ error: "Somebody else owns that task." });
     const user = userEvent.setup();
     row();
     await user.click(screen.getByRole("button", { name: /^More/ }));
     await user.click(screen.getByRole("button", { name: "Delete" }));
     await user.click(screen.getByRole("button", { name: "Delete for good" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Somebody else owns that chore.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Somebody else owns that task.");
   });
 });

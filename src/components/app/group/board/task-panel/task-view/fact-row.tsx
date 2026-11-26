@@ -12,7 +12,7 @@ const NAME = "gap-space-xs text-label-md text-muted-foreground flex min-w-0 item
 
 const VALUE = "text-body-md text-foreground gap-space-xs flex min-w-0 flex-wrap justify-end";
 
-/** Renders one labelled fact, as a row of the chore's card. */
+/** Renders one labelled fact, as a row of the task's card. */
 export function FactRow({ icon, label, children }: Readonly<FactRowProps>) {
   return (
     <div className={ROW}>

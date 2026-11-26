@@ -122,7 +122,7 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
           <span className="relative flex min-w-0 items-center gap-1">
             <h2 className={SECTION}>Sort</h2>
 
-            <InfoTip label="Sort" text="The order the chores are listed in." place="right" />
+            <InfoTip label="Sort" text="The order the tasks are listed in." place="right" />
           </span>
         </div>
 
@@ -141,7 +141,7 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
 
             <InfoTip
               label="Filter"
-              text="Narrows the board to the chores you want to see."
+              text="Narrows the board to the tasks you want to see."
               place="right"
             />
           </span>
@@ -153,7 +153,7 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
 
         <Field legend="Assigned to" layout="block" open={shown.who} onToggle={() => toggle("who")}>
           <FilterSelect
-            label="Show chores assigned to"
+            label="Show tasks assigned to"
             name="who"
             options={whoOptions(members)}
             value={whoValue(query.who, members)}
@@ -206,6 +206,7 @@ export function FilterFields({ query, members, categories, tags }: Readonly<Filt
                 kind="radio"
                 value={String(tag.id)}
                 label={tag.name}
+                hash
                 defaultChecked={query.tagId === tag.id}
                 tone="label"
                 color={tag.color}

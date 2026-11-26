@@ -32,6 +32,9 @@ type FilterChipProps = {
   tone?: "plain" | "label";
   // The label's own stored hex, where it has one.
   color?: string | null;
+  // A tag, which is led by a hash wherever one is drawn. Hidden from the
+  // reading, the label being what names the choice.
+  hash?: boolean;
 };
 
 // Denser than the app's 44px floor on purpose: the panel stacks six fields of
@@ -61,6 +64,7 @@ export function FilterChip({
   markOn = "always",
   tone = "plain",
   color,
+  hash = false,
 }: Readonly<FilterChipProps>) {
   const asLabel = tone === "label";
   const gated = markOn === "checked";
@@ -80,6 +84,13 @@ export function FilterChip({
       {/* `flex` rather than `block`: the mark is a sized span, which a block
           wrapper lays out inline and then draws at no size at all. */}
       {gated ? <span className="hidden peer-checked:flex">{mark}</span> : mark}
+
+      {hash ? (
+        <span aria-hidden className="text-muted-foreground shrink-0">
+          #
+        </span>
+      ) : null}
+
       <span className="truncate">{label}</span>
     </label>
   );

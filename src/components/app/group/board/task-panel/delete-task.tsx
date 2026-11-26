@@ -1,5 +1,5 @@
 /**
- * Deleting a chore, which nothing brings back. It confirms in place, swapping
+ * Deleting a task, which nothing brings back. It confirms in place, swapping
  * itself for the question rather than opening a dialog over a dialog.
  *
  * The press is an icon, where the question is worded: it sits in the reader's
@@ -17,7 +17,7 @@ import { Tooltip } from "@/components/common/tooltip/tooltip";
 type DeleteTaskProps = {
   groupUid: string;
   taskUid: string;
-  // Where the panel goes once the chore it was showing is gone.
+  // Where the panel goes once the task it was showing is gone.
   closeHref: string;
   // Reports the question, which the footer makes room for by taking its other
   // presses away.
@@ -52,7 +52,7 @@ export function DeleteTask({
     onAsking(next);
   }
 
-  /** Deletes the chore and leaves the panel, or reports why it did not. */
+  /** Deletes the task and leaves the panel, or reports why it did not. */
   async function remove() {
     setBusy(true);
     const { error } = await deleteTaskAction(groupUid, taskUid);

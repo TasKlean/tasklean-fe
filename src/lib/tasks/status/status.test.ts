@@ -4,15 +4,15 @@ import { statusLabel } from "@/lib/tasks/status/status";
 describe("statusLabel", () => {
   it("words the four states the backend sets", () => {
     expect(statusLabel("TODO")).toBe("To do");
-    expect(statusLabel("COMPLETED")).toBe("Done");
-    expect(statusLabel("ARCHIVED")).toBe("Retired");
+    expect(statusLabel("COMPLETED")).toBe("Completed");
+    expect(statusLabel("ARCHIVED")).toBe("Archived");
   });
 
   it("humanises a state nothing here has words for", () => {
     expect(statusLabel("ON_HOLD")).toBe("On hold");
   });
 
-  it("words a chore that arrived with no status", () => {
+  it("words a task that arrived with no status", () => {
     expect(statusLabel(undefined)).toBe("Not set");
   });
 });

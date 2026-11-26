@@ -1,5 +1,5 @@
 /**
- * The top bar of a chore being changed: what it is, who wrote it down, and the
+ * The top bar of a task being changed: what it is, who wrote it down, and the
  * two ways out, which are to throw the changes away or to keep them.
  *
  * The words are exported because the panel's own name and the footer's press
@@ -10,7 +10,7 @@ import type { MouseEventHandler } from "react";
 import { BAR_SUBMIT } from "@/components/app/group/board/task-panel/task-form/task-form.styles";
 
 type EditHeaderProps = {
-  // Who wrote the chore down and when, which is the one fact the editor keeps
+  // Who wrote the task down and when, which is the one fact the editor keeps
   // from the panel it replaced.
   byline: string | null;
   // The form these presses submit, which sits below this bar rather than
@@ -20,7 +20,7 @@ type EditHeaderProps = {
   onDiscard: MouseEventHandler<HTMLButtonElement>;
 };
 
-const DISCARD =
+const CANCEL =
   "text-label-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring px-space-sm flex min-h-9 shrink-0 items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none";
 
 // The form's own words, read by the panel's name and the footer's press too.
@@ -39,8 +39,8 @@ export function EditHeader({ byline, formId, saving, onDiscard }: Readonly<EditH
       </div>
 
       <div className="gap-space-xs flex shrink-0 items-center">
-        <button type="button" onClick={onDiscard} className={DISCARD}>
-          Discard
+        <button type="button" onClick={onDiscard} className={CANCEL}>
+          Cancel
         </button>
 
         <button type="submit" form={formId} disabled={saving} className={BAR_SUBMIT}>
