@@ -2980,6 +2980,46 @@ nothing scrolls sideways and the board's filter panel, which clips horizontally,
 its own. The labels screen keeps the note it draws for a member: that one is a
 permission, not a description, and a reader has to meet it without going looking.
 
+**A card spells the date out where a row cannot.** The row has a 56px column, so its date is
+digits with the wording in the bubble; a card has the whole width of a line, and the pill the date
+used to wear made it read as one more label among the priority and the category rather than as the
+thing a reader is looking for. `dueSpelled` is the same shape as `dueDigits`, so the two cannot
+disagree about what is overdue, and the tone moved from a fill to the words themselves. The state
+is still said outright, in the bubble and in an `sr-only` word before the date: a colour nobody can
+see must not be the only thing carrying it.
+
+**The card's menu is a second component, and the duplication is the point.** One menu serving a
+row and a card had already grown a flag deciding where it is positioned, which look its press
+wears, and whether Edit is in the panel at all, and the two are not converging: the row's is a
+quiet circle a long press stands in for, the card's is half of a rectangle on a photograph, and the
+lane board to come will want the card's. So `CardMenu` owns its disclosure, its press and its
+panel, and the panel's paint is written out again rather than shared. What they do share is
+`CARD_ACTION`, `CARD_FILL` and the shell, because those are the card's own paint and the lane board
+will wear them too.
+
+**A card's controls are Notion's, not the row's.** The row's three dots are a quiet circle that
+only has to be found in a column of them, where a card's sit on a photograph: a 44px circle with no
+fill vanished into a bright picture, and the menu was the only way to edit from the grid, which is
+two presses for the commonest thing a reader wants. Edit is its own press now, the pair is a 36px
+square each with its own fill, and they fade in under a mouse the way Notion's do while staying
+drawn for a finger, which has no hover. 36px is under the app's own floor, deliberately, as the
+filter panel's pills are: the two of them side by side make a 44px target, and a bigger pair covered
+the picture they sit on.
+
+**A centred bubble is a horizontal scrollbar waiting to happen.** A transform does not take an
+element out of the scrollable overflow, so a 224px bubble centred on a 40px pill in the right-hand
+column of the grid widened the page by whatever hung past it, opacity nothing to do with it. Every
+bubble on a card hangs from an edge instead, which is the same fix the row's own assignee already
+carried, and `TaskMarks` grew a `place` so a mark at the end of a line can do it too.
+
+**The card's name moved onto the picture, and the scrim is a token rather than a black.** A name
+under the photo cost the card a line it could not spare once the status, the priority, the due
+date, the assignee and the estimate all wanted a place on it, and the usual answer, white text on
+a dark gradient, is a second palette that neither scheme owns. The gradient runs `from-card`
+instead, under `text-foreground`: dark words over a pale wash in light, pale words over a dark one
+in dark, and both follow any change to the palette without being touched. A card with no photo
+reads the same way, the wash sitting over the category's own tint.
+
 **The card gave up `overflow-hidden` to hold one.** It was there to clip the photo's top corners,
 and it clipped every bubble inside the card as well, so the photo rounds its own corners instead.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueDigits, dueLabel } from "@/lib/tasks/due/due";
+import { dueDigits, dueLabel, dueSpelled } from "@/lib/tasks/due/due";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 const ZONE = "Europe/Ljubljana";
@@ -43,6 +43,42 @@ describe("dueLabel", () => {
     const label = dueLabel(task({ nextDueDate: "2026-11-21T23:30:00" }), NOW, ZONE);
 
     expect(label).toMatchObject({ text: "Due tomorrow" });
+  });
+});
+
+describe("dueSpelled", () => {
+  it("says nothing for a task nobody put a date on", () => {
+    expect(dueSpelled(task({}), NOW, ZONE)).toBeNull();
+  });
+
+  it("names today and tomorrow, with the date behind them as the title", () => {
+    expect(dueSpelled(task({ nextDueDate: "2026-11-21T17:00:00" }), NOW, ZONE)).toMatchObject({
+      text: "Today",
+      tone: "soon",
+      title: "21 November",
+    });
+
+    expect(dueSpelled(task({ nextDueDate: "2026-11-22T07:00:00" }), NOW, ZONE)).toMatchObject({
+      text: "Tomorrow",
+      tone: "soon",
+      title: "22 November",
+    });
+  });
+
+  it("spells any other day out, keeping the wording as the title", () => {
+    const spelled = dueSpelled(task({ nextDueDate: "2026-12-02T07:00:00" }), NOW, ZONE);
+
+    expect(spelled).toMatchObject({ text: "2 December", tone: "later", title: "Due 2 Dec" });
+  });
+
+  it("keeps the date on a task that is late, which is how late it is", () => {
+    const spelled = dueSpelled(
+      task({ nextDueDate: "2026-11-21T08:00:00", overdue: true }),
+      NOW,
+      ZONE,
+    );
+
+    expect(spelled).toMatchObject({ text: "21 November", tone: "overdue", title: "Overdue" });
   });
 });
 

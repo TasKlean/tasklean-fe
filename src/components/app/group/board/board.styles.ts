@@ -44,6 +44,15 @@ export const DUE_DIGITS =
 
 export const DUE_MARK = "h-0.5 w-full rounded-full";
 
+// The same three tones as words rather than as a fill, for a card, which
+// spells the date out with no pill around it. The state is still said in the
+// bubble and read out, so the colour is the glance and not the whole message.
+export const DUE_WORDS: Record<DueTone, string> = {
+  overdue: "text-destructive",
+  soon: "text-warning",
+  later: "text-muted-foreground",
+};
+
 // Empty for a date nothing is urgent about, which draws no rule at all.
 export const DUE_RULE: Record<DueTone, string> = {
   overdue: "bg-destructive",
@@ -63,6 +72,26 @@ export const ROW =
 export const ROW_DUE = "col-start-1 row-span-2 row-start-1 w-14 shrink-0 self-center text-center";
 
 export const ROW_TITLE = "text-body-lg-strong text-foreground";
+
+// The presses over a card's picture are one control in two halves, Edit then
+// the menu, which is what reads as a control on top of a photo where the
+// row's quiet circles would disappear into it. The hair of padding keeps a
+// half's own fill inside the shell's corners, which the shell cannot clip
+// away: the menu's panel hangs out of it.
+export const CARD_ACTIONS =
+  "border-border/60 bg-card/85 gap-0.5 flex items-center rounded-md border p-0.5";
+
+export const CARD_DIVIDER = "bg-border/60 h-5 w-px shrink-0";
+
+// 32px a half, under the app's 44px floor as the filter panel's pills are,
+// and the pair inside its shell measures 73 by 36.
+export const CARD_ACTION =
+  "text-foreground focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none";
+
+// Written whole either way: a resting half and an open one both set a
+// background, which two utilities in one class list would leave the
+// stylesheet to settle.
+export const CARD_FILL = { off: "hover:bg-muted", on: "bg-muted" } as const;
 
 // What the name and the pills sit in. The link is stretched over the whole
 // row by `after:inset-0`, so the press is the row and the menu beside it is

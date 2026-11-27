@@ -78,6 +78,12 @@ typography:
     fontSize: 20px
     fontWeight: '600'
     lineHeight: 28px
+  title-lg:
+    fontFamily: Plus Jakarta Sans
+    fontSize: 22px
+    fontWeight: '600'
+    lineHeight: 30px
+    letterSpacing: -0.01em
   title-md:
     fontFamily: Plus Jakarta Sans
     fontSize: 18px

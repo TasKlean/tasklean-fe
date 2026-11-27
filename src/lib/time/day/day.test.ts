@@ -5,6 +5,7 @@ import {
   dayStart,
   fullTime,
   isDayKey,
+  longDate,
   numericDate,
   shiftDays,
   shortDate,
@@ -88,6 +89,30 @@ describe("numericDate", () => {
 
   it("dates the day the reader's zone is on", () => {
     expect(numericDate(new Date("2026-03-11T23:30:00Z"), now, "Pacific/Auckland")).toBe("12/3");
+  });
+});
+
+describe("longDate", () => {
+  const now = new Date("2026-03-10T09:00:00Z");
+
+  it("spells the month out, with no year in the one being read in", () => {
+    expect(
+      longDate(
+        new Date("2027-01-26T18:00:00Z"),
+        new Date("2027-03-10T09:00:00Z"),
+        "Europe/Ljubljana",
+      ),
+    ).toBe("26 January");
+  });
+
+  it("puts the year on a date outside it", () => {
+    expect(longDate(new Date("2027-01-26T18:00:00Z"), now, "Europe/Ljubljana")).toBe(
+      "26 January 2027",
+    );
+  });
+
+  it("dates the day the reader's zone is on", () => {
+    expect(longDate(new Date("2026-03-11T23:30:00Z"), now, "Pacific/Auckland")).toBe("12 March");
   });
 });
 

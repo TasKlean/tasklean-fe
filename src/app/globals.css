@@ -134,6 +134,14 @@
   --text-headline-sm--line-height: 1.75rem;
   --text-headline-sm--font-weight: 600;
 
+  /* DESIGN.md's title-lg, the step its scale grew between headline-sm and
+   * headline-md: a card's name leads a grid of pictures, where headline-md
+   * read as a heading and headline-sm as one more line of body text. */
+  --text-title-lg: 1.375rem;
+  --text-title-lg--line-height: 1.875rem;
+  --text-title-lg--letter-spacing: -0.01em;
+  --text-title-lg--font-weight: 600;
+
   --text-title-md: 1.125rem;
   --text-title-md--line-height: 1.625rem;
   --text-title-md--font-weight: 500;

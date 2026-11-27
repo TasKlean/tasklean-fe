@@ -9,7 +9,7 @@
  */
 
 import { parseApiDateOrNull } from "@/lib/time/api-date/api-date";
-import { dayKey, numericDate, shiftDays, shortDate } from "@/lib/time/day/day";
+import { dayKey, longDate, numericDate, shiftDays, shortDate } from "@/lib/time/day/day";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 // How a due date is painted. `overdue` is the only one that alarms; `soon` is
@@ -47,6 +47,37 @@ export function dueLabel(task: Task, now: Date, timeZone: string): DueLabel | nu
   if (key === shiftDays(today, 1)) return { text: "Due tomorrow", tone: "soon", title };
 
   return { text: `Due ${title}`, tone: "later", title };
+}
+
+/** Names the nearest two days, which a date makes a reader work out. */
+function nearDay(key: string, today: string): string | null {
+  if (key === today) return "Today";
+  if (key === shiftDays(today, 1)) return "Tomorrow";
+
+  return null;
+}
+
+/**
+ * Dates a task with its month spelled out, for a card, which has the width
+ * for it and draws it as words rather than in a pill.
+ *
+ * @returns Today or Tomorrow where it is one of those, the date spelled out
+ * otherwise, with the tone to colour it and whatever the words do not say as
+ * the title: the colour is never the only thing saying a task is late. A task
+ * that is already late keeps its date, which is how late it is.
+ */
+export function dueSpelled(task: Task, now: Date, timeZone: string): DueLabel | null {
+  const due = parseApiDateOrNull(task.nextDueDate);
+  const label = dueLabel(task, now, timeZone);
+
+  if (!due || !label) return null;
+
+  const spelled = longDate(due, now, timeZone);
+  const near = task.overdue ? null : nearDay(dayKey(due, timeZone), dayKey(now, timeZone));
+
+  return near
+    ? { text: near, tone: label.tone, title: spelled }
+    : { text: spelled, tone: label.tone, title: label.text };
 }
 
 /**

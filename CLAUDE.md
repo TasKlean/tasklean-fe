@@ -263,7 +263,9 @@ src/
                        (+ row-press (the element, its long press and its menu),
                        due-digits, due-chip, task-marks (repeat and photo
                        proof), priority-mark, assignee-chip, task-menu (view,
-                       edit and delete, + .types)) or task-card, task-pager,
+                       edit and delete, + .types)) or task-card (+ card-menu,
+                       the card's own, which the lanes to come will share),
+                       task-pager,
                        task-panel/ (task-panel, the state the reader, the
                        editor and the round are picked by, + .types (the line a
                        press reports), task-reader, task-editor, delete-task,
@@ -1215,7 +1217,62 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **A card is the photo, or the category's colour where there is none**, so a grid of tasks
   nobody has photographed still reads as a grid. The colour sits under the picture rather than
   beside it, so a dead upload falls back with no handler and one request. **It clips nothing**, a
-  bubble being an absolute child, so the photo rounds its own top corners.
+  bubble being an absolute child, so the photo rounds its own top corners. The picture is `h-36`
+  on a phone and `h-48` from `sm`, where a card is the face of the board rather than a strip. **The
+  name is `text-title-lg`**, a step the scale grew between DESIGN.md's `headline-sm` and
+  `headline-md`, and **the wash over it is as long as the picture lets it be**: `pt-space-3xl` is
+  the gradient's own length, three stops from solid under the name to gone at the top, since a
+  short one reads as an edge rather than as a fade. The body pays `py-space-sm` against the sides'
+  `space-md`, so the height under the picture is its three lines rather than its padding.
+- **A card reads in four bands: the picture, its facts, its pills, who has it.** On the picture sit
+  the status at the top left, the two presses at the top right and the name at the foot of it; then
+  the line that reads straight off it, the due date in words beside the repeat with the photo mark
+  at its far end;
+  then the priority and the category; then the assignee and the estimate, one at each end of the
+  foot. **One pill on the picture, and the status is the one**, where the rest have room for their
+  words below it. The status, the name and the body all keep the same `space-md` gutter, so the
+  card has one edge rather than three, and the foot is `items-end`, which puts the estimate on the
+  assignee chip's own base rather than against the middle of its circle. Every pill names its axis
+  on hover, as a row's do.
+- **A card dates a task in words, with no pill around it.** `dueSpelled` is `dueDigits`'s twin for
+  a line that has the width: `longDate` in `time/day` spells the month out and adds the year only
+  outside the one being read in, and `DUE_WORDS` tones the words where a row's pill tones a fill.
+  **The nearest two days are named rather than dated**, as they are on a row, so it reads `Today`
+  or `Tomorrow` with the date itself behind it in the bubble; a task already late keeps its date,
+  which is how late it is. **The colour is the glance, never the whole message**: the state is in
+  the bubble and in an `sr-only` word before the date, so "Overdue 21 November" and "Due Today" are
+  what a reader who cannot see the red hears. It sits beside the repeat and the photo mark, which
+  already read as icon plus words.
+- **A card's bubbles hang from an edge, never centred.** A transformed box still counts towards the
+  scrollable overflow, so a centred bubble on a pill near the right-hand column widened the whole
+  page: the left-hand pills are `above-start`, the estimate `above-end` and the status `below`,
+  being the first thing on the card. `TaskMarks` takes a `place` for the same reason.
+- **Edit and the dots are one control in two halves, and the menu then holds View and Delete.**
+  `CARD_ACTIONS` is the shell, a bordered rectangle over the picture with `CARD_DIVIDER` down the
+  middle, and `CARD_ACTION` is a half: 32px, under the app's 44px floor as the filter panel's pills
+  are, measuring 73 by 36 together. **The shell cannot clip**, the menu's panel hanging out of it,
+  so its own `p-0.5` is what keeps a half's hover fill inside its corners. `CARD_FILL` is written
+  whole both ways, a resting half and an open one both setting a background.
+- **`CardMenu` is the card's own menu, not the row's wearing another look.** It owns its
+  disclosure, which `RowPress` holds for a row, and offers View and Delete alone, Edit being the
+  half beside it. It is the one of the two menus with a test of its own, holding the delete and the
+  gate rather than inheriting the row's. The two are drawn in different places and will drift, and the lane board to come
+  opens this one, so the panel's paint is written twice on purpose. They **fade in under a mouse and stay drawn for a finger**, which has no hover to reveal
+  them with, and an open menu holds them there (`has-[[aria-expanded=true]]`) so its panel is never
+  left hanging off nothing. `canEdit && !onFace` is what keeps the panel from offering Edit twice.
+- **The name is the card's link, stretched over the whole of it with `after:inset-0`**, which is
+  what lets the menu be a real button over the picture rather than a control nested in an anchor.
+  The card carries the focus ring for it with `has-[a:focus-visible]:`, and the menu sits above the
+  stretched link on its own `z-10`, as a row's does.
+- **The name is read off the card's own colour rising out of the picture.** `SCRIM` is a gradient
+  `from-card` under `text-foreground`, so it is dark words over a pale wash in one scheme and pale
+  words over a dark one in the other, with no second palette to keep in step.
+- **A card's three dots are drawn at every width, and `onFace` is the one flag for it.** A card has
+  no long press to reach the menu with, so the press cannot be a desktop control, and it wears a
+  `bg-card/80` fill to stay legible over a photo. `CardMenu` owns the disclosure, which is what
+  `RowPress` holds for a row, so the card itself stays a Server Component. **Each look is written
+  whole**, resting and open alike, since both set a background and two utilities in one class list
+  would leave the stylesheet to settle it.
 - **A flex column stretches its children**, so a pill inside a card needs a row of its own or it
   spans the card. Measured.
 - **Who may change a task is a third permission model.** `canEdit` on the backend is the author or

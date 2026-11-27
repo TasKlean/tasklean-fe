@@ -1,7 +1,8 @@
 /**
- * What a reader can do to a task without reading it first: open it, edit it,
- * delete it. The three dots are a desktop control, and a long press on the
- * row opens the same menu on a phone, which has no width for one per row.
+ * What a reader can do to a row's task without reading it first: open it,
+ * edit it, delete it. The three dots are a desktop control and a long press
+ * opens the same menu on a phone, which has no width for one per row. A card
+ * has `CardMenu` of its own, drawn in another place and offering less.
  *
  * The panel hangs under whichever of the two opened it, and above it where
  * the screen has no room below, which is measured as it opens.
@@ -18,9 +19,9 @@ import { useCallback, useEffect, useState } from "react";
 import { deleteTaskAction } from "@/app/(app)/app/groups/[uid]/actions/actions";
 import type { TaskMenuProps } from "@/components/app/group/board/task-menu/task-menu.types";
 
-// Hidden rather than shrunk on a phone, where the long press replaces it.
-// Nothing is lost: the open task carries Edit and Delete of its own, which
-// is the way anybody not holding a finger down still reaches them.
+// A quiet circle, hidden rather than shrunk on a phone, where the long press
+// replaces it. Nothing is lost: the open task carries Edit and Delete of its
+// own, which is the way anybody not holding a finger down still reaches them.
 const TRIGGER =
   "text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring hidden size-11 shrink-0 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex";
 

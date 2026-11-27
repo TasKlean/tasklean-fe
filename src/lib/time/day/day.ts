@@ -70,6 +70,21 @@ export function shortDate(date: Date, timeZone: string): string {
 }
 
 /**
+ * Dates an instant with its month spelled out, for a line with room for it.
+ *
+ * @param now What counts as this year, passed in like every other reading of
+ * the clock here so a whole board agrees and a test can fix it.
+ * @returns The day and the month in full, and the year too where it is not
+ * the one being read in.
+ */
+export function longDate(date: Date, now: Date, timeZone: string): string {
+  const sameYear = dayKey(date, timeZone).slice(0, 4) === dayKey(now, timeZone).slice(0, 4);
+  const year: Intl.DateTimeFormatOptions = sameYear ? {} : { year: "numeric" };
+
+  return formatIn(date, timeZone, { day: "numeric", month: "long", ...year });
+}
+
+/**
  * Dates an instant in digits, for a column with room for nothing else.
  *
  * @param now What counts as this year, passed in like every other reading of

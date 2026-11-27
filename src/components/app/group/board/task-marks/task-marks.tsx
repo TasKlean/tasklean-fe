@@ -6,6 +6,7 @@
 
 import { Camera, Repeat2 } from "lucide-react";
 import { Tooltip } from "@/components/common/tooltip/tooltip";
+import type { TipPlace } from "@/components/common/tooltip/tooltip.styles";
 import { recurrenceLabel } from "@/lib/tasks/recurrence/recurrence";
 
 type TaskMarksProps = {
@@ -15,13 +16,21 @@ type TaskMarksProps = {
   // False on a phone, where the icons ride in the row of pills and there is
   // width for nothing else. The words are read out either way.
   words?: boolean;
+  // Where the bubble hangs, for a mark near an edge: a centred one widens the
+  // page it runs off, transformed or not.
+  place?: TipPlace;
 };
 
 const MARK =
   "text-label-sm text-muted-foreground gap-1 flex shrink-0 items-center whitespace-nowrap";
 
 /** Renders the marks this task has earned, in order. */
-export function TaskMarks({ recurrence, photoProof, words = true }: Readonly<TaskMarksProps>) {
+export function TaskMarks({
+  recurrence,
+  photoProof,
+  words = true,
+  place = "above",
+}: Readonly<TaskMarksProps>) {
   const marks = [
     ...(recurrence ? [{ Icon: Repeat2, label: recurrenceLabel(recurrence), tip: "Repeats" }] : []),
     ...(photoProof
@@ -30,7 +39,7 @@ export function TaskMarks({ recurrence, photoProof, words = true }: Readonly<Tas
   ];
 
   return marks.map(({ Icon, label, tip }) => (
-    <Tooltip key={label} text={tip}>
+    <Tooltip key={label} text={tip} place={place}>
       <span className={MARK}>
         <Icon className="size-3.5 shrink-0" aria-hidden />
         <span className="sr-only">{label}</span>

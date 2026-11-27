@@ -65,6 +65,9 @@ export function TaskList({
           task,
           category: task.categoryId ? byId.get(task.categoryId) : undefined,
           href: hrefFor(task.uid ?? ""),
+          editHref: editHrefFor(task.uid ?? ""),
+          groupUid,
+          canEdit: canEditTask(task, myMemberUid, myRole),
           now,
           timeZone,
         };
@@ -72,13 +75,7 @@ export function TaskList({
         return view === "cards" ? (
           <TaskCard key={task.uid} {...shared} />
         ) : (
-          <TaskRow
-            key={task.uid}
-            {...shared}
-            editHref={editHrefFor(task.uid ?? "")}
-            groupUid={groupUid}
-            canEdit={canEditTask(task, myMemberUid, myRole)}
-          />
+          <TaskRow key={task.uid} {...shared} />
         );
       })}
     </ul>
