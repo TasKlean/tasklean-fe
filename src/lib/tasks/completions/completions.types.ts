@@ -23,6 +23,12 @@ export type CompleteTaskRequest = {
   photoUid?: string;
 };
 
+// A skipped round carries a note and nothing else: nobody spent the minutes,
+// and a picture of work that did not happen would say nothing.
+export type SkipRoundRequest = {
+  note?: string;
+};
+
 export type TaskCompletion = {
   id?: number;
   taskUid?: string;

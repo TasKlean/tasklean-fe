@@ -7,6 +7,7 @@
  */
 
 import { isGroupAdmin } from "@/lib/groups/role/role";
+import { canRecordRound } from "@/lib/tasks/completions/completions.helpers";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 /**
@@ -32,6 +33,21 @@ export function canEditTask(
 }
 
 /**
+ * Whether the reader may retire this task.
+ *
+ * @returns True for the author and for any admin, and only while the task is
+ * not archived already: a second archive answers 200 and writes nothing, so
+ * the press would do nothing visible.
+ */
+export function canArchiveTask(
+  task: Task,
+  myMemberUid: string | null,
+  myRole: string | undefined,
+): boolean {
+  return task.status !== "ARCHIVED" && canEditTask(task, myMemberUid, myRole);
+}
+
+/**
  * Whether the task is somebody else's to record a round on.
  *
  * @returns True only where it is assigned to another member. An unassigned
@@ -53,4 +69,15 @@ export function assignedElsewhere(task: Task, myMemberUid: string | null): boole
  */
 export function isUnclaimed(task: Task): boolean {
   return !task.assignedTo?.memberUid;
+}
+
+/**
+ * Whether the reader may take this task.
+ *
+ * @returns True for a task nobody holds that still has a round left. The
+ * endpoint itself guards neither, so a finished or archived task with no
+ * assignee would be claimed as readily as a live one.
+ */
+export function canClaimTask(task: Task): boolean {
+  return isUnclaimed(task) && canRecordRound(task);
 }

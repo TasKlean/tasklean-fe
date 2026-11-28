@@ -11,7 +11,12 @@ vi.mock("@/lib/auth/session/session", () => ({
   getSession: async () => ({ accessToken: "at-1", refreshToken: "rt-1", userUid: "u1" }),
 }));
 
-import { completeTask, getTaskHistory, ROUND_PAGE_SIZE } from "@/lib/tasks/completions/completions";
+import {
+  completeTask,
+  getTaskHistory,
+  ROUND_PAGE_SIZE,
+  skipRound,
+} from "@/lib/tasks/completions/completions";
 
 const BASE = "http://api.test";
 
@@ -37,6 +42,45 @@ describe("completeTask", () => {
 
     expect(sent).toEqual({});
     expect(recorded.id).toBe(7);
+  });
+});
+
+describe("skipRound", () => {
+  it("posts the reason to the task's own skip path", async () => {
+    let sent: unknown = "never read";
+
+    server.use(
+      http.post(`${BASE}/api/tasks/t1/skip`, async ({ request }) => {
+        sent = await request.json();
+
+        return HttpResponse.json({
+          success: true,
+          message: "ok",
+          data: { id: 8, outcome: "SKIPPED" },
+        });
+      }),
+    );
+
+    const recorded = await skipRound("t1", { note: "Nobody was home" });
+
+    expect(sent).toEqual({ note: "Nobody was home" });
+    expect(recorded.outcome).toBe("SKIPPED");
+  });
+
+  it("posts nothing at all for a skip with no reason", async () => {
+    let sent: unknown = "never read";
+
+    server.use(
+      http.post(`${BASE}/api/tasks/t1/skip`, async ({ request }) => {
+        sent = await request.json();
+
+        return HttpResponse.json({ success: true, message: "ok", data: { id: 9 } });
+      }),
+    );
+
+    await skipRound("t1");
+
+    expect(sent).toEqual({});
   });
 });
 

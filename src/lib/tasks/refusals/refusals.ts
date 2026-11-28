@@ -19,6 +19,7 @@ const ALREADY_AHEAD = "TASK_ROUND_ALREADY_AHEAD";
 const ALREADY_RECORDED = "TASK_INSTANCE_ALREADY_RECORDED";
 const PROOF_REQUIRED = "TASK_PHOTO_PROOF_REQUIRED";
 const ARCHIVED = "TASK_ARCHIVED";
+const ALREADY_ASSIGNED = "TASK_ALREADY_ASSIGNED";
 const DUE_DATE_PAST = "TASK_DUE_DATE_PAST";
 
 // Said rather than echoed. Spring's own line for a denied expression is a
@@ -93,6 +94,23 @@ export function taskGoneMessage(error: unknown): string | null {
  */
 export function taskRefusalMessage(error: unknown): string | null {
   return taskNotYoursMessage(error) ?? taskGoneMessage(error);
+}
+
+/**
+ * Phrases a claim the backend would not take.
+ *
+ * @returns The message, or null for anything else. The endpoint refuses a
+ * task anybody holds, the caller included, since handing one on is a
+ * different act with a different right behind it.
+ */
+export function claimRefusalMessage(error: unknown): string | null {
+  if (!isApiError(error)) return null;
+
+  if (error.status === 409 && error.code === ALREADY_ASSIGNED) {
+    return "Somebody has taken this task already. Refresh to see who has it.";
+  }
+
+  return taskGoneMessage(error);
 }
 
 /**

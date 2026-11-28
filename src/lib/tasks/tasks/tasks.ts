@@ -71,6 +71,17 @@ export async function archiveTask(uid: string): Promise<Task> {
 }
 
 /**
+ * Takes an unassigned task, which any member may do: volunteering needs no
+ * right over the task.
+ *
+ * @param uid The task's own uid.
+ * @throws ApiError 409 where somebody already holds it, the caller included.
+ */
+export async function claimTask(uid: string): Promise<Task> {
+  return serverApi<Task>(`/api/tasks/${encodeURIComponent(uid)}/claim`, { method: "POST" });
+}
+
+/**
  * Deletes a task, which releases its photo and takes its rounds off a share.
  *
  * @param uid The task's own uid.

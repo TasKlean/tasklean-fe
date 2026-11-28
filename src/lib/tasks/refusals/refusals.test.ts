@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import {
+  claimRefusalMessage,
   completionRefusalMessage,
   taskGoneMessage,
   taskFieldRefusal,
@@ -124,5 +125,25 @@ describe("completionRefusalMessage", () => {
 
   it("reports a task that is gone, which a press can still run into", () => {
     expect(completionRefusalMessage(new ApiError(404, "Task not found"))).toContain("removed");
+  });
+});
+
+describe("claimRefusalMessage", () => {
+  it("says somebody got there first, which is the one refusal a claim has", () => {
+    expect(claimRefusalMessage(new ApiError(409, "no", null, "TASK_ALREADY_ASSIGNED"))).toContain(
+      "taken this task already",
+    );
+  });
+
+  it("reports a task that is gone, a stale board being how a claim is pressed", () => {
+    expect(claimRefusalMessage(new ApiError(404, "Task not found"))).toContain("removed");
+  });
+
+  it("passes a 403 to the generic line, which here is not being in the group", () => {
+    expect(claimRefusalMessage(new ApiError(403, "Access denied"))).toBeNull();
+  });
+
+  it("passes anything that is not a refusal of ours", () => {
+    expect(claimRefusalMessage(new Error("offline"))).toBeNull();
   });
 });

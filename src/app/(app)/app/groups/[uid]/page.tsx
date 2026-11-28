@@ -14,7 +14,11 @@ import { LoadError } from "@/components/common/load-error";
 import { loadRoundPageAction } from "@/app/(app)/app/groups/[uid]/actions/actions";
 import { getGroup } from "@/lib/groups/groups";
 import { groupLabel } from "@/lib/groups/labels/labels";
-import { canRecordRound, roundAlreadyDone } from "@/lib/tasks/completions/completions.helpers";
+import {
+  canRecordRound,
+  canSkipRound,
+  roundAlreadyDone,
+} from "@/lib/tasks/completions/completions.helpers";
 import {
   boardHref,
   EDIT_TASK,
@@ -26,7 +30,12 @@ import {
   taskQuery,
 } from "@/lib/tasks/filter/filter";
 import type { TaskSearchParams } from "@/lib/tasks/filter/filter.types";
-import { assignedElsewhere, canEditTask } from "@/lib/tasks/permissions/permissions";
+import {
+  assignedElsewhere,
+  canArchiveTask,
+  canClaimTask,
+  canEditTask,
+} from "@/lib/tasks/permissions/permissions";
 import { readBoardView } from "@/lib/tasks/view/view";
 import { taskValues } from "@/lib/tasks/write/write";
 import { dayKey } from "@/lib/time/day/day";
@@ -107,6 +116,10 @@ export default async function GroupTasksPage({
   // A round recorded ahead of schedule holds the next one back, so the press
   // says which round is done instead of refusing a form somebody filled in.
   const doneFor = open && history ? roundAlreadyDone(open, history.rounds, now, timeZone) : null;
+
+  // A round still ahead cannot be written off: nobody has missed it yet, which
+  // is the one thing the endpoint allows early completion for and not a skip.
+  const skippable = open ? !doneFor && !heldBy && canSkipRound(open, now, timeZone) : false;
 
   // Only where the task is the reader's to change: the panel would otherwise
   // open a form on a task every save of which the backend refuses.
@@ -190,6 +203,8 @@ export default async function GroupTasksPage({
                   <TaskView
                     task={open}
                     category={categories.find((held) => held.id === open.categoryId)}
+                    groupUid={uid}
+                    canClaim={canClaimTask(open)}
                     now={now}
                     timeZone={timeZone}
                     history={
@@ -226,6 +241,8 @@ export default async function GroupTasksPage({
               canComplete={open ? canRecordRound(open) : true}
               heldBy={heldBy}
               doneFor={doneFor}
+              canSkip={skippable}
+              canArchive={open ? canArchiveTask(open, myMemberUid, group.myRole) : false}
               path={path}
               query={query}
               closeHref={closeHref}

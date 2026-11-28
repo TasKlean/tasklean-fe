@@ -9,7 +9,7 @@ import { NoTasks } from "@/components/app/group/board/no-tasks/no-tasks";
 import { TaskCard } from "@/components/app/group/board/task-card/task-card";
 import { TaskRow } from "@/components/app/group/board/task-row/task-row";
 import type { Category } from "@/lib/labels/categories/categories.types";
-import { canEditTask } from "@/lib/tasks/permissions/permissions";
+import { canArchiveTask, canClaimTask, canEditTask } from "@/lib/tasks/permissions/permissions";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 import type { BoardView } from "@/lib/tasks/view/view.types";
 
@@ -68,6 +68,8 @@ export function TaskList({
           editHref: editHrefFor(task.uid ?? ""),
           groupUid,
           canEdit: canEditTask(task, myMemberUid, myRole),
+          canClaim: canClaimTask(task),
+          canArchive: canArchiveTask(task, myMemberUid, myRole),
           now,
           timeZone,
         };

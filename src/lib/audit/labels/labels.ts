@@ -42,6 +42,14 @@ const PHRASES: Record<string, string> = {
   "DELETE:TAG": "deleted a tag",
   "CREATE:TASK_COMPLETION": "marked a task done",
   "DELETE:TASK_COMPLETION": "undid a completion",
+  // Filed against the task rather than the round, the backend keeping a round
+  // off the trail on its own id: nobody but the member who did it would see it.
+  "TASK_SKIPPED:TASK": "skipped a round of a task",
+  "TASK_MISSED:TASK": "missed a round of a task",
+  "TASK_CLAIMED:TASK": "claimed a task",
+  "TASK_ASSIGNED:TASK": "handed a task on",
+  "TASK_ARCHIVED:TASK": "archived a task",
+  "COMPLETION_UNDONE:TASK": "undid a round of a task",
   // An account's own history, where the subject is always the reader and so
   // "your" always means theirs. Five actions are missing on purpose: the ones
   // whose only copy of the device name, the count or the reason is the

@@ -17,6 +17,7 @@ import {
   Loader2,
   Lock,
   NotebookPen,
+  SkipForward,
 } from "lucide-react";
 import { useActionState, useEffect, useRef } from "react";
 import {
@@ -47,8 +48,13 @@ type CompleteButtonProps = {
   // are two forms with two pending flags, so one has to be told about the
   // other or a quick pair of presses records two rounds.
   busy: boolean;
+  // False where the round is still ahead, which the endpoint refuses to skip:
+  // doing one early is work that happened, where skipping one early is a
+  // statement about a round nobody could have missed yet.
+  canSkip: boolean;
   onBusy: (busy: boolean) => void;
   onDetails: () => void;
+  onSkip: () => void;
   onNotice: (notice: PanelNotice) => void;
 };
 
@@ -94,8 +100,10 @@ export function CompleteButton({
   heldBy,
   doneFor,
   busy,
+  canSkip,
   onBusy,
   onDetails,
+  onSkip,
   onNotice,
 }: Readonly<CompleteButtonProps>) {
   const [state, act, pending] = useActionState(completeTaskAction, INITIAL);
@@ -119,81 +127,108 @@ export function CompleteButton({
 
   const recording = pending || busy;
 
+  if (doneFor) {
+    return (
+      <button type="button" disabled className={`${HELD} ${SIZES[size]}`}>
+        <CalendarCheck className={ICON} aria-hidden />
+        <span className="truncate">Done for {doneFor}</span>
+      </button>
+    );
+  }
+
+  if (heldBy) {
+    return (
+      <button type="button" disabled className={`${HELD} ${SIZES[size]}`}>
+        <Lock className={ICON} aria-hidden />
+        <span className="truncate">Assigned to {heldBy}</span>
+      </button>
+    );
+  }
+
+  // A task asking for proof leads with the view the first row would open, so
+  // only the skip is left to offer and the chevron goes with it.
+  const ways = (requiresProof ? 0 : 1) + (canSkip ? 1 : 0);
+  const split = size === "lg" && ways > 0;
+
   return (
-    <>
-      {doneFor ? (
-        <button type="button" disabled className={`${HELD} ${SIZES[size]}`}>
-          <CalendarCheck className={ICON} aria-hidden />
-          <span className="truncate">Done for {doneFor}</span>
-        </button>
-      ) : heldBy ? (
-        <button type="button" disabled className={`${HELD} ${SIZES[size]}`}>
-          <Lock className={ICON} aria-hidden />
-          <span className="truncate">Assigned to {heldBy}</span>
-        </button>
-      ) : requiresProof ? (
+    <div className={`flex items-stretch ${size === "lg" ? "w-full" : ""}`}>
+      {requiresProof ? (
         <button
           type="button"
           onClick={onDetails}
-          className={`${SHELL} ${SIZES[size]} rounded-full`}
+          className={`${SHELL} ${SIZES[size]} ${split ? SPLIT : "rounded-full"}`}
         >
           <Camera className={ICON} aria-hidden />
           Complete with proof
         </button>
       ) : (
-        <div className={`flex items-stretch ${size === "lg" ? "w-full" : ""}`}>
-          <form action={act} className={size === "lg" ? "flex min-w-0 flex-1" : "flex"}>
-            <input type="hidden" name="groupUid" value={groupUid} />
-            <input type="hidden" name="taskUid" value={taskUid} />
+        <form action={act} className={size === "lg" ? "flex min-w-0 flex-1" : "flex"}>
+          <input type="hidden" name="groupUid" value={groupUid} />
+          <input type="hidden" name="taskUid" value={taskUid} />
 
-            <button
-              type="submit"
-              disabled={recording}
-              aria-busy={pending}
-              className={`${SHELL} ${SIZES[size]} ${size === "lg" ? SPLIT : "rounded-full"}`}
-            >
-              {pending ? (
-                <Loader2 className={`${ICON} motion-safe:animate-spin`} aria-hidden />
-              ) : (
-                <CircleCheck className={ICON} aria-hidden />
+          <button
+            type="submit"
+            disabled={recording}
+            aria-busy={pending}
+            className={`${SHELL} ${SIZES[size]} ${split ? SPLIT : "rounded-full"}`}
+          >
+            {pending ? (
+              <Loader2 className={`${ICON} motion-safe:animate-spin`} aria-hidden />
+            ) : (
+              <CircleCheck className={ICON} aria-hidden />
+            )}
+            {pending ? "Recording..." : "Complete"}
+          </button>
+        </form>
+      )}
+
+      {split ? (
+        <div ref={root} className="relative flex">
+          <button
+            ref={trigger}
+            type="button"
+            aria-haspopup="true"
+            aria-expanded={open}
+            aria-label="Other ways to finish this round"
+            onClick={toggle}
+            className={CHEVRON}
+          >
+            <ChevronUp className={ICON} aria-hidden />
+          </button>
+
+          {open ? (
+            <div className={PANEL}>
+              {requiresProof ? null : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    onDetails();
+                  }}
+                  className={ITEM}
+                >
+                  <NotebookPen className={ICON} aria-hidden />
+                  Complete with details
+                </button>
               )}
-              {pending ? "Recording..." : "Complete"}
-            </button>
-          </form>
 
-          {size === "lg" ? (
-            <div ref={root} className="relative flex">
-              <button
-                ref={trigger}
-                type="button"
-                aria-haspopup="true"
-                aria-expanded={open}
-                aria-label="Other ways to complete"
-                onClick={toggle}
-                className={CHEVRON}
-              >
-                <ChevronUp className={ICON} aria-hidden />
-              </button>
-
-              {open ? (
-                <div className={PANEL}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      close();
-                      onDetails();
-                    }}
-                    className={ITEM}
-                  >
-                    <NotebookPen className={ICON} aria-hidden />
-                    Complete with details
-                  </button>
-                </div>
+              {canSkip ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    onSkip();
+                  }}
+                  className={ITEM}
+                >
+                  <SkipForward className={ICON} aria-hidden />
+                  Skip this round
+                </button>
               ) : null}
             </div>
           ) : null}
         </div>
-      )}
-    </>
+      ) : null}
+    </div>
   );
 }

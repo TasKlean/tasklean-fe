@@ -29,7 +29,9 @@ somebody can send, and **editing one is the panel's own state** rather than a UR
 Deleting is in the editor's footer and in **a row's own menu**, which the three dots open at a
 desk and a long press on a phone. **Completing is built**: one press records a round, a view off it
 takes the minutes, a note and a photo, and **the rounds already recorded are a list in the task's
-own facts**, each opening the round it names. Archiving, skip and claim do not exist.
+own facts**, each opening the round it names. **Skipping, claiming and archiving are built too**: a
+skip is a view off the Complete chevron taking a reason, a claim is the pool chip itself and a row
+in both menus, and archiving confirms in place in the task's footer and in both menus.
 
 - `overview/information` holds every field a group has; `overview/members` is the roster an admin
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
@@ -262,16 +264,19 @@ src/
                        task), task-list (+ no-tasks) drawing either task-row
                        (+ row-press (the element, its long press and its menu),
                        due-digits, due-chip, task-marks (repeat and photo
-                       proof), priority-mark, assignee-chip, task-menu (view,
-                       edit and delete, + .types)) or task-card (+ card-menu,
-                       the card's own, which the lanes to come will share),
-                       task-pager,
+                       proof), priority-mark, assignee-chip, claim-chip (that
+                       chip as the press that takes an unheld task), task-menu
+                       (view, claim, edit, archive and delete, + .types)) or
+                       task-card (+ card-menu, the card's own, which the lanes
+                       to come will share), task-pager,
                        task-panel/ (task-panel, the state the reader, the
                        editor and the round are picked by, + .types (the line a
                        press reports), task-reader, task-editor, delete-task,
+                       archive-task,
                        complete-button/ (one press, and the menu that leads to
-                       the longer way), complete-form/ (the round's own view, +
-                       .labels), round-panel/ (round-panel and round-view: one
+                       the longer way and to the skip), complete-form/ (the
+                       round's own view, + .labels), skip-form/ (the round
+                       nobody did, + .labels), round-panel/ (round-panel and round-view: one
                        recorded round, read), task-view/ (task-view, .helpers,
                        fact-card, fact-row, description-block,
                        history/ (history-list, a page at a time, and
@@ -359,7 +364,7 @@ src/
     preferences/       preferences.ts (/api/user-settings), theme-cookie.ts,
                        theme-attribute.ts (client-safe)
     qr/                qr-code.ts (the encoder, server only) + types
-    tasks/             tasks/ (the six calls), tasks.types.ts,
+    tasks/             tasks/ (the eight calls), tasks.types.ts,
                        completions/ (the two writes and the two reads, the
                        types, and the words a round reads in), due/ (how a due
                        date reads), filter/ (URL <-> query <-> endpoint params,
@@ -958,8 +963,8 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **A refused round says why.** `TASK_ROUND_ALREADY_AHEAD`,
   `TASK_INSTANCE_ALREADY_RECORDED`, `TASK_PHOTO_PROOF_REQUIRED`, `TASK_ARCHIVED` and
   `TASK_ROUND_NOT_DUE` are the five 409s `completionRefusalMessage` phrases, and a 403 is somebody
-  else's task. **The last of those is now only reachable on a skip**, which does not exist: early
-  is allowed for a round that is done and refused for one nobody could have missed yet.
+  else's task. **The last of those is only reachable on a skip**, which `canSkipRound` heads off:
+  early is allowed for a round that is done and refused for one nobody could have missed yet.
 - **The two Complete presses share one in-flight flag.** The header's and the footer's are two
   forms with two pending flags of their own, so `TaskReader` holds `recording` and hands each press
   the other's state: without it a quick pair of presses records two rounds and the second comes
@@ -977,6 +982,38 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   roster could not resolve still blocks it, as "somebody else". An unassigned task is anybody's,
   and **recording a round claims a one-off alone**: a repeating task's round goes back to its
   owner, or to nobody where it has none, so doing somebody a favour does not inherit the task.
+- **A round nobody did is skipped from the Complete chevron, and the view takes a reason.**
+  `SkipForm` is the panel's fourth mode, state rather than a URL exactly as the editor is, and it
+  posts a note of up to 1000 characters and nothing else: the endpoint stores no minutes and asks
+  for no photo, even on a task that demands one to be marked done. **A skip is refused for a round
+  still ahead**, which completing one early is allowed for, so `canSkipRound` reads the task's own
+  `nextDueDate` against the reader's today and the chevron offers the row only where there is a
+  round to write off. A task asking for proof reaches the skip through that same chevron, which it
+  now grows: its one press cannot finish the round, so the menu holds the skip alone.
+- **Archiving confirms in place, in the task's footer and in both menus, and nothing undoes it.**
+  The backend has no unarchive and a save carries no status, so the press is the one thing on this
+  screen that cannot be walked back. It is **neutral rather than red**, the task and its rounds
+  staying and only its place on the board being lost, which is why the confirm pill is
+  `bg-secondary` where a delete's is `bg-destructive`. The footer's two questions are one row, so
+  `asking` names which of them is up rather than whether one is, and each stands the other aside.
+  **The panel stays open on the archived task**: the revalidated page redraws it with the Archived
+  pill and no Complete press, where a delete has to navigate out.
+- **Claiming is every member's, and the pool chip is the press.** `POST /api/tasks/{uid}/claim`
+  takes a task only while `assignedTo` is null, answering 409 `TASK_ALREADY_ASSIGNED` for one
+  somebody already holds, the caller included, which `claimRefusalMessage` is the one place that
+  reads. `ClaimChip` wraps the chip that says nobody holds it, **raised above the row's own
+  stretched link** so it can be pressed at all, which costs that cell its way into the task; the
+  menus' Claim row is the way in that keeps it. **The open task's own `Assigned to` row is the same
+  chip**, so a reader who opened a task before taking it does not have to close it again. A refusal
+  hangs off the chip as an `alert`, there being no notice slot on a row. **The press is the chip's
+  own 36px**, under the app's 44px floor as the filter panel's pills and a card's halves are: the
+  control is the chip rather than something beside it, and padding it out would move every row's
+  last column. **It touches neither the owner nor the status**: a claim moves the
+  round in hand, and a repeating task hands it back to its owner when the round is recorded.
+- **A trail line exists for all three**, keyed on the action and `TASK`, because the backend files
+  a round, a claim and an archive against the task rather than against the row it wrote:
+  `TASK_SKIPPED`, `TASK_MISSED`, `TASK_CLAIMED`, `TASK_ASSIGNED`, `TASK_ARCHIVED` and
+  `COMPLETION_UNDONE`.
 - **The task's name is one line with the whole of it a press away.** `ClippedName` is the group
   card's own control, moved to `common/`: a 100-character name, or one unbroken word, otherwise
   widened the panel on a phone. The description is the same idea by character count, and **the
@@ -991,7 +1028,7 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   round it opens, toned per outcome: Done `success-subtle`, Missed `destructive-subtle`, Skipped
   `muted`.
 - **The rounds already recorded are a list at the end of the task's facts.** `GET
-  /api/tasks/{uid}/completions` is cursor-paged, ten a page, so `HistoryList` holds the pages and
+  /api/tasks/{uid}/completions` is cursor-paged, five a page, so `HistoryList` holds the pages and
   the cursor in its own memory behind a Load more press, exactly as a group's trail does, and the
   action it asks with carries the task bound to it. The list is drawn inside `TaskView`'s own body,
   which is the box that scrolls, and a task nobody has recorded draws nothing at all. **It is
@@ -1253,13 +1290,15 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   are, measuring 73 by 36 together. **The shell cannot clip**, the menu's panel hanging out of it,
   so its own `p-0.5` is what keeps a half's hover fill inside its corners. `CARD_FILL` is written
   whole both ways, a resting half and an open one both setting a background.
+  The pair **fades in under a mouse and stays drawn for a finger**, which has no hover to reveal it
+  with, and an open menu holds it there (`has-[[aria-expanded=true]]`) so its panel is never left
+  hanging off nothing.
 - **`CardMenu` is the card's own menu, not the row's wearing another look.** It owns its
-  disclosure, which `RowPress` holds for a row, and offers View and Delete alone, Edit being the
-  half beside it. It is the one of the two menus with a test of its own, holding the delete and the
-  gate rather than inheriting the row's. The two are drawn in different places and will drift, and the lane board to come
-  opens this one, so the panel's paint is written twice on purpose. They **fade in under a mouse and stay drawn for a finger**, which has no hover to reveal
-  them with, and an open menu holds them there (`has-[[aria-expanded=true]]`) so its panel is never
-  left hanging off nothing. `canEdit && !onFace` is what keeps the panel from offering Edit twice.
+  disclosure, which `RowPress` holds for a row, so the card itself stays a Server Component, and it
+  offers View and Delete alone, Edit being the half beside it. It is the one of the two menus with a
+  test of its own, holding the delete and the gate rather than inheriting the row's. The two are
+  drawn in different places and will drift, and the lane board to come opens this one, so the
+  panel's paint is written twice on purpose.
 - **The name is the card's link, stretched over the whole of it with `after:inset-0`**, which is
   what lets the menu be a real button over the picture rather than a control nested in an anchor.
   The card carries the focus ring for it with `has-[a:focus-visible]:`, and the menu sits above the
@@ -1267,12 +1306,9 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
 - **The name is read off the card's own colour rising out of the picture.** `SCRIM` is a gradient
   `from-card` under `text-foreground`, so it is dark words over a pale wash in one scheme and pale
   words over a dark one in the other, with no second palette to keep in step.
-- **A card's three dots are drawn at every width, and `onFace` is the one flag for it.** A card has
-  no long press to reach the menu with, so the press cannot be a desktop control, and it wears a
-  `bg-card/80` fill to stay legible over a photo. `CardMenu` owns the disclosure, which is what
-  `RowPress` holds for a row, so the card itself stays a Server Component. **Each look is written
-  whole**, resting and open alike, since both set a background and two utilities in one class list
-  would leave the stylesheet to settle it.
+- **A card's controls are drawn at every width.** A card has no long press to reach the menu with,
+  so neither half can be a desktop control, and the shell's own fill is what keeps them legible
+  over a photo.
 - **A flex column stretches its children**, so a pill inside a card needs a row of its own or it
   spans the card. Measured.
 - **Who may change a task is a third permission model.** `canEdit` on the backend is the author or

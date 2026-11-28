@@ -5,24 +5,42 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const deleteTaskAction = vi.fn();
+const archiveTaskAction = vi.fn(async (_groupUid: string, _taskUid: string) => ({
+  error: null as string | null,
+}));
+const claimTaskAction = vi.fn(async (_groupUid: string, _taskUid: string) => ({
+  error: null as string | null,
+}));
 
 vi.mock("@/app/(app)/app/groups/[uid]/actions/actions", () => ({
   deleteTaskAction: (groupUid: string, taskUid: string) => deleteTaskAction(groupUid, taskUid),
+  archiveTaskAction: (groupUid: string, taskUid: string) => archiveTaskAction(groupUid, taskUid),
+  claimTaskAction: (groupUid: string, taskUid: string) => claimTaskAction(groupUid, taskUid),
 }));
 
 import { CardMenu } from "@/components/app/group/board/card-menu/card-menu";
 
 const HREF = "/app/groups/g1?task=t1";
 
-function menu(canEdit = true) {
+function menu(canEdit = true, canClaim = false) {
   return render(
-    <CardMenu groupUid="g1" taskUid="t1" name="Mop the floor" viewHref={HREF} canEdit={canEdit} />,
+    <CardMenu
+      groupUid="g1"
+      taskUid="t1"
+      name="Mop the floor"
+      viewHref={HREF}
+      canEdit={canEdit}
+      canClaim={canClaim}
+      canArchive={canEdit}
+    />,
   );
 }
 
 describe("CardMenu", () => {
   beforeEach(() => {
     deleteTaskAction.mockReset();
+    archiveTaskAction.mockClear();
+    claimTaskAction.mockClear();
   });
 
   it("names the task it is about, a grid of More buttons naming nothing", () => {
@@ -89,5 +107,32 @@ describe("CardMenu", () => {
 
     expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
     expect(deleteTaskAction).not.toHaveBeenCalled();
+  });
+
+  it("asks before archiving, which nothing undoes either", async () => {
+    menu();
+    await userEvent.click(screen.getByRole("button", { name: "More for Mop the floor" }));
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    expect(archiveTaskAction).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive it" }));
+
+    expect(archiveTaskAction).toHaveBeenCalledWith("g1", "t1");
+  });
+
+  it("takes the task in one press, there being nothing to lose", async () => {
+    menu(false, true);
+    await userEvent.click(screen.getByRole("button", { name: "More for Mop the floor" }));
+    await userEvent.click(screen.getByRole("button", { name: "Claim" }));
+
+    expect(claimTaskAction).toHaveBeenCalledWith("g1", "t1");
+  });
+
+  it("offers no claim on a task somebody already holds", async () => {
+    menu();
+    await userEvent.click(screen.getByRole("button", { name: "More for Mop the floor" }));
+
+    expect(screen.queryByRole("button", { name: "Claim" })).toBeNull();
   });
 });

@@ -20,6 +20,9 @@ import { CompleteButton } from "@/components/app/group/board/task-panel/complete
 const onDetails = vi.fn();
 const onNotice = vi.fn();
 const onBusy = vi.fn();
+const onSkip = vi.fn();
+
+const WAYS = "Other ways to finish this round";
 
 function button(overrides: Partial<React.ComponentProps<typeof CompleteButton>> = {}) {
   return render(
@@ -31,8 +34,10 @@ function button(overrides: Partial<React.ComponentProps<typeof CompleteButton>> 
       heldBy={null}
       doneFor={null}
       busy={false}
+      canSkip={false}
       onBusy={onBusy}
       onDetails={onDetails}
+      onSkip={onSkip}
       onNotice={onNotice}
       {...overrides}
     />,
@@ -124,11 +129,34 @@ describe("CompleteButton", () => {
 
   it("opens the longer way from the press beside the simple one", async () => {
     button();
-    await userEvent.click(screen.getByRole("button", { name: "Other ways to complete" }));
+    await userEvent.click(screen.getByRole("button", { name: WAYS }));
     await userEvent.click(screen.getByRole("button", { name: "Complete with details" }));
 
     expect(onDetails).toHaveBeenCalled();
     expect(completeTaskAction).not.toHaveBeenCalled();
+  });
+
+  it("offers the skip beside the longer way, where there is a round to write off", async () => {
+    button({ canSkip: true });
+    await userEvent.click(screen.getByRole("button", { name: WAYS }));
+    await userEvent.click(screen.getByRole("button", { name: "Skip this round" }));
+
+    expect(onSkip).toHaveBeenCalled();
+    expect(completeTaskAction).not.toHaveBeenCalled();
+  });
+
+  it("offers the skip on a task asking for proof, which the one press cannot finish", async () => {
+    button({ requiresProof: true, canSkip: true });
+    await userEvent.click(screen.getByRole("button", { name: WAYS }));
+
+    expect(screen.getByRole("button", { name: "Skip this round" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Complete with details" })).toBeNull();
+  });
+
+  it("offers nothing beside a proof task with no round to skip", () => {
+    button({ requiresProof: true });
+
+    expect(screen.queryByRole("button", { name: WAYS })).toBeNull();
   });
 
   it("records nothing while the panel's other press is in flight", async () => {

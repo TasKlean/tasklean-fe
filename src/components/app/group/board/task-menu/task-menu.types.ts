@@ -19,6 +19,11 @@ export type TaskActions = {
   // False where the task is not the reader's to change, leaving the menu
   // with View alone. UX only: the delete behind it handles its own 403.
   canEdit: boolean;
+  // True where nobody holds the task and there is a round to hold: taking one
+  // is every member's, where editing it is the author's and an admin's.
+  canClaim: boolean;
+  // False where the task is archived already, or is not the reader's.
+  canArchive: boolean;
 };
 
 export type TaskMenuProps = {

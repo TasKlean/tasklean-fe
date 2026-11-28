@@ -22,6 +22,16 @@ describe("auditSentence", () => {
     expect(group).toBe("Alice Johnson created this group");
   });
 
+  it("words a round and a retirement, which the backend files against the task", () => {
+    const skipped = tokenText(auditSentence(entry({ action: "TASK_SKIPPED" })));
+    const claimed = tokenText(auditSentence(entry({ action: "TASK_CLAIMED" })));
+    const archived = tokenText(auditSentence(entry({ action: "TASK_ARCHIVED" })));
+
+    expect(skipped).toBe("Alice Johnson skipped a round of a task");
+    expect(claimed).toBe("Alice Johnson claimed a task");
+    expect(archived).toBe("Alice Johnson archived a task");
+  });
+
   it("says You on the reader's own row", () => {
     expect(tokenText(auditSentence(entry(), "u1"))).toBe("You updated a task");
     expect(tokenText(auditSentence(entry(), "u2"))).toBe("Alice Johnson updated a task");

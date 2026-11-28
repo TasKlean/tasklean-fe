@@ -17,6 +17,7 @@ import {
   ROW_TITLE,
 } from "@/components/app/group/board/board.styles";
 import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assignee-chip";
+import { ClaimChip } from "@/components/app/group/board/claim-chip/claim-chip";
 import { DueDigits } from "@/components/app/group/board/due-digits/due-digits";
 import { PriorityMark } from "@/components/app/group/board/priority-mark/priority-mark";
 import { RowPress } from "@/components/app/group/board/task-row/row-press";
@@ -42,6 +43,11 @@ type TaskRowProps = {
   // False where the task is not the reader's to change, which leaves the
   // menu with View alone. UX only: each press handles its own 403.
   canEdit: boolean;
+  // True where nobody holds the task and a round is open, which turns the
+  // pool chip into the press that takes it.
+  canClaim: boolean;
+  // False where the task is archived already, or is not the reader's.
+  canArchive: boolean;
   now: Date;
   timeZone: string;
 };
@@ -54,10 +60,13 @@ export function TaskRow({
   editHref,
   groupUid,
   canEdit,
+  canClaim,
+  canArchive,
   now,
   timeZone,
 }: Readonly<TaskRowProps>) {
   const due = dueDigits(task, now, timeZone);
+  const name = task.name ?? "this task";
   const marks = { recurrence: task.recurrenceType, photoProof: Boolean(task.requiresPhotoProof) };
 
   return (
@@ -65,10 +74,12 @@ export function TaskRow({
       actions={{
         groupUid,
         taskUid: task.uid ?? "",
-        name: task.name ?? "this task",
+        name,
         viewHref: href,
         editHref,
         canEdit,
+        canClaim,
+        canArchive,
       }}
     >
       <span className={ROW_DUE}>
@@ -115,9 +126,13 @@ export function TaskRow({
       </Link>
 
       <span className={ROW_SIDE}>
-        <Tooltip text="Assigned to" place="above-end">
-          <AssigneeChip member={task.assignedTo} compact />
-        </Tooltip>
+        {canClaim ? (
+          <ClaimChip groupUid={groupUid} taskUid={task.uid ?? ""} name={name} compact align="end" />
+        ) : (
+          <Tooltip text="Assigned to" place="above-end">
+            <AssigneeChip member={task.assignedTo} compact />
+          </Tooltip>
+        )}
       </span>
 
       <span className={ROW_META}>

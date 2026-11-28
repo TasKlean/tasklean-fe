@@ -8,8 +8,14 @@ const deleteTaskAction = vi.fn(async (_groupUid: string, _taskUid: string) => ({
   error: null as string | null,
 }));
 
+const archiveTaskAction = vi.fn(async (_groupUid: string, _taskUid: string) => ({
+  error: null as string | null,
+}));
+
 vi.mock("@/app/(app)/app/groups/[uid]/actions/actions", () => ({
   deleteTaskAction: (groupUid: string, taskUid: string) => deleteTaskAction(groupUid, taskUid),
+  archiveTaskAction: (groupUid: string, taskUid: string) => archiveTaskAction(groupUid, taskUid),
+  claimTaskAction: vi.fn(),
 }));
 
 import { RowPress } from "@/components/app/group/board/task-row/row-press";
@@ -28,6 +34,8 @@ function row(canEdit = true) {
           viewHref: VIEW,
           editHref: EDIT,
           canEdit,
+          canClaim: false,
+          canArchive: canEdit,
         }}
       >
         <a href={VIEW}>Mop the floor</a>
@@ -146,5 +154,26 @@ describe("RowPress", () => {
     await user.click(screen.getByRole("button", { name: "Delete for good" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Somebody else owns that task.");
+  });
+});
+
+describe("RowPress archiving", () => {
+  it("asks before retiring the task, which nothing undoes", async () => {
+    row();
+    await userEvent.click(screen.getByRole("button", { name: "More for Mop the floor" }));
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    expect(archiveTaskAction).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive it" }));
+
+    expect(archiveTaskAction).toHaveBeenCalledWith("g1", "t1");
+  });
+
+  it("offers no archive to a reader the task is not theirs to change", async () => {
+    row(false);
+    await userEvent.click(screen.getByRole("button", { name: "More for Mop the floor" }));
+
+    expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
   });
 });

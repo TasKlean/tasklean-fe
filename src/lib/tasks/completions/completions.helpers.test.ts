@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canRecordRound,
+  canSkipRound,
   outcomeLabel,
   recordedLine,
   roundAlreadyDone,
@@ -81,6 +82,26 @@ describe("outcomeLabel", () => {
 
   it("reads a round with no outcome as done, which is what recording one is", () => {
     expect(outcomeLabel(undefined)).toBe("Done");
+  });
+});
+
+describe("canSkipRound", () => {
+  it("skips a round that is due or overdue", () => {
+    expect(canSkipRound({ nextDueDate: "2026-03-10T08:00:00" }, NOW, ZONE)).toBe(true);
+    expect(canSkipRound({ nextDueDate: "2026-03-01T08:00:00" }, NOW, ZONE)).toBe(true);
+  });
+
+  it("skips an undated task, which the endpoint lets through", () => {
+    expect(canSkipRound({}, NOW, ZONE)).toBe(true);
+  });
+
+  it("refuses a round still ahead, which doing one early is allowed for", () => {
+    expect(canSkipRound({ nextDueDate: "2026-03-11T08:00:00" }, NOW, ZONE)).toBe(false);
+  });
+
+  it("refuses a task with no round left at all", () => {
+    expect(canSkipRound({ status: "ARCHIVED" }, NOW, ZONE)).toBe(false);
+    expect(canSkipRound({ status: "COMPLETED" }, NOW, ZONE)).toBe(false);
   });
 });
 

@@ -10,6 +10,7 @@
 
 import { Pencil } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
+import { ArchiveTask } from "@/components/app/group/board/task-panel/archive-task";
 import { CompleteButton } from "@/components/app/group/board/task-panel/complete-button/complete-button";
 import { DeleteTask } from "@/components/app/group/board/task-panel/delete-task";
 import type { PanelNotice } from "@/components/app/group/board/task-panel/task-panel.types";
@@ -37,6 +38,12 @@ type TaskReaderProps = {
   // The round already recorded, where the task has been done ahead of its
   // schedule and the next round is not open yet.
   doneFor: string | null;
+  // False where there is no round to write off: one still ahead, and anything
+  // with no round left at all.
+  canSkip: boolean;
+  // False where the task is already archived, or is not the reader's to
+  // change. UX only, like every other gate here.
+  canArchive: boolean;
   // False where the task is not the reader's to change, which hides editing
   // and deleting. Finishing one is every member's. UX only: each write handles
   // its own 403.
@@ -47,6 +54,7 @@ type TaskReaderProps = {
   onNotice: (notice: PanelNotice) => void;
   onEdit: () => void;
   onComplete: () => void;
+  onSkip: () => void;
   children: ReactNode;
 };
 
@@ -70,14 +78,19 @@ export function TaskReader({
   canComplete,
   heldBy,
   doneFor,
+  canSkip,
+  canArchive,
   canEdit,
   notice,
   onNotice,
   onEdit,
   onComplete,
+  onSkip,
   children,
 }: Readonly<TaskReaderProps>) {
-  const [asking, setAsking] = useState(false);
+  // Which question is up, rather than whether one is: the two of them take the
+  // same row, so each has to stand aside for the other.
+  const [asking, setAsking] = useState<"archive" | "delete" | null>(null);
   const [recording, setRecording] = useState(false);
 
   // Shared by the two presses, so whichever is pressed stops the other: two
@@ -97,8 +110,10 @@ export function TaskReader({
           heldBy={heldBy}
           doneFor={doneFor}
           busy={recording}
+          canSkip={canSkip}
           onBusy={onBusy}
           onDetails={onComplete}
+          onSkip={onSkip}
           onNotice={onNotice}
         />
       ) : null}
@@ -115,7 +130,7 @@ export function TaskReader({
         <div className="gap-space-sm flex items-center">
           {/* The question wants the whole row, so the presses it is about
               stand aside while it is up. */}
-          {asking ? null : (
+          {asking !== null ? null : (
             <>
               {taskUid && canComplete ? (
                 <div className="flex min-w-0 flex-1">
@@ -127,8 +142,10 @@ export function TaskReader({
                     heldBy={heldBy}
                     doneFor={doneFor}
                     busy={recording}
+                    canSkip={canSkip}
                     onBusy={onBusy}
                     onDetails={onComplete}
+                    onSkip={onSkip}
                     onNotice={onNotice}
                   />
                 </div>
@@ -144,12 +161,22 @@ export function TaskReader({
             </>
           )}
 
-          {canEdit && taskUid ? (
+          {canArchive && taskUid && asking !== "delete" ? (
+            <ArchiveTask
+              groupUid={groupUid}
+              taskUid={taskUid}
+              onAsking={(open) => setAsking(open ? "archive" : null)}
+              onDone={(text) => onNotice({ tone: "success", text })}
+              onError={(text) => onNotice({ tone: "error", text })}
+            />
+          ) : null}
+
+          {canEdit && taskUid && asking !== "archive" ? (
             <DeleteTask
               groupUid={groupUid}
               taskUid={taskUid}
               closeHref={closeHref}
-              onAsking={setAsking}
+              onAsking={(open) => setAsking(open ? "delete" : null)}
               onError={(text) => onNotice({ tone: "error", text })}
             />
           ) : null}

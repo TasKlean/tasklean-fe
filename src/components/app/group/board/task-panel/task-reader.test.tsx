@@ -8,8 +8,13 @@ const deleteTaskAction = vi.fn<(group: string, task: string) => Promise<{ error:
   async () => ({ error: null }),
 );
 
+const archiveTaskAction = vi.fn(async (_groupUid: string, _taskUid: string) => ({
+  error: null as string | null,
+}));
+
 vi.mock("@/app/(app)/app/groups/[uid]/actions/actions", () => ({
   deleteTaskAction: (group: string, task: string) => deleteTaskAction(group, task),
+  archiveTaskAction: (group: string, task: string) => archiveTaskAction(group, task),
   completeTaskAction: async () => ({ error: null, done: "Marked done." }),
 }));
 
@@ -21,6 +26,7 @@ import { TaskReader } from "@/components/app/group/board/task-panel/task-reader"
 
 const onEdit = vi.fn();
 const onComplete = vi.fn();
+const onSkip = vi.fn();
 const onNotice = vi.fn();
 
 function reader(overrides: Partial<React.ComponentProps<typeof TaskReader>> = {}) {
@@ -34,11 +40,14 @@ function reader(overrides: Partial<React.ComponentProps<typeof TaskReader>> = {}
       canComplete
       heldBy={null}
       doneFor={null}
+      canSkip
+      canArchive
       canEdit
       notice={null}
       onNotice={onNotice}
       onEdit={onEdit}
       onComplete={onComplete}
+      onSkip={onSkip}
       {...overrides}
     >
       <p>the facts</p>
@@ -104,5 +113,36 @@ describe("TaskReader", () => {
     reader({ notice: { tone: "success", text: "Marked done. It comes round again tomorrow." } });
 
     expect(screen.getByText("Marked done. It comes round again tomorrow.")).toBeInTheDocument();
+  });
+});
+
+describe("TaskReader archiving", () => {
+  beforeEach(() => {
+    archiveTaskAction.mockClear();
+  });
+
+  it("asks in place before retiring the task", async () => {
+    reader();
+    await userEvent.click(screen.getByRole("button", { name: "Archive task" }));
+
+    expect(archiveTaskAction).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive it" }));
+
+    expect(archiveTaskAction).toHaveBeenCalledWith("g1", "t1");
+  });
+
+  it("stands the delete aside while the archive question is up, the row being one", async () => {
+    reader();
+    await userEvent.click(screen.getByRole("button", { name: "Archive task" }));
+
+    expect(screen.queryByRole("button", { name: "Delete task" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit task" })).toBeNull();
+  });
+
+  it("draws no archive press on a task that is archived already", () => {
+    reader({ canArchive: false });
+
+    expect(screen.queryByRole("button", { name: "Archive task" })).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 /**
- * The board's own presses: creating a task, saving one, and the layout, which
- * is a cookie and so can only be written from an action or a Route Handler.
+ * The board's own presses: creating a task, saving one, what becomes of a
+ * round of it, retiring it, taking it, deleting it, and the layout, which is a
+ * cookie and so can only be written from an action or a Route Handler.
  *
  * Neither write redirects. The panel's hrefs carry the board's filter and only
  * the form holds them, so it navigates back to the saved task itself; an
@@ -14,15 +15,22 @@ import { revalidatePath } from "next/cache";
 import { actionFailureMessage } from "@/lib/api/action-failure/action-failure";
 import { labelNameTakenMessage } from "@/lib/labels/refusals/refusals";
 import { createTag } from "@/lib/labels/tags/tags";
-import { completeTask, getTaskHistory } from "@/lib/tasks/completions/completions";
+import { completeTask, getTaskHistory, skipRound } from "@/lib/tasks/completions/completions";
 import { recordedLine } from "@/lib/tasks/completions/completions.helpers";
 import type { RoundPageResult } from "@/lib/tasks/completions/completions.types";
 import {
+  claimRefusalMessage,
   completionRefusalMessage,
   taskFieldRefusal,
   taskRefusalMessage,
 } from "@/lib/tasks/refusals/refusals";
-import { createTask, deleteTask, updateTask } from "@/lib/tasks/tasks/tasks";
+import {
+  archiveTask,
+  claimTask,
+  createTask,
+  deleteTask,
+  updateTask,
+} from "@/lib/tasks/tasks/tasks";
 import { asBoardView, writeBoardView } from "@/lib/tasks/view/view";
 import { taskWriteRequest } from "@/lib/tasks/write/write";
 import { readTimeZone } from "@/lib/time/zone/zone-cookie";
@@ -31,6 +39,10 @@ import {
   type CompleteTaskErrors,
 } from "@/lib/validation/forms/complete-task.schema/complete-task.schema";
 import { parseRoundPage } from "@/lib/validation/forms/round-page.schema/round-page.schema";
+import {
+  parseSkipRound,
+  type SkipRoundErrors,
+} from "@/lib/validation/forms/skip-round.schema/skip-round.schema";
 import { parseCreateTag } from "@/lib/validation/forms/tag.schema/tag.schema";
 import {
   echoTask,
@@ -50,6 +62,13 @@ export type CompleteTaskState = {
   // What to say once the round is in, which is where the task goes next.
   done: string | null;
   fieldErrors?: CompleteTaskErrors;
+};
+
+export type SkipRoundState = {
+  error: string | null;
+  // What to say once the skip is in, which is where the task goes next.
+  done: string | null;
+  fieldErrors?: SkipRoundErrors;
 };
 
 export type NewTagState = {
@@ -231,6 +250,86 @@ export async function completeTaskAction(
   } catch (error) {
     return { error: completionRefusalMessage(error) ?? actionFailureMessage(error), done: null };
   }
+}
+
+/**
+ * Records a round as skipped: it came round and nobody did it.
+ *
+ * @returns The line saying where the task goes next, or the refusal. The
+ * endpoint takes no skip of a round still ahead, which the view that posts
+ * this is not offered for, so that refusal is the backstop rather than the
+ * gate.
+ */
+export async function skipRoundAction(
+  _previous: SkipRoundState,
+  formData: FormData,
+): Promise<SkipRoundState> {
+  const asked = Object.fromEntries(formData);
+  const target = parseEditTaskTarget(asked);
+
+  if (!target.ok) return { error: "That task could not be found.", done: null };
+
+  const parsed = parseSkipRound(asked);
+
+  if (!parsed.ok) return { error: null, done: null, fieldErrors: parsed.errors };
+
+  const { groupUid, taskUid } = target.values;
+
+  try {
+    const recorded = await skipRound(taskUid, parsed.values);
+    const timeZone = await readTimeZone();
+
+    revalidateBoard(groupUid);
+    return { error: null, done: recordedLine(recorded, new Date(), timeZone) };
+  } catch (error) {
+    return { error: completionRefusalMessage(error) ?? actionFailureMessage(error), done: null };
+  }
+}
+
+/**
+ * Retires a task the household has stopped doing, which nothing undoes.
+ *
+ * @returns The refusal, or nothing at all: the board is revalidated, so the
+ * task leaves it under the default filter and the panel redraws as archived.
+ */
+export async function archiveTaskAction(
+  groupUid: string,
+  taskUid: string,
+): Promise<TaskPressState> {
+  const target = parseEditTaskTarget({ groupUid, taskUid });
+
+  if (!target.ok) return { error: "That task could not be found." };
+
+  try {
+    await archiveTask(target.values.taskUid);
+  } catch (error) {
+    return { error: taskRefusalMessage(error) ?? actionFailureMessage(error) };
+  }
+
+  revalidateBoard(target.values.groupUid);
+  return { error: null };
+}
+
+/**
+ * Takes a task nobody holds.
+ *
+ * @returns The refusal, or nothing at all. The endpoint answers 409 for a
+ * task somebody already has, the reader included, which is why a claim has a
+ * refusal of its own rather than the two a write runs into.
+ */
+export async function claimTaskAction(groupUid: string, taskUid: string): Promise<TaskPressState> {
+  const target = parseEditTaskTarget({ groupUid, taskUid });
+
+  if (!target.ok) return { error: "That task could not be found." };
+
+  try {
+    await claimTask(target.values.taskUid);
+  } catch (error) {
+    return { error: claimRefusalMessage(error) ?? actionFailureMessage(error) };
+  }
+
+  revalidateBoard(target.values.groupUid);
+  return { error: null };
 }
 
 /**

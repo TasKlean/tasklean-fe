@@ -2662,9 +2662,11 @@ screen would. A name the household already holds needs no call at all, and the 4
 taken is treated as the tag being there rather than as a failure, a create being the only thing
 that revives a deleted label.
 
-**Deleting is permanent, and archiving was turned down.** The backend has both, and archive loses
-because nothing in the UI brings an archived task back, so it would read as a delete that lies. The
-press confirms in place, the way every other destructive press here does.
+**Deleting is permanent, and so is archiving, which is why the two read differently.** The backend
+has both and neither can be walked back, so the difference has to be in the wording rather than in
+the mechanics: a delete takes the task and its rounds, where an archive keeps both and only takes
+its place on the board. Both confirm in place, the way every other irreversible press here does,
+and only the delete is painted red.
 
 **One press is the whole of finishing a task.** `POST /api/tasks/{uid}/complete` takes an empty
 body, and omitting `minutes` makes the backend snapshot the task's own estimate, so the common case
@@ -2873,7 +2875,7 @@ drifted, and the tones now say which outcome it is rather than painting all thre
 **A task's history is a list in its facts, and one round is a URL.** The list is at the end of the
 body rather than behind a press of its own, because somebody opening a repeating task wants to know
 whether it was done last week, and a press to find that out is a press most readers never make. It
-is cursor-paged like a group's trail, ten a page, and the cursor lives in the component rather than
+is cursor-paged like a group's trail, five a page, and the cursor lives in the component rather than
 the URL for the same reason it does there: a shared link would carry a position the recipient has no
 rows for. One round, though, **is** in the URL, because a round is read-only: there is nothing
 half-typed to lose, the panel survives a reload, and a reader can send the round itself. It is read
@@ -2904,6 +2906,56 @@ the whole screen is measured against.
 drawn at 63 on a 390x844 phone: a flex item's automatic minimum is its content, and a background
 image is not content, so the box absorbed the overflow instead of the column scrolling. The
 editor's own picker never showed this because its preview carries `shrink-0` already. Measured.
+
+### What else becomes of a round: skipped, claimed, retired
+
+The backend has three more presses than completing, and each one is gated differently, so each
+lands somewhere different in the screen.
+
+**A skip is the round's other outcome, so it is the Complete pill's other row.** `POST
+/api/tasks/{uid}/skip` writes a `SKIPPED` completion, hands a repeating task back to its owner and
+closes a one-off exactly as a done round does, so the reader reaches it where they reach the
+detailed completion: the chevron beside Complete. It takes a note and nothing else. The endpoint
+stores no minutes for a round nobody worked and asks for no photo even where the task demands one
+to be marked done, which is also why a proof task now grows that chevron: its one press leads to
+the view that takes a photo, so the menu behind it holds the skip alone rather than repeating it.
+
+**Skipping is refused for a round still ahead, where completing early is allowed.** The difference
+is honest: doing a task on Tuesday for a Friday round is work that happened, where writing Friday
+off on Tuesday is a statement about a round nobody could have missed yet. `canSkipRound` reads the
+task's own `nextDueDate` against the reader's today, so the row is simply not offered rather than
+leading to `TASK_ROUND_NOT_DUE` at the end of a typed reason. The backend judges the same thing in
+its own zone and stays the authority.
+
+**Archiving is the one thing on this screen that cannot be walked back.** There is no unarchive
+endpoint and a save carries no status, so an archived task is archived for ever. It is still not a
+delete: the task, its rounds and its share stay, and only its place on the board is lost. That is
+why the press is neutral rather than red, why the confirm pill is `bg-secondary` where a delete's
+is filled destructive, and why the question says what is lost ("It leaves the board for good")
+rather than borrowing the delete's wording. It sits in the panel's footer **and** in both menus,
+because retiring a task is a thing somebody does to a board they are tidying, from the row they
+are tidying it on.
+
+**The footer holds two questions, so it names which one is up.** `asking` is
+`"archive" | "delete" | null` rather than a boolean, in the reader and in both menus: each question
+takes the whole row, so the other press has to stand aside, and a boolean could not tell the two
+apart. A delete then navigates out, where an archive leaves the panel open on the task the
+revalidated page redraws with the Archived pill and no Complete press.
+
+**Claiming is the one press on the board that is every member's and not the author's.** `POST
+/api/tasks/{uid}/claim` takes a task only while `assignedTo` is null and answers 409
+`TASK_ALREADY_ASSIGNED` for one somebody already holds, the caller included, so the gate is the
+task's state rather than a role: `canClaimTask` reads nothing about the reader at all. It touches
+neither the owner nor the status, since a claim moves the round in hand and a repeating task hands
+that round back when it is recorded.
+
+**The pool chip is the press, and that costs the cell its link.** A chip reading "Anyone" is the
+one assignee state that invites a press, so the chip itself is the control rather than a button
+beside it in a row that has no width for one. The row's own link is stretched with `after:inset-0`
+and takes every pointer over the row, so `ClaimChip` has to be raised to be pressable, which stops
+that cell opening the task: the menus' Claim row is the way in that keeps it. A refusal hangs off
+the chip as an `alert`, a row having no notice slot, and the bubble names its edge for the same
+reason a card's tooltips do.
 
 ### A pill says what it is on hover, and a field says what it is for
 
@@ -3501,7 +3553,7 @@ gap_ is still open does not get started; the gap gets raised with the backend in
 | **2** | **Auth screens** ✅ done | Register, verify, login, Google sign-in, password reset, logout, and the error and 404 boundaries. | The first flow that exercises phase 1 end to end against a real backend. Refresh was proved against Docker with a shortened token lifetime. CI is what this phase unblocks. |
 | 3     | **Account and settings** ✅ done | `/app/account`, the avatar menu, the grouped settings shell, devices and sessions, password, connected accounts, deactivation, and the appearance, language and notification preferences. | The backend binds sessions to devices, which only pays off once someone can see and revoke them. It also settles the `/app/*` prefix and the account chrome every later screen hangs off. |
 | **4** | **Groups and members** ✅ done | `/app` as the group list split by role, create, join by code, the no-group empty state, the header pill, and the group shell with its rail: overview, tasks, tags and categories, members, settings, leave. Members folded in from phase 6, since the backend shipped both together. | A user with no group has nothing to do, so nothing after this works without it. "Which group am I looking at" is settled: the uid in the URL, with no app-level state. |
-| **5** | **Tasks, the core loop** ← _current_ | The board, its detail panel, create, edit, delete, complete and a task's own history. Archive was turned down. Still owed: skip, and claim through `PUT /api/tasks/{uid}/assignee`, which now exists and has no caller. | This is the product. The app is useful at the end of this phase and not before. The filters went to the backend and the URL, so **React Query did not earn its place**: there is no client cache to invalidate. |
+| **5** | **Tasks, the core loop** ← _current_ | The board, its detail panel, create, edit, delete, complete, skip, claim, archive and a task's own history. Claiming goes through `POST /api/tasks/{uid}/claim`, so `PUT /api/tasks/{uid}/assignee` still has no caller: the form's whole-state PUT is how a round is handed to somebody else. | This is the product. The app is useful at the end of this phase and not before. The filters went to the backend and the URL, so **React Query did not earn its place**: there is no client cache to invalidate. |
 | 6     | ~~**Members and roles**~~  | Folded into phase 4: the roster, invite, role change, remove and the last-admin handling ship with the groups work. | It was only separate because a member's display name could not be resolved; the membership now carries its user. |
 | 7     | **Categories and tags** ✅ done | `/app/groups/[uid]/labels`: both lists on one screen, with the presses gated per control rather than per section. | Taken **before** phase 5, not after: the backend shipped labels and tasks together, and the task form cannot offer a category or a tag that nothing manages. |
 | 8     | **Calendar view**          | Tasks over `nextDueDate`. | A second view on data phase 5 already fetches: cheap once tasks exist, pointless before. |

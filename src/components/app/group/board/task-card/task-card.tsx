@@ -12,6 +12,7 @@
 import { CalendarClock, Pencil, Timer } from "lucide-react";
 import Link from "next/link";
 import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assignee-chip";
+import { ClaimChip } from "@/components/app/group/board/claim-chip/claim-chip";
 import {
   CARD_ACTION,
   CARD_ACTIONS,
@@ -44,6 +45,11 @@ type TaskCardProps = {
   // False where the task is not the reader's to change, which leaves the
   // menu with View alone. UX only: each press handles its own 403.
   canEdit: boolean;
+  // True where nobody holds the task and a round is open, which turns the
+  // pool chip into the press that takes it.
+  canClaim: boolean;
+  // False where the task is archived already, or is not the reader's.
+  canArchive: boolean;
   now: Date;
   timeZone: string;
 };
@@ -103,6 +109,8 @@ export function TaskCard({
   editHref,
   groupUid,
   canEdit,
+  canClaim,
+  canArchive,
   now,
   timeZone,
 }: Readonly<TaskCardProps>) {
@@ -156,6 +164,8 @@ export function TaskCard({
             name={name}
             viewHref={href}
             canEdit={canEdit}
+            canClaim={canClaim}
+            canArchive={canArchive}
           />
         </span>
 
@@ -219,9 +229,13 @@ export function TaskCard({
             the floor of it, the estimate reading along the chip's own base
             rather than floating against the middle of the circle. */}
         <span className="gap-space-sm mt-auto flex items-end justify-between">
-          <Tooltip text="Assigned to" place="above-start" width="shrink">
-            <AssigneeChip member={task.assignedTo} />
-          </Tooltip>
+          {canClaim ? (
+            <ClaimChip groupUid={groupUid} taskUid={task.uid ?? ""} name={name} />
+          ) : (
+            <Tooltip text="Assigned to" place="above-start" width="shrink">
+              <AssigneeChip member={task.assignedTo} />
+            </Tooltip>
+          )}
 
           {minutes ? (
             <Tooltip text="Estimated time" place="above-end">

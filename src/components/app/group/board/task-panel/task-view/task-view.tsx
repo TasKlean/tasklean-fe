@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { AssigneeChip } from "@/components/app/group/board/assignee-chip/assignee-chip";
+import { ClaimChip } from "@/components/app/group/board/claim-chip/claim-chip";
 import { DueChip } from "@/components/app/group/board/due-chip/due-chip";
 import { PriorityMark } from "@/components/app/group/board/priority-mark/priority-mark";
 import { DescriptionBlock } from "@/components/app/group/board/task-panel/task-view/description-block";
@@ -40,6 +41,10 @@ import { uploadedImageSrc } from "@/lib/uploads/image-src/image-src";
 type TaskViewProps = {
   task: Task;
   category: Category | undefined;
+  groupUid: string;
+  // True where nobody holds the task and a round is open, which turns the
+  // assignee's own chip into the press that takes it.
+  canClaim: boolean;
   now: Date;
   timeZone: string;
   // The rounds this task has recorded, read by the page and rendered inside
@@ -62,7 +67,15 @@ const PHOTO = "bg-muted h-48 w-full shrink-0 rounded-xl bg-cover bg-center";
 const ICON = "size-4 shrink-0";
 
 /** Renders the task the URL names. */
-export function TaskView({ task, category, now, timeZone, history }: Readonly<TaskViewProps>) {
+export function TaskView({
+  task,
+  category,
+  groupUid,
+  canClaim,
+  now,
+  timeZone,
+  history,
+}: Readonly<TaskViewProps>) {
   const due = dueLabel(task, now, timeZone);
   const tags = task.tags ?? [];
   const photo = uploadedImageSrc(task.photoUid);
@@ -121,7 +134,15 @@ export function TaskView({ task, category, now, timeZone, history }: Readonly<Ta
 
       <FactCard>
         <FactRow icon={<UserRound className={ICON} aria-hidden />} label="Assigned to">
-          <AssigneeChip member={task.assignedTo} />
+          {canClaim ? (
+            <ClaimChip
+              groupUid={groupUid}
+              taskUid={task.uid ?? ""}
+              name={task.name ?? "this task"}
+            />
+          ) : (
+            <AssigneeChip member={task.assignedTo} />
+          )}
         </FactRow>
 
         {/* Only where there are rounds to come, or where somebody owns it

@@ -15,6 +15,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState, type ReactNode } from "react";
 import { CompleteForm } from "@/components/app/group/board/task-panel/complete-form/complete-form";
+import { SkipForm } from "@/components/app/group/board/task-panel/skip-form/skip-form";
 import { TaskEditor } from "@/components/app/group/board/task-panel/task-editor";
 import { TaskReader } from "@/components/app/group/board/task-panel/task-reader";
 import type { PanelNotice } from "@/components/app/group/board/task-panel/task-panel.types";
@@ -58,6 +59,11 @@ type TaskPanelProps = {
   // The round already recorded, where the task has been done ahead of its
   // schedule, which is the other reason a round cannot be recorded now.
   doneFor: string | null;
+  // False where there is no round to write off, which is one still ahead as
+  // well as a task with no round left at all.
+  canSkip: boolean;
+  // False where the task is archived already, or is not the reader's.
+  canArchive: boolean;
   // The board's own path and filter, so the panel can name the task it saved
   // without a function crossing into the browser.
   path: string;
@@ -84,6 +90,8 @@ export function TaskPanel({
   canComplete,
   heldBy,
   doneFor,
+  canSkip,
+  canArchive,
   path,
   query,
   closeHref,
@@ -91,6 +99,7 @@ export function TaskPanel({
   const router = useRouter();
   const [editing, setEditing] = useState(startEditing);
   const [completing, setCompleting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [notice, setNotice] = useState<PanelNotice | null>(null);
 
   // The URL's own answer, kept so a change to it wins over the state left by
@@ -102,6 +111,7 @@ export function TaskPanel({
     setAsked(now);
     setEditing(startEditing);
     setCompleting(false);
+    setSkipping(false);
     setNotice(null);
   }
 
@@ -130,6 +140,7 @@ export function TaskPanel({
   // that recorded it closes and the reader carries the line.
   const onRecorded = useCallback((text: string) => {
     setCompleting(false);
+    setSkipping(false);
     setNotice({ tone: "success", text });
   }, []);
 
@@ -160,6 +171,18 @@ export function TaskPanel({
 
   if (!view) return null;
 
+  if (skipping && taskUid) {
+    return (
+      <SkipForm
+        groupUid={groupUid}
+        taskUid={taskUid}
+        label={label}
+        onCancel={() => setSkipping(false)}
+        onDone={onRecorded}
+      />
+    );
+  }
+
   if (completing && taskUid) {
     return (
       <CompleteForm
@@ -183,11 +206,14 @@ export function TaskPanel({
       canComplete={canComplete}
       heldBy={heldBy}
       doneFor={doneFor}
+      canSkip={canSkip}
+      canArchive={canArchive}
       canEdit={canEdit}
       notice={notice}
       onNotice={setNotice}
       onEdit={() => setEditing(true)}
       onComplete={() => setCompleting(true)}
+      onSkip={() => setSkipping(true)}
     >
       {view}
     </TaskReader>

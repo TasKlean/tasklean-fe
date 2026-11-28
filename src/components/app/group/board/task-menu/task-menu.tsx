@@ -1,8 +1,8 @@
 /**
  * What a reader can do to a row's task without reading it first: open it,
- * edit it, delete it. The three dots are a desktop control and a long press
- * opens the same menu on a phone, which has no width for one per row. A card
- * has `CardMenu` of its own, drawn in another place and offering less.
+ * take it, edit it, retire it, delete it. The three dots are a desktop
+ * control and a long press opens the same menu on a phone, which has no width
+ * for one per row. A card has `CardMenu` of its own, drawn in another place.
  *
  * The panel hangs under whichever of the two opened it, and above it where
  * the screen has no room below, which is measured as it opens.
@@ -13,10 +13,14 @@
 
 "use client";
 
-import { Eye, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Archive, Eye, HandHelping, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { deleteTaskAction } from "@/app/(app)/app/groups/[uid]/actions/actions";
+import {
+  archiveTaskAction,
+  claimTaskAction,
+  deleteTaskAction,
+} from "@/app/(app)/app/groups/[uid]/actions/actions";
 import type { TaskMenuProps } from "@/components/app/group/board/task-menu/task-menu.types";
 
 // A quiet circle, hidden rather than shrunk on a phone, where the long press
@@ -38,9 +42,9 @@ const PANEL =
 
 const HANGS = { down: "top-full mt-1", up: "bottom-full mb-1" };
 
-// What the panel wants under it before it hangs downwards: its own three
-// rows, the band the phone's bar reserves and a margin.
-const ROOM = 220;
+// What the panel wants under it before it hangs downwards: its own rows at
+// their most, the band the phone's bar reserves and a margin.
+const ROOM = 310;
 
 const ITEM =
   "text-label-md gap-space-sm px-space-sm text-foreground hover:bg-muted flex min-h-11 w-full items-center rounded-lg text-left transition-colors";
@@ -52,13 +56,20 @@ const CONFIRM =
 
 const QUESTION = "text-label-sm text-muted-foreground px-space-sm pt-1";
 
+// Neutral rather than red: the task and its rounds stay, and all that is lost
+// is its place on the board.
+const RETIRE =
+  "bg-secondary text-secondary-foreground focus-visible:ring-ring text-label-md gap-space-xs px-space-sm flex min-h-11 w-full items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-70 focus-visible:ring-2 focus-visible:outline-none";
+
 const ICON = "size-4 shrink-0";
 
-/** Renders the row's own menu, and the question deleting turns it into. */
+/** Renders the row's own menu, and the questions it turns into. */
 export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
-  const { groupUid, taskUid, name, viewHref, editHref, canEdit } = actions;
+  const { groupUid, taskUid, name, viewHref, editHref, canEdit, canClaim, canArchive } = actions;
   const { open, toggle, close, root, trigger } = menu;
-  const [asking, setAsking] = useState(false);
+  // Which question is up, rather than whether one is: both of them ask in the
+  // panel's own body, so only one may hold it.
+  const [asking, setAsking] = useState<"archive" | "delete" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [up, setUp] = useState(false);
@@ -87,8 +98,32 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
     if (!answer.error) return;
 
     setBusy(false);
-    setAsking(false);
+    setAsking(null);
     setError(answer.error);
+  }
+
+  /** Retires the task, or reports why it is still on the board. */
+  async function archive() {
+    setBusy(true);
+    const answer = await archiveTaskAction(groupUid, taskUid);
+
+    // As with a delete, the revalidated board is what takes the row away:
+    // under every filter but the one asking for archived tasks.
+    if (!answer.error) return;
+
+    setBusy(false);
+    setAsking(null);
+    setError(answer.error);
+  }
+
+  /** Takes the task, or reports why somebody else has it. */
+  async function claim() {
+    setBusy(true);
+    const answer = await claimTaskAction(groupUid, taskUid);
+    setBusy(false);
+
+    if (answer.error) setError(answer.error);
+    else close();
   }
 
   return (
@@ -113,7 +148,7 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
 
       {open ? (
         <div className={`${PANEL} ${up ? HANGS.up : HANGS.down}`}>
-          {asking ? (
+          {asking === "delete" ? (
             <>
               <p className={QUESTION}>Delete this task? Nothing brings it back.</p>
 
@@ -133,7 +168,34 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
 
               <button
                 type="button"
-                onClick={() => setAsking(false)}
+                onClick={() => setAsking(null)}
+                disabled={busy}
+                className={ITEM}
+              >
+                Keep it
+              </button>
+            </>
+          ) : asking === "archive" ? (
+            <>
+              <p className={QUESTION}>Archive this task? It leaves the board for good.</p>
+
+              <button
+                type="button"
+                onClick={() => void archive()}
+                disabled={busy}
+                className={RETIRE}
+              >
+                {busy ? (
+                  <Loader2 className={`${ICON} motion-safe:animate-spin`} aria-hidden />
+                ) : (
+                  <Archive className={ICON} aria-hidden />
+                )}
+                Archive it
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAsking(null)}
                 disabled={busy}
                 className={ITEM}
               >
@@ -147,6 +209,17 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
                 View
               </Link>
 
+              {canClaim ? (
+                <button type="button" onClick={() => void claim()} disabled={busy} className={ITEM}>
+                  {busy ? (
+                    <Loader2 className={`${ICON} motion-safe:animate-spin`} aria-hidden />
+                  ) : (
+                    <HandHelping className={ICON} aria-hidden />
+                  )}
+                  Claim
+                </button>
+              ) : null}
+
               {canEdit ? (
                 <>
                   <Link href={editHref} onClick={close} className={ITEM}>
@@ -154,9 +227,16 @@ export function TaskMenu({ actions, menu }: Readonly<TaskMenuProps>) {
                     Edit
                   </Link>
 
+                  {canArchive ? (
+                    <button type="button" onClick={() => setAsking("archive")} className={ITEM}>
+                      <Archive className={ICON} aria-hidden />
+                      Archive
+                    </button>
+                  ) : null}
+
                   <button
                     type="button"
-                    onClick={() => setAsking(true)}
+                    onClick={() => setAsking("delete")}
                     className={`${ITEM} ${DANGER}`}
                   >
                     <Trash2 className={ICON} aria-hidden />

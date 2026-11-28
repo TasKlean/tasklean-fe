@@ -48,6 +48,8 @@ function panel(view: React.ReactNode | null, startEditing = false) {
       canComplete
       heldBy={null}
       doneFor={null}
+      canSkip
+      canArchive
       path={CLOSE}
       query={QUERY}
       closeHref={CLOSE}

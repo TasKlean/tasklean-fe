@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { assignedElsewhere, canEditTask, isUnclaimed } from "@/lib/tasks/permissions/permissions";
+import {
+  assignedElsewhere,
+  canArchiveTask,
+  canClaimTask,
+  canEditTask,
+  isUnclaimed,
+} from "@/lib/tasks/permissions/permissions";
 import type { Task } from "@/lib/tasks/tasks/tasks.types";
 
 const MINE = "member-1";
@@ -28,6 +34,38 @@ describe("canEditTask", () => {
 
   it("refuses a member whose own membership is unknown, rather than matching on nothing", () => {
     expect(canEditTask(task({ createdBy: undefined }), null, "GROUP_MEMBER")).toBe(false);
+  });
+});
+
+describe("canArchiveTask", () => {
+  it("lets the author and an admin retire a live task", () => {
+    expect(canArchiveTask(task({ createdBy: { memberUid: MINE } }), MINE, "GROUP_MEMBER")).toBe(
+      true,
+    );
+    expect(canArchiveTask(task(), MINE, "GROUP_ADMIN")).toBe(true);
+  });
+
+  it("refuses a member somebody else's task, as editing it does", () => {
+    expect(canArchiveTask(task(), MINE, "GROUP_MEMBER")).toBe(false);
+  });
+
+  it("refuses one already archived, where a second press would do nothing", () => {
+    expect(canArchiveTask(task({ status: "ARCHIVED" }), MINE, "GROUP_ADMIN")).toBe(false);
+  });
+});
+
+describe("canClaimTask", () => {
+  it("offers a task nobody holds to anybody", () => {
+    expect(canClaimTask(task({ status: "TODO" }))).toBe(true);
+  });
+
+  it("refuses one somebody already holds, the reader included", () => {
+    expect(canClaimTask(task({ assignedTo: { memberUid: MINE } }))).toBe(false);
+  });
+
+  it("refuses a finished or archived task, which the endpoint would still take", () => {
+    expect(canClaimTask(task({ status: "COMPLETED" }))).toBe(false);
+    expect(canClaimTask(task({ status: "ARCHIVED" }))).toBe(false);
   });
 });
 

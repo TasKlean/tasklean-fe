@@ -10,13 +10,15 @@ import { serverApi } from "@/lib/api/server/server";
 import type {
   CompleteTaskRequest,
   RoundPage,
+  SkipRoundRequest,
   TaskCompletion,
   TaskHistoryPageResponse,
 } from "@/lib/tasks/completions/completions.types";
 
-// Ten rounds a page: a task's history is read inside the panel's own scroll,
-// where twenty would bury the press that asks for more.
-export const ROUND_PAGE_SIZE = 10;
+// Five rounds a page: a task's history is read inside the panel's own scroll,
+// under the facts, where a longer first page buries the press that asks for
+// more. The backend would default to twenty.
+export const ROUND_PAGE_SIZE = 5;
 
 /**
  * Marks a task done.
@@ -30,6 +32,23 @@ export async function completeTask(
   fields: CompleteTaskRequest = {},
 ): Promise<TaskCompletion> {
   return serverApi<TaskCompletion>(`/api/tasks/${encodeURIComponent(uid)}/complete`, {
+    method: "POST",
+    body: fields,
+  });
+}
+
+/**
+ * Records a round as skipped: it came round and nobody did it.
+ *
+ * @param uid The task's own uid, not its group's.
+ * @param fields The reason, which is optional. A skip carries nothing else:
+ * no minutes, and no photo even where the task demands one to be marked done.
+ */
+export async function skipRound(
+  uid: string,
+  fields: SkipRoundRequest = {},
+): Promise<TaskCompletion> {
+  return serverApi<TaskCompletion>(`/api/tasks/${encodeURIComponent(uid)}/skip`, {
     method: "POST",
     body: fields,
   });

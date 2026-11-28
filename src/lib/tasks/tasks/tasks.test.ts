@@ -13,6 +13,7 @@ vi.mock("@/lib/auth/session/session", () => ({
 
 import {
   archiveTask,
+  claimTask,
   createTask,
   deleteTask,
   getBoard,
@@ -123,6 +124,21 @@ describe("archiveTask", () => {
     );
 
     await expect(archiveTask("t1")).resolves.toMatchObject({ status: "ARCHIVED" });
+    expect(seen.body).toBe("");
+  });
+});
+
+describe("claimTask", () => {
+  it("posts to the task's own claim path, carrying no body", async () => {
+    const seen: Seen = {};
+    server.use(
+      http.post(`${BASE}/api/tasks/t1/claim`, async ({ request }) => {
+        seen.body = await request.text();
+        return envelope({ uid: "t1", assignedTo: { memberUid: "m1" } });
+      }),
+    );
+
+    await expect(claimTask("t1")).resolves.toMatchObject({ assignedTo: { memberUid: "m1" } });
     expect(seen.body).toBe("");
   });
 });
