@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { loadGroup } from "@/app/(app)/app/groups/[uid]/group.helpers";
-import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
+import {
+  loadActivityPageAction,
+  searchTasksAction,
+} from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
 import {
   loadTrail,
   subjectName,
@@ -62,8 +65,8 @@ export default async function ActivityPage({
 
   // The feed and the roster the names come from, with a dead session and a
   // group that is not the reader's already turned into a redirect.
-  const { page, roster, failure } = await loadTrail(uid, filter, timeZone);
-  const names = roster.names;
+  const { page, subjects, failure } = await loadTrail(uid, filter, timeZone);
+  const names = subjects.names;
   const ranges = dateChoices(now, timeZone);
   // The three slots below are keyed because they reach a client component as
   // props, where React validates them as list children and asks for one.
@@ -85,13 +88,19 @@ export default async function ActivityPage({
 
   // Only an admin may ask for another member's actions, so a plain member is
   // offered no control rather than one that earns a refusal.
-  const actors = admin ? roster.actors : [];
+  const actors = admin ? subjects.actors : [];
   const menu = (
     <div key="menu" className="gap-space-sm flex items-center sm:mr-auto">
       <TypeMenu
         path={path}
         filter={filter}
-        members={roster.members}
+        members={subjects.members}
+        tasks={subjects.tasks}
+        categories={subjects.categories}
+        tags={subjects.tags}
+        // Bound here, so the box asks about this group's tasks without the
+        // panel holding the group it is reading.
+        onSearchTasks={searchTasksAction.bind(null, uid)}
         pinned={subjectName(uid, filter, group?.name, names)}
       />
       {actors.length > 0 ? <ActorMenu path={path} filter={filter} actors={actors} /> : null}

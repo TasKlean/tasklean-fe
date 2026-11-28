@@ -13,7 +13,6 @@ export const AUDIT_ENTITY_TYPES = [
   "GROUP_MEMBER",
   "CATEGORY",
   "TAG",
-  "TASK_COMPLETION",
 ] as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
@@ -26,7 +25,6 @@ export const GROUP_ENTITY_TYPES: readonly AuditEntityType[] = [
   "GROUP_MEMBER",
   "CATEGORY",
   "TAG",
-  "TASK_COMPLETION",
 ];
 
 /**
@@ -47,4 +45,16 @@ export function auditEntityType(value: string | null | undefined): AuditEntityTy
  */
 export function groupEntityType(value: string | null | undefined): AuditEntityType | null {
   return GROUP_ENTITY_TYPES.find((known) => known === value) ?? null;
+}
+
+/**
+ * Keys one entity in the map a feed reads its names from.
+ *
+ * @param type The entity's own type, as the backend spells it.
+ * @param ref The identifier that type is addressed by.
+ * @returns The two together, because a category and a tag number themselves
+ * separately: keyed by the ref alone, tag 3 would answer for category 3.
+ */
+export function nameKey(type: string, ref: string): string {
+  return `${type}:${ref}`;
 }

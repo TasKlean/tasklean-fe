@@ -3,7 +3,7 @@
  * trigger names the kind that is on while the panels render the rest of them.
  */
 
-import { FILTER_OPTIONS, auditFilterParams } from "@/lib/audit/filter/filter";
+import { FILTER_OPTIONS, auditFilterParams, subjectNoun } from "@/lib/audit/filter/filter";
 import type { AuditFilter, AuditFilterType } from "@/lib/audit/filter/filter.types";
 
 /** One thing the menu offers: a kind of entity, or the whole trail. */
@@ -47,4 +47,34 @@ export function choiceHref(
   const query = auditFilterParams({ ...filter, type, ref }).toString();
 
   return query ? `${path}?${query}` : path;
+}
+
+/**
+ * Names the way into one kind's own list.
+ *
+ * @returns What the press that drills down is called, which says which kind it
+ * leads to rather than that it leads anywhere.
+ */
+export function drillLabel(type: AuditFilterType): string {
+  return `Choose one ${subjectNoun(type)}`;
+}
+
+/**
+ * Names a kind in the plural, as the menu's own rows say it.
+ *
+ * @returns The label the kind is offered under, falling back to the singular
+ * for a kind the menu does not offer.
+ */
+export function pluralLabel(type: AuditFilterType): string {
+  return CHOICES.find((choice) => choice.value === type)?.label ?? subjectNoun(type);
+}
+
+/**
+ * Names the row that takes a list's narrowing off again.
+ *
+ * @param type The kind the list is of.
+ * @returns The whole kind, worded as the choice it is.
+ */
+export function allLabel(type: AuditFilterType): string {
+  return `All ${pluralLabel(type).toLowerCase()}`;
 }

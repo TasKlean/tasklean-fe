@@ -13,14 +13,30 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "user-agent": "Vitest UA" }),
 }));
 
-import { loadActivityPageAction } from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
+import {
+  loadActivityPageAction,
+  searchTasksAction,
+} from "@/app/(app)/app/groups/[uid]/overview/activity/actions/actions";
 
 const BASE = "http://api.test";
 const FEED = `${BASE}/api/audit-logs/groups/:groupUid`;
 const ROSTER = `${BASE}/api/groups/:groupUid/members`;
+const BOARD = `${BASE}/api/groups/:groupUid/tasks`;
+const CATEGORIES = `${BASE}/api/groups/:groupUid/categories`;
+const TAGS = `${BASE}/api/groups/:groupUid/tags`;
 
 function envelope(data: unknown) {
   return HttpResponse.json({ success: true, message: null, data });
+}
+
+// The reads a page's names come from beyond the roster, quiet unless a test is
+// about them: an unhandled request fails the test.
+function quietReads() {
+  return [
+    http.get(BOARD, () => envelope({ items: [] })),
+    http.get(CATEGORIES, () => envelope([])),
+    http.get(TAGS, () => envelope([])),
+  ];
 }
 
 beforeAll(() => {
@@ -34,6 +50,7 @@ describe("loadActivityPageAction", () => {
     let cursor: unknown = null;
     server.use(
       http.get(ROSTER, () => envelope([])),
+      ...quietReads(),
       http.get(FEED, ({ request }) => {
         cursor = new URL(request.url).searchParams.get("cursor");
         return envelope({ items: [{ uid: "a2" }], nextCursor: "c2", total: 40 });
@@ -50,8 +67,11 @@ describe("loadActivityPageAction", () => {
     });
   });
 
-  it("names the members of the page it loads, the ones who have left included", async () => {
+  it("names what the page it loads is about, the members who have left included", async () => {
     server.use(
+      http.get(CATEGORIES, () => envelope([])),
+      http.get(TAGS, () => envelope([])),
+      http.get(BOARD, () => envelope({ items: [{ uid: "t1", name: "Bins" }] })),
       http.get(ROSTER, () =>
         envelope([
           {
@@ -86,8 +106,9 @@ describe("loadActivityPageAction", () => {
     const result = await loadActivityPageAction("g1", { cursor: "c1" });
 
     expect(result.ok && result.names).toEqual({
-      m1: { name: "Alice Johnson", userUid: "u1" },
-      m9: { name: "Dan Novak", userUid: "u9" },
+      "GROUP_MEMBER:m1": { name: "Alice Johnson", userUid: "u1" },
+      "GROUP_MEMBER:m9": { name: "Dan Novak", userUid: "u9" },
+      "TASK:t1": { name: "Bins" },
     });
   });
 
@@ -95,6 +116,7 @@ describe("loadActivityPageAction", () => {
     const seen: { params?: URLSearchParams } = {};
     server.use(
       http.get(ROSTER, () => envelope([])),
+      ...quietReads(),
       http.get(FEED, ({ request }) => {
         seen.params = new URL(request.url).searchParams;
         return envelope({ items: [], nextCursor: null, total: 0 });
@@ -119,6 +141,8 @@ describe("loadActivityPageAction", () => {
 
   it("tells the reader to reload rather than silently restarting a refused cursor", async () => {
     server.use(
+      http.get(ROSTER, () => envelope([])),
+      ...quietReads(),
       http.get(FEED, () =>
         HttpResponse.json(
           {
@@ -141,6 +165,7 @@ describe("loadActivityPageAction", () => {
     let asked = "";
     server.use(
       http.get(ROSTER, () => envelope([])),
+      ...quietReads(),
       http.get(FEED, ({ params }) => {
         asked = String(params.groupUid);
         return envelope({ items: [], nextCursor: null, total: 0 });
@@ -150,5 +175,26 @@ describe("loadActivityPageAction", () => {
     await loadActivityPageAction("g1", { cursor: "c1", groupUid: "g9" });
 
     expect(asked).toBe("g1");
+  });
+});
+
+describe("searchTasksAction", () => {
+  it("searches the group it was bound to, never one the press names", async () => {
+    let asked = "";
+    server.use(
+      http.get(BOARD, ({ params, request }) => {
+        asked = String(params.groupUid);
+        return envelope({
+          items: [{ uid: "t1", name: String(new URL(request.url).searchParams.get("q")) }],
+        });
+      }),
+    );
+
+    expect(await searchTasksAction("g1", "bins")).toEqual([{ ref: "t1", name: "bins" }]);
+    expect(asked).toBe("g1");
+  });
+
+  it("offers nothing for a query the backend would refuse", async () => {
+    expect(await searchTasksAction("g1", "x".repeat(101))).toEqual([]);
   });
 });

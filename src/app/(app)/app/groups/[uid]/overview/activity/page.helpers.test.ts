@@ -18,9 +18,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
+  labelSubjects,
   loadTrail,
   memberRoster,
+  searchTasks,
   subjectName,
+  taskSubjects,
+  trailSubjects,
 } from "@/app/(app)/app/groups/[uid]/overview/activity/page.helpers";
 import type { AuditNames } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
@@ -41,6 +45,27 @@ function rosterOf(...members: unknown[]) {
   return http.get(`${BASE}/api/groups/g1/members`, () => envelope(members));
 }
 
+function boardOf(...items: unknown[]) {
+  return http.get(`${BASE}/api/groups/g1/tasks`, () =>
+    envelope({ items, totalTasks: items.length }),
+  );
+}
+
+function labelsOf(categories: unknown[], tags: unknown[]) {
+  return [
+    http.get(`${BASE}/api/groups/g1/categories`, () => envelope(categories)),
+    http.get(`${BASE}/api/groups/g1/tags`, () => envelope(tags)),
+  ];
+}
+
+// Every read a view makes beyond the feed, so a test naming only the one it is
+// about does not fail on an unhandled request.
+function quietReads() {
+  return [rosterOf(), boardOf(), ...labelsOf([], [])];
+}
+
+const BINS = { uid: "t1", name: "Bins" };
+
 const ALICE = {
   uid: "m1",
   role: "GROUP_ADMIN",
@@ -60,8 +85,11 @@ function filter(fields: Partial<AuditFilter> = {}): AuditFilter {
 }
 
 const NAMES: AuditNames = {
-  m2: { name: "Dan Novak", userUid: "u2" },
-  m1: { name: "Alice Johnson", userUid: "u1" },
+  "GROUP_MEMBER:m2": { name: "Dan Novak", userUid: "u2" },
+  "GROUP_MEMBER:m1": { name: "Alice Johnson", userUid: "u1" },
+  "TASK:t1": { name: "Bins" },
+  "CATEGORY:3": { name: "Kitchen" },
+  "TAG:3": { name: "weekly" },
 };
 
 describe("subjectName", () => {
@@ -78,8 +106,16 @@ describe("subjectName", () => {
     expect(subjectName("g1", filter({ type: "group", ref: "g9" }), "Flat 2B", NAMES)).toBeNull();
   });
 
-  it("names nothing for a kind no screen can resolve", () => {
-    expect(subjectName("g1", filter({ type: "task", ref: "t1" }), "Flat 2B", NAMES)).toBeNull();
+  it("names the task, the category and the tag a feed is pinned to", () => {
+    expect(subjectName("g1", filter({ type: "task", ref: "t1" }), "Flat 2B", NAMES)).toBe("Bins");
+    expect(subjectName("g1", filter({ type: "category", ref: "3" }), "Flat 2B", NAMES)).toBe(
+      "Kitchen",
+    );
+    expect(subjectName("g1", filter({ type: "tag", ref: "3" }), "Flat 2B", NAMES)).toBe("weekly");
+  });
+
+  it("names nothing for a ref no screen could resolve", () => {
+    expect(subjectName("g1", filter({ type: "task", ref: "t9" }), "Flat 2B", NAMES)).toBeNull();
   });
 });
 
@@ -146,7 +182,7 @@ describe("memberRoster", () => {
     const { names, members } = await memberRoster("g1");
 
     expect(members).toEqual([{ ref: "m1", name: "Alice Johnson", former: false }]);
-    expect(names.m3).toBeUndefined();
+    expect(names["GROUP_MEMBER:m3"]).toBeUndefined();
   });
 
   it("costs the picker and nothing else when the roster will not load", async () => {
@@ -160,6 +196,118 @@ describe("memberRoster", () => {
   });
 });
 
+describe("taskSubjects", () => {
+  it("reads every state, newest first, so an archived task still reads by name", async () => {
+    let asked = new URLSearchParams();
+    server.use(
+      http.get(`${BASE}/api/groups/g1/tasks`, ({ request }) => {
+        asked = new URL(request.url).searchParams;
+        return envelope({ items: [BINS] });
+      }),
+    );
+
+    const { names } = await taskSubjects("g1");
+
+    expect(asked.getAll("status").sort()).toEqual(["ARCHIVED", "COMPLETED", "IN_PROGRESS", "TODO"]);
+    expect(asked.get("sort")).toBe("CREATED_DESC");
+    expect(names["TASK:t1"]?.name).toBe("Bins");
+  });
+
+  it("offers ten of them and names the rest", async () => {
+    const many = Array.from({ length: 24 }, (_, index) => ({
+      uid: `t${index}`,
+      name: `Task ${index}`,
+    }));
+    server.use(boardOf(...many));
+
+    const { names, tasks } = await taskSubjects("g1");
+
+    expect(tasks).toHaveLength(10);
+    expect(Object.keys(names)).toHaveLength(24);
+  });
+
+  it("costs the names and nothing else when the board will not load", async () => {
+    server.use(
+      http.get(`${BASE}/api/groups/g1/tasks`, () =>
+        HttpResponse.json({ success: false, message: "Nope", data: null }, { status: 500 }),
+      ),
+    );
+
+    expect(await taskSubjects("g1")).toEqual({ names: {}, tasks: [] });
+  });
+});
+
+describe("labelSubjects", () => {
+  it("keys a category and a tag apart, which number themselves separately", async () => {
+    server.use(...labelsOf([{ id: 3, name: "Kitchen" }], [{ id: 3, name: "weekly" }]));
+
+    const { names, categories, tags } = await labelSubjects("g1");
+
+    expect(names["CATEGORY:3"]?.name).toBe("Kitchen");
+    expect(names["TAG:3"]?.name).toBe("weekly");
+    expect(categories).toEqual([{ ref: "3", name: "Kitchen" }]);
+    expect(tags).toEqual([{ ref: "3", name: "weekly" }]);
+  });
+
+  it("keeps the list that did load when the other one did not", async () => {
+    server.use(
+      http.get(`${BASE}/api/groups/g1/categories`, () =>
+        HttpResponse.json({ success: false, message: "Nope", data: null }, { status: 500 }),
+      ),
+      http.get(`${BASE}/api/groups/g1/tags`, () => envelope([{ id: 4, name: "weekly" }])),
+    );
+
+    const { categories, tags } = await labelSubjects("g1");
+
+    expect(categories).toEqual([]);
+    expect(tags).toEqual([{ ref: "4", name: "weekly" }]);
+  });
+});
+
+describe("searchTasks", () => {
+  it("sends the query to the endpoint and offers what came back", async () => {
+    let asked: string | null = "";
+    server.use(
+      http.get(`${BASE}/api/groups/g1/tasks`, ({ request }) => {
+        asked = new URL(request.url).searchParams.get("q");
+        return envelope({ items: [BINS] });
+      }),
+    );
+
+    expect(await searchTasks("g1", "bin")).toEqual([{ ref: "t1", name: "Bins" }]);
+    expect(asked).toBe("bin");
+  });
+
+  it("sends no query at all for an empty box", async () => {
+    let asked: string | null = "set";
+    server.use(
+      http.get(`${BASE}/api/groups/g1/tasks`, ({ request }) => {
+        asked = new URL(request.url).searchParams.get("q");
+        return envelope({ items: [] });
+      }),
+    );
+
+    await searchTasks("g1", "");
+
+    expect(asked).toBeNull();
+  });
+});
+
+describe("trailSubjects", () => {
+  it("merges one name map out of every screen it read", async () => {
+    server.use(rosterOf(DAN), boardOf(BINS), ...labelsOf([{ id: 3, name: "Kitchen" }], []));
+
+    const subjects = await trailSubjects("g1");
+
+    expect(Object.keys(subjects.names).sort()).toEqual([
+      "CATEGORY:3",
+      "GROUP_MEMBER:m2",
+      "TASK:t1",
+    ]);
+    expect(subjects.tasks).toEqual([{ ref: "t1", name: "Bins" }]);
+  });
+});
+
 describe("loadTrail", () => {
   function trail(status: number, message: string) {
     return http.get(`${BASE}/api/audit-logs/groups/g1`, () =>
@@ -167,9 +315,11 @@ describe("loadTrail", () => {
     );
   }
 
-  it("reads the feed and the roster together", async () => {
+  it("reads the feed and everything that names its rows together", async () => {
     server.use(
       rosterOf(ALICE, DAN),
+      boardOf(BINS),
+      ...labelsOf([{ id: 3, name: "Kitchen" }], [{ id: 4, name: "weekly" }]),
       http.get(`${BASE}/api/audit-logs/groups/g1`, () =>
         envelope({ items: [], nextCursor: null, total: 0 }),
       ),
@@ -178,23 +328,26 @@ describe("loadTrail", () => {
     const view = await loadTrail("g1", filter(), "UTC");
 
     expect(view.failure).toBeNull();
-    expect(view.roster.names.m2?.name).toBe("Dan Novak");
+    expect(view.subjects.names["GROUP_MEMBER:m2"]?.name).toBe("Dan Novak");
+    expect(view.subjects.names["TASK:t1"]?.name).toBe("Bins");
+    expect(view.subjects.names["CATEGORY:3"]?.name).toBe("Kitchen");
+    expect(view.subjects.names["TAG:4"]?.name).toBe("weekly");
   });
 
   it("sends a reader whose session has gone back to the login screen", async () => {
-    server.use(rosterOf(ALICE), trail(401, "Unauthorized"));
+    server.use(...quietReads(), trail(401, "Unauthorized"));
 
     await expect(loadTrail("g1", filter(), "UTC")).rejects.toThrow("REDIRECT:/login");
   });
 
   it("bounces a reader out of a group that is not theirs", async () => {
-    server.use(rosterOf(ALICE), trail(403, "Forbidden"));
+    server.use(...quietReads(), trail(403, "Forbidden"));
 
     await expect(loadTrail("g1", filter(), "UTC")).rejects.toThrow("REDIRECT:/app?unavailable=1");
   });
 
   it("reports the refusal of an actor filter rather than bouncing on it", async () => {
-    server.use(rosterOf(ALICE), trail(403, "Forbidden"));
+    server.use(...quietReads(), trail(403, "Forbidden"));
 
     const view = await loadTrail("g1", filter({ actor: "u2" }), "UTC");
 

@@ -2024,19 +2024,66 @@ backend later reads properly before we have mapped it. An unmapped field name is
 way rather than dropped, because a line saying something changed and naming nothing is worse than an
 awkward word.
 
-**A row borrows its subject's name from the roster, and the roster reaches everyone who ever was a
-member.** The trail hands out a ref and no label, so a name has to come from a screen that holds one,
-and for a group that is only the roster: a task, a category or a tag has no screen to borrow from
-yet, so those rows name their kind. The read is `?status=ALL`, which is one row per person forever
+**A row borrows its subject's name from whichever screen owns it.** The trail hands out a ref and no
+label, so a name has to come from a screen that holds one: the roster for a member, one page of the
+board for a task, and the household's own lists for a category and a tag. Four reads run beside the
+feed, each swallowing its own failure, because a name is decoration and a missing one costs a word
+rather than the screen. **Asking the backend for the name instead would delete all four**, and it is
+the better answer: `AuditEntityResponse` carries only `{ type, ref }`, and a `name` filled from the
+row's own entity at write time would name a thing that has since been deleted, which nothing here
+can. That is the known cost of this approach: a deleted task, category or tag is in no list, so its
+rows read as the kind, and a rename shows today's name rather than the one at the time. Parsing the
+quoted name out of `actionMessage` was rejected for the same reason the line itself is ours: it is
+English the backend composes and not a contract, so a reword there would quietly empty the trail's
+names. **The map is keyed by the type and the ref together**, which `nameKey` is the one place for:
+a category and a tag number themselves separately, so keyed by the ref alone tag 3 would answer for
+category 3. **A task keeps the first group of its uid in brackets where nothing could name it**, so
+two rows about two deleted tasks are still told apart, while a category or a tag prints nothing,
+a bare `12` saying less than the kind does. The roster read is `?status=ALL`, which is one row per person forever
 (rejoining revives the row, so nothing needs de-duplicating) and therefore names a departure as
 readily as a current member, a removal being exactly what a trail is full of. It replaced resolving
 the misses one at a time through `GET /api/group-members/{uid}`, capped at 10 per page: that bought
 up to ten round trips for names one list call now carries, and it could only ever name the refs a
 loaded page happened to mention. The roster is read alongside the feed, since neither answers
-anything about the other, and the paging action reads it again for its own page. The map is keyed by
-the ref rather than by the entity type, so a later read can name a task by adding a phrase for the
-pair and nothing else. One read serves three consumers: the names, the memberships a feed can be
-pinned to, and the people whose actions it can be narrowed to.
+anything about the other, and the paging action reads them again for its own page. One read serves
+three consumers: the names, the memberships a feed can be pinned to, and the people whose actions it
+can be narrowed to, and the board read serves two, naming the newest hundred tasks while offering
+the newest ten as choices.
+
+**A completion is a row about a task now, and the type it used to have is gone.** The backend moved a
+recorded round onto `AuditEntityType.TASK` and dropped `TASK_COMPLETION` from the enum, which
+`AuditEntityType.ALL` validates a filter against, so our `completion` token had become a 400 on the
+whole feed rather than an empty one: the option is deleted, and with it the two phrases that keyed
+off that type. **Rows written by the old build still render**, because `entity.type` is read as a
+plain string and an unknown pair falls to the backend's own sentence, which is where
+`ND Task "..." done.` came from: a `COMPLETE:TASK_COMPLETION` row with no copy of ours, standing
+alone because a whole sentence cannot be pinned to a subject.
+
+**A row about a round names the round, because the backend now says which one.** It carries the
+round's own due date as a **shown** field, `dueDate` with no value it moved from, on `COMPLETE`,
+`TASK_SKIPPED`, `TASK_MISSED` and `COMPLETION_UNDONE`: the entry is filed on the task rather than on
+the round it wrote, so without it a line could only say "a round", and the time the entry was written
+cannot stand in, a round being recordable early, late, or in a batch by the sweeper. It is a field
+because an entry has no other slot, which is why the line **consumes** it rather than letting the
+change card print "Due date set to" under a sentence that just said it. It reads as a **value in a
+pill** rather than a name: a round is a fact, where a name is a thing a reader can go and filter by.
+And it is drawn through `auditDate`, the one place a trail words a date, in the reader's zone like
+every other, so a round recorded at a local end of day reads as that day rather than the next one.
+
+**`TASK_ASSIGNED` still names nobody, and that is settled rather than open.** The action covers an
+assignment and a release alike and its one changed field is tracked with `AuditChanges.track`, which
+keeps neither value, so the line reads "changed who holds the Bins task". Making it name the assignee
+would mean keeping a membership uid in an append-only trail, which the backend's own rule forbids, and
+that trade was declined.
+
+**Each kind the filter offers drills down the way the members already did, and only the tasks are
+searched.** A household's categories and tags are whole lists, so the panel offers all of them, while
+tasks are paged and cannot be: the picker offers the newest ten and a box that asks a Server Action
+300ms after typing stops, which is the pause the board's own search already waits. One `EntityList`
+draws all four lists rather than one component per kind, because the four differ only in two things
+the props carry, the block of people who have left and the box, and a row in any of them has to
+measure the same. A kind the reads came back empty for keeps its own row and loses the press beside
+it, which would otherwise open an empty panel.
 
 **The people who have left are offered in both pickers, under a labelled divider.** Leaving them out
 would hide exactly the names a trail keeps mentioning. They sort last, so one `FormerDivider` heads
@@ -3603,6 +3650,15 @@ Unanswered on purpose. Each gets decided when the work reaches it.
   carries. Our line is phrased, so an account's trail cannot say how somebody signed in. The fix is
   the backend's: either an action per method or a field on the entry. The same holds for `REGISTER`,
   which is written for a password sign-up and a Google one alike.
+- **A uid for a category and a tag**: both are addressed by a numeric id on every endpoint, so our
+  URLs carry database ids (`?category=12`) and a trail can only print the kind for one it could not
+  name. A `uid` beside the id, as a task and a group already have, would make one namespace of all of
+  them. Decided to do, not yet done: it moves `categoryId` on the task read and write, both board
+  filter params, the six label actions and their schemas.
+- **Naming a thing the group has deleted**: a soft-deleted task, category or tag is in none of the
+  lists a view reads, so its rows read as the kind. Two ways out, and the backend owns both: a flag
+  that includes the inactive rows in those lists, which is the one chosen, or a `name` on
+  `AuditEntityResponse` filled at write time, which would replace all four reads.
 - **Error tracking**: nothing exists, so a production bug is invisible. Worth doing early for one
   reason: the backend mints a `requestId` and echoes it as `X-Request-Id`, so forwarding it into error
   reports links a frontend error to the backend log line. Nearly free now, hard to retrofit.

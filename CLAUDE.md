@@ -37,8 +37,9 @@ in both menus, and archiving confirms in place in the task's footer and in both 
   promotes, demotes and removes from, with leaving at the end. `overview/activity` is the group's
   trail, newest first, a page of 20 at a time behind a Load more press, narrowed by
   `?type=&ref=&actor=&from=&to=` in the URL and picked from three dropdowns, the actor's an
-  admin's. It is one timeline cut into days, in the reader's own zone,
-  with what an update moved behind a press.
+  admin's. The kinds are Group, Members, Tasks, Categories and Tags, and the last four drill down
+  to one of them. It is one timeline cut into days, in the reader's own zone, with what an update
+  moved behind a press, and a row names the task, member, category or tag it is about.
 - `settings/{preferences,notifications}` are everybody's, disabled with the reason beside them.
   `settings/{details,invite-code,delete}` are an admin's and redirect a member.
 - `labels` is the household's categories and tags, two sections on one screen. Both lists are
@@ -179,9 +180,10 @@ src/
           overview/    page.tsx redirects to information/; members/ is the
                        roster, with actions/ for a role change, a removal and
                        the leave that is the same call; activity/ is the trail,
-                       with actions/ for the page after a cursor and
-                       page.helpers.ts for the read: the first page, the roster
-                       its rows and its pickers read by, and the refusals
+                       with actions/ for the page after a cursor and the search
+                       in its task picker, and page.helpers.ts for the reads:
+                       the first page, the roster, the board and the labels its
+                       rows and its pickers read by, and the refusals
           settings/    page.tsx redirects to preferences/; actions/ serves the
                        admin sections; settings.helpers.ts is the shared read.
                        One directory per section: preferences/, notifications/,
@@ -299,8 +301,9 @@ src/
                        shell.styles (the column every section applies)
       group/overview/  member-row (+ member-actions, confirm-remove), leave-group,
                        activity/ (what only a group's trail has: former-divider,
-                       type-menu/ (+ kind-list, member-list, .helpers) and
-                       actor-menu/)
+                       type-menu/ (+ kind-list, entity-list/ (the things of one
+                       kind, searched where there are too many to offer),
+                       .helpers) and actor-menu/)
       group/labels/    label-section (the heading, the card, and the add press
                        that opens a form at the top of it), category-list
                        (+ category-row, category-form), tag-list
@@ -323,7 +326,8 @@ src/
                        two-factor.ts
     audit/             audit.ts (one page of a trail, a group's or the caller's
                        own account), audit.types.ts,
-                       entity/ (the type set, and the six a group holds),
+                       entity/ (the type set, the five a group holds, and the
+                       key a name is resolved by),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
                        tokens/ (the pieces a line is built from),
@@ -392,7 +396,8 @@ src/
                        me.types.ts), name/ (display name and initials)
     validation/        rules.ts (field-level Zod pieces), parse.ts, forms/ (one
                        <form>.schema.ts each, plus upload-request, audit-page,
-                       account-page and round-page, which no form posts),
+                       account-page, round-page and task-search, which no form
+                       posts),
                        password/ (policy.ts, strength.ts), code-length.ts
   test/                msw.ts, server-only-stub.ts, password-policy-vectors.json
                        (mirrored from the backend, run by policy.contract.test.ts)
@@ -706,11 +711,27 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   sentence. **A line is `AuditToken[]`, not a string**, so `audit/tokens` names what each piece is
   and `TokenLine` is the one place a name, a field and a value are painted: names and fields bold, a
   value in a pill.
-- **A row names the member it is about, and one roster read covers everyone who ever was one.** The
-  entry carries a ref and no label, so the page hands the feed a `ref -> name` map built from `GET
-  /api/groups/{uid}/members?status=ALL`, which names a departure as readily as a current member. A
-  ref nothing could name still reads as the kind ("a member"). The paging action reads the same
-  roster and returns the names with its page.
+- **A row names the thing it is about, and the screens that own those things are read to do it.** The
+  entry carries a ref and no label, so the page hands the feed one name map, keyed by `nameKey`
+  (the entity type and the ref together, because a category and a tag number themselves separately).
+  It is built from four reads: `GET /api/groups/{uid}/members?status=ALL`, which names a departure as
+  readily as a current member, one page of the board (the newest hundred, every status, newest
+  first), and the household's categories and tags. The paging action makes the same reads and returns
+  the names with its page. **A line is one template per pair**, `THING_PHRASES` with `{thing}` where
+  the thing goes, and `KIND_NOUNS` is the one place each kind's noun is written, named ("the **Bins**
+  task") or not ("a task"), so the two read as one sentence with a different subject. A task keeps the
+  first group of its uid in brackets where nothing could name it, so the row still says which one.
+  **Nothing prints a numeric id**: a category or tag nobody could name reads as the kind alone.
+  **A deleted thing is nameless by construction**, being in none of those lists, which is the cost of
+  resolving a name here rather than the backend sending one.
+- **A row about one round of a task says which round, in the line.** The backend carries it as a
+  shown `dueDate` field on `COMPLETE`, `TASK_SKIPPED`, `TASK_MISSED` and `COMPLETION_UNDONE`, which
+  `ROUND_PHRASES` is read for instead of `THING_PHRASES`: "completed the `14 Mar 2026` round of the
+  **Bins** task". It is **a value in a pill, not a name**, being a fact rather than something a
+  reader can press, and **it is then kept out of the change card**, which would otherwise repeat it
+  as "Due date set to". A one-off carries no field at all and reads as the task alone. The date is
+  drawn in the reader's zone through `auditDate`, which is the one place a trail draws one, so a
+  round, a changed due date and the board's own chip cannot disagree.
 - **A row whose actor is its own subject says what happened, not who did it to whom.** Group creation
   and a join by code both write `MEMBER_ADDED` against the actor's own membership, so the map carries
   the membership's `userUid` and those rows read "joined the group". Checked before any name is used.
@@ -759,10 +780,14 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   ("Member: Dan Novak", "Actor: Alice Johnson", and "One member" for a ref nothing can name), and
   `ClearFilters` is the one way back to the whole trail, on a line of its own at the right-hand end of
   the controls, drawn only while something narrows the feed. **A choice that needs more than a link
-  drills down in place**: Members carries a
-  press of its own at the row's end and the panel swaps the kinds for the roster, and Custom range is
-  a press rather than a link, having no days of its own until they are typed. Focus follows the panel
-  that replaced the button, both ways. **The custom range is a GET form** posting the two days to the
+  drills down in place**: Members, Tasks, Categories and Tags each carry a press of its own at the
+  row's end and the panel swaps the kinds for that list, which is one `EntityList` for all four, and
+  Custom range is a press rather than a link, having no days of its own until they are typed. Focus
+  follows the panel that replaced the button, both ways, landing back on the row it drilled from.
+  **A kind with nothing to offer keeps its row and loses only that press**, which would open an
+  empty panel. **The tasks are the one list with a search**, the panel offering the newest ten and a
+  box that asks `searchTasksAction` 300ms after typing stops, the same pause the board's own search
+  waits: the list is capped where a household's categories and tags are not. **The custom range is a GET form** posting the two days to the
   same path with the rest of the filter as hidden fields, so it works with no JavaScript. Both panels are painted from `filter-menu.styles` and their
   rows are one `FilterMenuRow`, so a row in either measures the same.
 - **The people who have left are offered, and the block they sit in is labelled.** The roster sorts

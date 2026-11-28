@@ -108,8 +108,8 @@ describe("auditFilterQuery", () => {
       entityType: "GROUP_MEMBER",
       entityRef: "m1",
     });
-    expect(auditFilterQuery(filter({ type: "completion" }), ZONE)).toEqual({
-      entityType: "TASK_COMPLETION",
+    expect(auditFilterQuery(filter({ type: "category" }), ZONE)).toEqual({
+      entityType: "CATEGORY",
     });
   });
 

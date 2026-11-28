@@ -1,7 +1,7 @@
 /**
  * The kinds a trail can be narrowed to. Links rather than options, so the
- * filter stays the URL; the one kind a screen can list carries a second press
- * beside its label, which swaps this panel for that list.
+ * filter stays the URL; a kind a screen can list carries a second press beside
+ * its label, which swaps this panel for that list.
  */
 
 import { Check, ChevronRight } from "lucide-react";
@@ -10,18 +10,21 @@ import type { RefObject } from "react";
 import {
   CHOICES,
   choiceHref,
+  drillLabel,
 } from "@/components/app/group/overview/activity/type-menu/type-menu.helpers";
 import { DRILL, ROW, ROW_OFF, ROW_ON } from "@/components/common/filter-menu/filter-menu.styles";
-import type { AuditFilter } from "@/lib/audit/filter/filter.types";
+import type { AuditFilter, AuditFilterType } from "@/lib/audit/filter/filter.types";
 
 type KindListProps = {
   path: string;
   filter: AuditFilter;
-  // Whether the member row offers a list of its own, which it does not when the
-  // roster would not load.
-  pickable: boolean;
-  onPick: () => void;
+  // The kinds that offer a list of their own, which is every kind a screen
+  // could read and that holds anything at all.
+  pickable: readonly AuditFilterType[];
+  onPick: (kind: AuditFilterType) => void;
   onClose: () => void;
+  // Which row's press takes focus, which is the one the panel came back from.
+  drillFor: AuditFilterType | null;
   drill: RefObject<HTMLButtonElement | null>;
 };
 
@@ -32,13 +35,15 @@ export function KindList({
   pickable,
   onPick,
   onClose,
+  drillFor,
   drill,
 }: Readonly<KindListProps>) {
   return (
     <ul>
       {CHOICES.map((choice) => {
         const here = choice.value === filter.type;
-        const steps = pickable && choice.value === "member";
+        const kind = choice.value;
+        const steps = kind !== null && pickable.includes(kind);
 
         return (
           <li key={choice.value ?? "all"} className="flex items-stretch">
@@ -56,10 +61,10 @@ export function KindList({
 
             {steps ? (
               <button
-                ref={drill}
+                ref={kind === drillFor ? drill : undefined}
                 type="button"
-                onClick={onPick}
-                aria-label="Choose one member"
+                onClick={() => onPick(kind)}
+                aria-label={drillLabel(kind)}
                 className={DRILL}
               >
                 <ChevronRight className="size-4" aria-hidden />

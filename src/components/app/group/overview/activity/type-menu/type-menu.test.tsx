@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TypeMenu } from "@/components/app/group/overview/activity/type-menu/type-menu";
-import type { MemberChoice } from "@/lib/audit/audit.types";
+import type { EntityChoice, MemberChoice } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 
 const PATH = "/app/groups/g1/overview/activity";
@@ -14,16 +14,37 @@ const MEMBERS: MemberChoice[] = [
   { ref: "m2", name: "Dan Novak", former: false },
 ];
 
+const TASKS: EntityChoice[] = [
+  { ref: "t1", name: "Bins" },
+  { ref: "t2", name: "Hoover" },
+];
+
+const CATEGORIES: EntityChoice[] = [{ ref: "3", name: "Kitchen" }];
+
+const TAGS: EntityChoice[] = [{ ref: "4", name: "weekly" }];
+
+type MenuRows = {
+  members?: MemberChoice[];
+  tasks?: EntityChoice[];
+  categories?: EntityChoice[];
+  tags?: EntityChoice[];
+  onSearchTasks?: (query: string) => Promise<EntityChoice[]>;
+};
+
 function renderMenu(
   filter: Partial<AuditFilter> = {},
-  members: MemberChoice[] = MEMBERS,
+  rows: MenuRows = {},
   pinned: string | null = null,
 ) {
   render(
     <TypeMenu
       path={PATH}
       filter={{ type: null, ref: "", actor: "", from: "", to: "", ...filter }}
-      members={members}
+      members={rows.members ?? MEMBERS}
+      tasks={rows.tasks ?? TASKS}
+      categories={rows.categories ?? CATEGORIES}
+      tags={rows.tags ?? TAGS}
+      onSearchTasks={rows.onSearchTasks ?? (async () => [])}
       pinned={pinned}
     />,
   );
@@ -47,7 +68,7 @@ describe("TypeMenu", () => {
   });
 
   it("names the one thing the feed is pinned to, since nothing else says which", () => {
-    renderMenu({ type: "member", ref: "m2" }, MEMBERS, "Dan Novak");
+    renderMenu({ type: "member", ref: "m2" }, {}, "Dan Novak");
 
     expect(screen.getByRole("button", { name: /Member: Dan Novak/ })).toHaveTextContent(
       "Member: Dan Novak",
@@ -55,7 +76,7 @@ describe("TypeMenu", () => {
   });
 
   it("names the kind alone for a pinned thing nothing could name", () => {
-    renderMenu({ type: "member", ref: "m9" }, MEMBERS, null);
+    renderMenu({ type: "member", ref: "m9" }, {}, null);
 
     expect(screen.getByRole("button")).toHaveTextContent("One member");
   });
@@ -154,12 +175,91 @@ describe("TypeMenu", () => {
   });
 
   it("offers no member list at all when the roster would not load", async () => {
-    renderMenu({ type: null, ref: "" }, []);
+    renderMenu({ type: null, ref: "" }, { members: [] });
 
     await open();
 
     expect(screen.getByRole("link", { name: "Members" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Choose one member" })).toBeNull();
+  });
+
+  it("pins the feed to one task, one category and one tag", async () => {
+    renderMenu({ type: null, ref: "" });
+
+    await open();
+    await press("Choose one task");
+    expect(screen.getByRole("link", { name: "Bins" })).toHaveAttribute(
+      "href",
+      `${PATH}?type=task&ref=t1`,
+    );
+
+    await press("Back to activity kinds");
+    await press("Choose one category");
+    expect(screen.getByRole("link", { name: "Kitchen" })).toHaveAttribute(
+      "href",
+      `${PATH}?type=category&ref=3`,
+    );
+
+    await press("Back to activity kinds");
+    await press("Choose one tag");
+    expect(screen.getByRole("link", { name: "weekly" })).toHaveAttribute(
+      "href",
+      `${PATH}?type=tag&ref=4`,
+    );
+  });
+
+  it("offers no list for a kind with nothing in it", async () => {
+    renderMenu({ type: null, ref: "" }, { categories: [], tags: [] });
+
+    await open();
+
+    expect(screen.getByRole("link", { name: "Categories" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Choose one category" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Choose one tag" })).toBeNull();
+  });
+
+  it("searches the tasks beyond the few it offers, and lists what came back", async () => {
+    const user = userEvent.setup({ delay: null });
+    const onSearchTasks = vi.fn(async () => [{ ref: "t9", name: "Windows" }]);
+
+    renderMenu({ type: null, ref: "" }, { onSearchTasks });
+    await open();
+    await press("Choose one task");
+    await user.type(screen.getByRole("searchbox", { name: "Search tasks" }), "win");
+
+    await waitFor(() => expect(onSearchTasks).toHaveBeenCalledWith("win"));
+    await waitFor(() => expect(screen.getByRole("link", { name: "Windows" })).toBeVisible());
+
+    expect(screen.queryByRole("link", { name: "Bins" })).toBeNull();
+    expect(screen.getByRole("link", { name: "All tasks" })).toBeVisible();
+  });
+
+  it("asks nothing of the server while the box is empty", async () => {
+    const onSearchTasks = vi.fn(async () => []);
+
+    renderMenu({ type: null, ref: "" }, { onSearchTasks });
+    await open();
+    await press("Choose one task");
+
+    expect(onSearchTasks).not.toHaveBeenCalled();
+    expect(screen.getByRole("link", { name: "Bins" })).toBeVisible();
+  });
+
+  it("offers a search box on the tasks alone", async () => {
+    renderMenu({ type: null, ref: "" });
+
+    await open();
+    await press("Choose one member");
+
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
+
+  it("opens on the list the feed is already pinned inside", async () => {
+    renderMenu({ type: "task", ref: "t2" });
+
+    await open();
+
+    expect(screen.getByRole("link", { name: "Hoover" })).toHaveAttribute("aria-current", "page");
   });
 
   it("opens on the member list when the feed is already pinned to one", async () => {

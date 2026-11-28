@@ -65,9 +65,19 @@ export type AuditNamedEntity = {
   userUid?: string;
 };
 
-// Keyed by the `ref` an entry's entity carries, so a feed resolves a row's
-// name with one lookup and an unresolved ref simply has none.
+// Keyed by `nameKey`, which is an entry's entity type and its ref together, so
+// a feed resolves a row's name with one lookup and an unresolved ref simply has
+// none.
 export type AuditNames = Record<string, AuditNamedEntity>;
+
+// One thing of a kind a feed can be pinned to: a task, a category or a tag.
+// Named by the screen that owns it, since the trail carries only a ref.
+export type EntityChoice = {
+  // The identifier the endpoint pins the feed by: a task's uid, a category's or
+  // a tag's numeric id as a string.
+  ref: string;
+  name: string;
+};
 
 // One member a feed can be pinned to, in the order the roster gave them.
 export type MemberChoice = {

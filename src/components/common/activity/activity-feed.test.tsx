@@ -223,7 +223,7 @@ describe("ActivityFeed", () => {
   });
 
   it("names the member a row is about when the page resolved one", () => {
-    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
+    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { "GROUP_MEMBER:m2": { name: "Dan Novak" } });
 
     expect(said("Alice Johnson changed Dan Novak's role from Member to Admin")).toBeInTheDocument();
   });
@@ -233,7 +233,7 @@ describe("ActivityFeed", () => {
     loadMore.mockResolvedValue({
       ok: true,
       page: page(ROLE_CHANGED.entries, null),
-      names: { m2: { name: "Dan Novak" } },
+      names: { "GROUP_MEMBER:m2": { name: "Dan Novak" } },
     });
 
     renderFeed();
@@ -257,7 +257,7 @@ describe("ActivityFeed", () => {
   });
 
   it("has nothing to press on a row whose line already said what changed", () => {
-    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { m2: { name: "Dan Novak" } });
+    renderFeed({ type: null, ref: "" }, ROLE_CHANGED, { "GROUP_MEMBER:m2": { name: "Dan Novak" } });
 
     expect(screen.queryByRole("button", { name: /change/ })).toBeNull();
   });

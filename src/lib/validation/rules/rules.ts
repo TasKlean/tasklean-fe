@@ -364,6 +364,19 @@ export const taskDescriptionRule = z.optional(
   ),
 );
 
+/** What a reader typed into a search box, which the backend caps and may be empty. */
+export const searchRule = z.optional(
+  z.pipe(
+    z
+      .string()
+      .check(
+        z.trim(),
+        z.maxLength(QUERY_MAX_LENGTH, `Use ${QUERY_MAX_LENGTH} characters or fewer.`),
+      ),
+    z.transform((value) => value || undefined),
+  ),
+);
+
 /** What a reader says about one recorded round, which is optional. */
 export const taskNoteRule = z.optional(
   z.pipe(

@@ -23,6 +23,9 @@ type ValueKind = "role" | "date" | "flag" | "minutes";
 const VALUE_KINDS: Record<string, ValueKind> = {
   role: "role",
   nextDueDate: "date",
+  // The round an entry is about, which the backend sends as a shown value
+  // rather than as a change: a round is a fact, not an edit.
+  dueDate: "date",
   requiresPhotoProof: "flag",
   estimatedTimeMinutes: "minutes",
 };
@@ -50,6 +53,33 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 /**
+ * Draws a date the trail recorded, wherever one is read: a changed value, or
+ * the round an entry names.
+ *
+ * @param value The recorded value, which is an API timestamp.
+ * @param timeZone The reader's own zone, passed in like every zone-aware call,
+ * so the server's render and the browser's hydration cannot disagree.
+ * @returns The day it reads as. The trail is append-only, so a value a past
+ * build recorded is whatever it recorded: an unparseable one reads as itself
+ * rather than throwing a render.
+ */
+export function auditDate(value: string, timeZone: string): string {
+  try {
+    const at = parseApiDateOrNull(value);
+    if (!at) return humanisedConstant(value);
+
+    return at.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone,
+    });
+  } catch {
+    return humanisedConstant(value);
+  }
+}
+
+/**
  * Words one side of a change.
  *
  * @param value The recorded value, which is always text on the wire.
@@ -74,23 +104,7 @@ function changeValue(
   if (kind === "flag") return text === "true" ? "Yes" : "No";
   if (kind === "minutes") return `${text} min`;
 
-  if (kind === "date") {
-    // The trail is append-only, so a value a past build recorded is whatever it
-    // recorded: an unparseable one reads as itself rather than throwing a render.
-    try {
-      const at = parseApiDateOrNull(text);
-      if (!at) return humanisedConstant(text);
-
-      return at.toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone,
-      });
-    } catch {
-      return humanisedConstant(text);
-    }
-  }
+  if (kind === "date") return auditDate(text, timeZone);
 
   return humanisedConstant(text);
 }

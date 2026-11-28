@@ -7,11 +7,12 @@
  * Says whether a row is the first of the people who have left.
  *
  * @param rows The choices as the roster ordered them, which puts everyone still
- * in the group first.
+ * in the group first. A list of things rather than people carries no flag at
+ * all, and opens no block.
  * @param index The row being drawn.
  * @returns True for the one row the divider belongs above, so a list that holds
  * nobody who has left draws none.
  */
-export function opensFormerBlock(rows: readonly { former: boolean }[], index: number): boolean {
+export function opensFormerBlock(rows: readonly { former?: boolean }[], index: number): boolean {
   return Boolean(rows[index]?.former) && !rows[index - 1]?.former;
 }

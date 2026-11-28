@@ -6,14 +6,9 @@
  * No `server-only`: the chip row and the feed both read this in the browser.
  */
 
-export const AUDIT_FILTER_TYPES = [
-  "task",
-  "member",
-  "category",
-  "tag",
-  "completion",
-  "group",
-] as const;
+// Ordered as the filter offers them: the group itself, then the people in it,
+// then the things they make.
+export const AUDIT_FILTER_TYPES = ["group", "member", "task", "category", "tag"] as const;
 
 export type AuditFilterType = (typeof AUDIT_FILTER_TYPES)[number];
 
@@ -22,7 +17,7 @@ export type AuditFilter = {
   // one out of the URL drops both.
   type: AuditFilterType | null;
   // The identifier the API addresses that one entity by: a uid for a task, a
-  // group or a membership, the numeric id for a category, tag or completion.
+  // group or a membership, the numeric id for a category or a tag.
   ref: string;
   // Whose actions the feed is narrowed to, empty for everybody's. A **user**
   // uid, which is a different namespace from the membership uid `ref` carries

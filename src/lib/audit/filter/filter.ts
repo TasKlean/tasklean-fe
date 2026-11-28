@@ -23,23 +23,21 @@ import { dayStart, isDayKey, shiftDays } from "@/lib/time/day/day";
 const REF_MAX_LENGTH = 100;
 
 // The endpoint's own vocabulary, which the URL's is not.
-const ENTITY_FOR_TYPE: Record<AuditFilterType, AuditEntityType> = {
+export const ENTITY_FOR_TYPE: Record<AuditFilterType, AuditEntityType> = {
   task: "TASK",
   member: "GROUP_MEMBER",
   category: "CATEGORY",
   tag: "TAG",
-  completion: "TASK_COMPLETION",
   group: "GROUP",
 };
 
 // Plural, because a chip narrows to a kind of thing rather than to one of them.
 export const FILTER_OPTIONS: readonly { value: AuditFilterType; label: string }[] = [
-  { value: "task", label: "Tasks" },
+  { value: "group", label: "Group" },
   { value: "member", label: "Members" },
+  { value: "task", label: "Tasks" },
   { value: "category", label: "Categories" },
   { value: "tag", label: "Tags" },
-  { value: "completion", label: "Completions" },
-  { value: "group", label: "Group" },
 ];
 
 // Singular, for the pill naming the one thing a ref pins the feed to, where
@@ -49,7 +47,6 @@ const SUBJECTS: Record<AuditFilterType, string> = {
   member: "Member",
   category: "Category",
   tag: "Tag",
-  completion: "Completion",
   group: "Group",
 };
 
@@ -203,6 +200,15 @@ export function narrowsTrail(filter: AuditFilter): boolean {
  * @returns The kind and the name together, falling back to the kind alone
  * rather than guessing at a name the roster no longer holds.
  */
+/**
+ * Names one thing of a kind, for a control that offers them.
+ *
+ * @returns The kind in the singular, lowercase, so it reads inside a sentence.
+ */
+export function subjectNoun(type: AuditFilterType): string {
+  return SUBJECTS[type].toLowerCase();
+}
+
 export function pinnedLabel(type: AuditFilterType, name: string | null): string {
   return name ? `${SUBJECTS[type]}: ${name}` : `One ${SUBJECTS[type].toLowerCase()}`;
 }
