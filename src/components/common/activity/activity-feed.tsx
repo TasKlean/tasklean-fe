@@ -15,6 +15,7 @@ import { FormNotice } from "@/components/common/form-notice";
 import type { AuditEntry, AuditNames, AuditPage, AuditPageLoader } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
 import { feedCountLabel } from "@/lib/audit/labels/labels";
+import type { AuditPinScope } from "@/lib/audit/pins/pins";
 
 type ActivityFeedProps = {
   // The press that reads the page after the cursor, in the trail this feed is
@@ -44,6 +45,9 @@ type ActivityFeedProps = {
   // The press that takes every filter off, on a line of its own below the
   // controls, which is empty while nothing is narrowing the feed.
   clear: ReactNode;
+  // Where a name in a row leads, where the names are a way into the filter.
+  // Absent on a trail nothing can narrow, such as an account's own.
+  pins?: AuditPinScope;
 };
 
 const MORE =
@@ -62,6 +66,7 @@ export function ActivityFeed({
   menu,
   dates,
   clear,
+  pins,
 }: Readonly<ActivityFeedProps>) {
   const [entries, setEntries] = useState<AuditEntry[]>(first.entries);
   const [held, setHeld] = useState<AuditNames>(names);
@@ -76,6 +81,9 @@ export function ActivityFeed({
   const [grouped, setGrouped] = useState(true);
 
   const count = feedCountLabel(entries.length, total);
+  // Assembled here rather than by the page: the filter is already a prop of
+  // this feed, and a second copy of it could only drift from this one.
+  const pinning = pins ? { ...pins, filter } : undefined;
 
   /** Asks for the page after the cursor and appends it. */
   async function readMore(): Promise<void> {
@@ -131,6 +139,7 @@ export function ActivityFeed({
         timeZone={timeZone}
         grouped={grouped}
         onFlip={() => setGrouped((was) => !was)}
+        pinning={pinning}
       />
 
       {error ? <FormNotice tone="error">{error}</FormNotice> : null}

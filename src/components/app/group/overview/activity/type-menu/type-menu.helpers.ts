@@ -3,7 +3,7 @@
  * trigger names the kind that is on while the panels render the rest of them.
  */
 
-import { FILTER_OPTIONS, auditFilterParams, subjectNoun } from "@/lib/audit/filter/filter";
+import { FILTER_OPTIONS, filterHref, subjectNoun } from "@/lib/audit/filter/filter";
 import type { AuditFilter, AuditFilterType } from "@/lib/audit/filter/filter.types";
 
 /** One thing the menu offers: a kind of entity, or the whole trail. */
@@ -44,9 +44,7 @@ export function choiceHref(
   type: AuditFilterType | null,
   ref = "",
 ): string {
-  const query = auditFilterParams({ ...filter, type, ref }).toString();
-
-  return query ? `${path}?${query}` : path;
+  return filterHref(path, { ...filter, type, ref });
 }
 
 /**

@@ -42,8 +42,10 @@ type TypeMenuProps = {
   tasks: readonly EntityChoice[];
   categories: readonly EntityChoice[];
   tags: readonly EntityChoice[];
-  // What a typed search matches, which only the task list offers.
-  onSearchTasks: (query: string) => Promise<EntityChoice[]>;
+  // What a typed search matches, which only the task list offers. Null where
+  // the search could not be made, which the panel says rather than reading as
+  // a household with no such task.
+  onSearchTasks: (query: string) => Promise<EntityChoice[] | null>;
   // What the one thing the feed is pinned to is called, where the screen could
   // resolve it. Null for a kind no screen resolves, and for a name that is gone.
   pinned: string | null;

@@ -330,6 +330,8 @@ src/
                        key a name is resolved by),
                        labels/ (the line a row reads, from action + entity),
                        changes/ (the line one changed field reads),
+                       pins/ (what a name in a line narrows the feed to, and
+                       the link it leads to),
                        tokens/ (the pieces a line is built from),
                        days/ (a feed cut into the days it happened on),
                        dates/ (the ranges on offer and their words),
@@ -447,8 +449,9 @@ It must **not** be imported by anything a client component imports: all of `vali
 `qr/qr-code.types.ts`, `preferences/preferences.types.ts`, `preferences/theme-attribute`,
 `notifications/settings.types.ts`, the four group modules a row in the browser reads
 (`groups/groups.types.ts`, which `rules.ts` imports for the role enum, `groups/role`,
-`groups/unavailable`, `groups/last-admin`), the five audit modules a feed in the browser reads
-(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`), the four
+`groups/unavailable`, `groups/last-admin`), the six audit modules a feed in the browser reads
+(`audit/audit.types.ts`, `audit/entity`, `audit/labels`, `audit/changes`, `audit/tokens`,
+`audit/pins`), the four
 label modules a row or a picker in the browser reads (`labels/categories.types.ts`,
 `labels/tags.types.ts`, `labels/refusals`, `labels/palette`), and the
 three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploads/put-object`,
@@ -724,6 +727,22 @@ three upload modules that run in the browser (`uploads/uploads.types.ts`, `uploa
   **Nothing prints a numeric id**: a category or tag nobody could name reads as the kind alone.
   **A deleted thing is nameless by construction**, being in none of those lists, which is the cost of
   resolving a name here rather than the backend sending one.
+- **A name in a line is the way into the filter, and the actor and the subject are two of them.**
+  Pressing a name narrows the feed to it and leaves the other axes alone, exactly as the dropdowns
+  do, so the row a reader is looking at is the shortest route to everything about that thing.
+  `audit/pins` owns the pin (`{ actor }` for a **user** uid, `{ type, ref }` for the thing) and
+  `pinHref`, which is the one place those three axes become a link. **A press that would do nothing
+  draws no link**: the feed is already pinned to it, the entity is a kind the filter cannot ask for,
+  or the reader is a member naming somebody else as an actor, which the endpoint refuses and
+  `allowedActor` would clear. The system is nobody, so its rows carry no actor link. **A value is
+  never a link**, a round's date being a fact rather than somewhere to go, and **a trail with no
+  filter of its own draws none at all**, which is the account's. The feed assembles the pinning from
+  its own `filter` and the page's `pins`, so the two cannot drift.
+- **A pinned name is underlined words and a hover colour, and nothing else.** A row is prose, so a
+  border, a pill or a fill mid-sentence reads as chrome rather than as part of the sentence. The
+  focus ring is the one addition, a link with no focus style being unreachable, and an inline link
+  in a sentence is the one control exempt from the 44px floor: it cannot be grown without breaking
+  the line it is in.
 - **A row about one round of a task says which round, in the line.** The backend carries it as a
   shown `dueDate` field on `COMPLETE`, `TASK_SKIPPED`, `TASK_MISSED` and `COMPLETION_UNDONE`, which
   `ROUND_PHRASES` is read for instead of `THING_PHRASES`: "completed the `14 Mar 2026` round of the

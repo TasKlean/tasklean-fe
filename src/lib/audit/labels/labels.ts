@@ -10,7 +10,8 @@ import type { AuditEntry, AuditNamedEntity, AuditNames } from "@/lib/audit/audit
 import { auditDate, changeLines, changeTail } from "@/lib/audit/changes/changes";
 import { nameKey } from "@/lib/audit/entity/entity";
 import type { AuditToken } from "@/lib/audit/tokens/tokens";
-import { nameToken, plainToken, valueToken } from "@/lib/audit/tokens/tokens";
+import { actorPin, entityPin } from "@/lib/audit/pins/pins";
+import { nameToken, plainToken, refToken, valueToken } from "@/lib/audit/tokens/tokens";
 import { fullName } from "@/lib/users/name/name";
 
 /** What one row says: a line, and a detail per changed field under it. */
@@ -58,14 +59,10 @@ const PHRASES: Record<string, string> = {
 // The pairs that read better for naming the member they are about, which is
 // the three an admin does to somebody else. A removal is listed even though the
 // roster can rarely name a member who has already left.
-const NAMED_PHRASES: Record<string, (name: string) => AuditToken[]> = {
-  "MEMBER_ADDED:GROUP_MEMBER": (name) => [plainToken("added "), nameToken(name)],
-  "MEMBER_REMOVED:GROUP_MEMBER": (name) => [plainToken("removed "), nameToken(name)],
-  "ROLE_CHANGED:GROUP_MEMBER": (name) => [
-    plainToken("changed "),
-    nameToken(name),
-    plainToken("'s role"),
-  ],
+const NAMED_PHRASES: Record<string, (member: AuditToken) => AuditToken[]> = {
+  "MEMBER_ADDED:GROUP_MEMBER": (member) => [plainToken("added "), member],
+  "MEMBER_REMOVED:GROUP_MEMBER": (member) => [plainToken("removed "), member],
+  "ROLE_CHANGED:GROUP_MEMBER": (member) => [plainToken("changed "), member, plainToken("'s role")],
 };
 
 // How each kind is said, named or not, which is the one place the noun lives:
@@ -175,13 +172,14 @@ function thingPhrase(
   const noun = type ? KIND_NOUNS[type] : undefined;
   if (!noun) return null;
 
-  if (named) return fill(noun.named, { name: [nameToken(named.name)] });
+  const pin = entityPin(type, ref);
+  if (named) return fill(noun.named, { name: [nameToken(named.name, pin)] });
 
   // The trail outlives what it describes, so a row about a task nobody can
-  // read any more still says which one it was.
+  // read any more still says which one it was, and still leads to its own rows.
   const short = shortRef(ref);
 
-  return [plainToken(short ? `${noun.nameless} (${short})` : noun.nameless)];
+  return [refToken(short ? `${noun.nameless} (${short})` : noun.nameless, pin)];
 }
 
 /**
@@ -237,7 +235,9 @@ export function auditSentence(
   const type = entry.entity?.type;
   const ref = entry.entity?.ref;
   const named = type && ref ? names?.[nameKey(type, ref)] : undefined;
-  const who = nameToken(subject(entry, viewerUid));
+  // The actor is always the start of the line, and always a person: the system
+  // carries no uid, so nothing there is offered as a filter.
+  const who = nameToken(subject(entry, viewerUid), actorPin(entry.actor?.uid));
 
   // Checked before any name is used: the actor and the subject being one
   // membership changes what happened, not only how it is worded.
@@ -248,7 +248,9 @@ export function auditSentence(
 
   if (named) {
     const write = NAMED_PHRASES[key];
-    if (write) return [who, plainToken(" "), ...write(named.name)];
+    if (write) {
+      return [who, plainToken(" "), ...write(nameToken(named.name, entityPin(type, ref)))];
+    }
   }
 
   const thing = thingPhrase(type, named, ref);

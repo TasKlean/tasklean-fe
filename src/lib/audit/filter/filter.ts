@@ -31,6 +31,12 @@ export const ENTITY_FOR_TYPE: Record<AuditFilterType, AuditEntityType> = {
   group: "GROUP",
 };
 
+// Inverted rather than written twice: the two vocabularies must not be able to
+// disagree about which URL token stands for which of the backend's types.
+const TYPE_FOR_ENTITY: Record<string, AuditFilterType> = Object.fromEntries(
+  Object.entries(ENTITY_FOR_TYPE).map(([token, entity]) => [entity, token as AuditFilterType]),
+);
+
 // Plural, because a chip narrows to a kind of thing rather than to one of them.
 export const FILTER_OPTIONS: readonly { value: AuditFilterType; label: string }[] = [
   { value: "group", label: "Group" },
@@ -200,6 +206,34 @@ export function narrowsTrail(filter: AuditFilter): boolean {
  * @returns The kind and the name together, falling back to the kind alone
  * rather than guessing at a name the roster no longer holds.
  */
+/**
+ * Reads the URL's own word for one of the backend's entity types.
+ *
+ * @param entityType The type an entry carries, which may be one the filter does
+ * not narrow by, or one a past build wrote and the backend has since dropped.
+ * @returns The token `?type=` takes, or null for a type the filter cannot ask
+ * for, which must not be turned into a link the endpoint would refuse.
+ */
+export function filterTypeFor(entityType: string | null | undefined): AuditFilterType | null {
+  return (entityType && TYPE_FOR_ENTITY[entityType]) || null;
+}
+
+/**
+ * Builds the link that reads a trail under one filter.
+ *
+ * @param path The feed's own path, without a query of its own.
+ * @param filter What that link asks for, the rest of it carried over by
+ * whoever builds it: a `Partial`, so a caller naming two axes is not revisited
+ * every time the filter grows another.
+ * @returns The path, with the query that reproduces the filter, and the bare
+ * path for the whole trail.
+ */
+export function filterHref(path: string, filter: Partial<AuditFilter>): string {
+  const query = auditFilterParams(filter).toString();
+
+  return query ? `${path}?${query}` : path;
+}
+
 /**
  * Names one thing of a kind, for a control that offers them.
  *

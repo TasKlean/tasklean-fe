@@ -194,7 +194,7 @@ describe("searchTasksAction", () => {
     expect(asked).toBe("g1");
   });
 
-  it("offers nothing for a query the backend would refuse", async () => {
-    expect(await searchTasksAction("g1", "x".repeat(101))).toEqual([]);
+  it("reports a query the backend would refuse rather than answering with no matches", async () => {
+    expect(await searchTasksAction("g1", "x".repeat(101))).toBeNull();
   });
 });

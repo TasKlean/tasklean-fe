@@ -2070,6 +2070,36 @@ pill** rather than a name: a round is a fact, where a name is a thing a reader c
 And it is drawn through `auditDate`, the one place a trail words a date, in the reader's zone like
 every other, so a round recorded at a local end of day reads as that day rather than the next one.
 
+**A name in a row is a filter control, because the row is where the reader already is.** The
+dropdowns ask somebody to find a thing they are looking straight at, so a name is a link that
+narrows the feed to it: the actor by `?actor=`, which is a **user** uid, and whatever the row is
+about by `?type=` and `?ref=` together, which for a member is their membership uid. The two
+namespaces meeting in one line is exactly why the pin is a tagged union rather than a bare uid.
+Pressing one changes that axis and carries the rest over, like every other control here, so a
+reader can go from one task to one person's work on it without touching a menu.
+
+**A link that would do nothing is not drawn**, which is four cases: the feed is already pinned to
+that thing, the entity is a kind the filter cannot ask for (a dropped type a past build wrote), the
+row has no actor because the system acted, or the reader is a member naming somebody else as an
+actor. That last one is the real trap: the endpoint refuses it with a 403 carrying no code, which
+`isGroupUnavailable` cannot tell from the group being gone, and `allowedActor` therefore clears it
+before it is sent, so the press would land on the whole trail and read as broken. The page passes
+`onlyActor`, the one actor this reader may ask for, rather than a role, since the painter has no
+business knowing what an admin is.
+
+**A value is never a link, and a trail with no filter draws none at all.** A round's date is a fact
+rather than something to go and read about, so `valueToken` is left alone wherever it appears; and
+the account's own trail has no axes to narrow, so it hands the feed no scope and every name stays
+bold text. That is also why the pin lives on the token rather than being worked out while painting:
+the line is built once, server side, and each painter decides for itself whether a pin is drawable.
+
+**It is underlined words with a hover colour, and deliberately nothing else.** A row is a sentence,
+so a border, a pill or a fill in the middle of one reads as chrome and breaks the prose. The focus
+ring is the one addition, because a link with no focus style cannot be reached from a keyboard, and
+an inline link is the one control here exempt from the 44px floor: growing it would break the line
+it sits in, and the accessible name stays the name itself rather than an `aria-label`, which would
+make the sentence unreadable when linearised.
+
 **`TASK_ASSIGNED` still names nobody, and that is settled rather than open.** The action covers an
 assignment and a release alike and its one changed field is tracked with `AuditChanges.track`, which
 keeps neither value, so the line reads "changed who holds the Bins task". Making it name the assignee

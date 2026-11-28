@@ -43,9 +43,10 @@ type EntityListProps = {
   // What the way back is called, which is the kind in the plural.
   title: string;
   rows: readonly ListRow[];
-  // What a typed query matches, for a kind the panel can only offer a few of.
-  // Absent for a kind it offers whole, which draws no box.
-  onSearch?: (query: string) => Promise<ListRow[]>;
+  // What a typed query matches, for a kind the panel can only offer a few of,
+  // null where the search could not be made. Absent for a kind the panel offers
+  // whole, which draws no box.
+  onSearch?: (query: string) => Promise<ListRow[] | null>;
   onBack: () => void;
   onClose: () => void;
   back: RefObject<HTMLButtonElement | null>;
@@ -59,6 +60,18 @@ const BOX =
   "text-label-md bg-muted text-foreground placeholder:text-muted-foreground mx-space-md my-space-xs px-space-sm min-h-11 rounded-lg outline-none";
 
 const NO_MATCHES = "text-label-sm text-muted-foreground px-space-md py-space-sm";
+
+/** Says why the list is empty, a search that could not be made being its own answer. */
+function quiet(
+  query: string,
+  answered: { rows: readonly ListRow[] | null } | null,
+  title: string,
+): string {
+  if (answered?.rows === null) return "We could not search just now. Try again.";
+  if (query) return "Nothing matches that.";
+
+  return `No ${title.toLowerCase()} yet.`;
+}
 
 /** Renders one row per thing, behind the way back to the kinds. */
 export function EntityList({
@@ -75,8 +88,11 @@ export function EntityList({
   const pinned = filter.ref;
   const [typed, setTyped] = useState("");
   // The query the rows answer, so a stale answer is told from the one being
-  // waited for without a second state to keep in step.
-  const [found, setFound] = useState<{ query: string; rows: readonly ListRow[] } | null>(null);
+  // waited for without a second state to keep in step. Null rows are a search
+  // that failed, which is not the same as one that matched nothing.
+  const [found, setFound] = useState<{ query: string; rows: readonly ListRow[] | null } | null>(
+    null,
+  );
   // Counts the searches, so an answer that arrives after a later one has been
   // asked for is dropped rather than drawn over it.
   const asked = useRef(0);
@@ -95,11 +111,11 @@ export function EntityList({
     return () => clearTimeout(timer);
   }, [query, onSearch]);
 
-  const matched = found?.query === query ? found.rows : null;
+  const answered = found?.query === query ? found : null;
   // The last matches stay while the next ones are being read, so the list does
   // not empty itself between keystrokes.
   const shown = query ? (found?.rows ?? []) : rows;
-  const busy = Boolean(query) && !matched;
+  const busy = Boolean(query) && !answered;
 
   return (
     <div>
@@ -172,10 +188,10 @@ export function EntityList({
         ))}
       </ul>
 
-      {shown.length === 0 ? (
-        <p className={NO_MATCHES}>
-          {found ? "Nothing matches that." : `No ${title.toLowerCase()} yet.`}
-        </p>
+      {/* Held back while a search is in flight, so a list that is merely being
+          read does not report itself as empty on the way. */}
+      {shown.length === 0 && !busy ? (
+        <p className={NO_MATCHES}>{quiet(query, answered, title)}</p>
       ) : null}
     </div>
   );

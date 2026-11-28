@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityFeed } from "@/components/common/activity/activity-feed";
 import type { AuditNames, AuditPage, AuditPageLoader } from "@/lib/audit/audit.types";
 import type { AuditFilter } from "@/lib/audit/filter/filter.types";
+import type { AuditPinScope } from "@/lib/audit/pins/pins";
 
 const loadMore = vi.fn<AuditPageLoader>();
 
@@ -75,10 +76,31 @@ const TWO_DAYS: AuditPage = {
   total: 3,
 };
 
+const TRAIL = "/app/groups/g1/overview/activity";
+
+const PINS: AuditPinScope = { path: TRAIL, onlyActor: null };
+
+const NAMED_TASK: AuditPage = {
+  entries: [
+    {
+      uid: "a2",
+      action: "UPDATE",
+      entity: { type: "TASK", ref: "t1" },
+      actor: { uid: "u2", name: "Alice", lastName: "Johnson" },
+      dateCreated: "2026-11-06T11:00:00",
+    },
+  ],
+  nextCursor: null,
+  total: 1,
+};
+
+const BINS: AuditNames = { "TASK:t1": { name: "Bins" } };
+
 function renderFeed(
   filter: Partial<AuditFilter> = {},
   first: AuditPage = FIRST,
   names: AuditNames = {},
+  pins?: AuditPinScope,
 ) {
   const whole: AuditFilter = { type: null, ref: "", actor: "", from: "", to: "", ...filter };
 
@@ -95,6 +117,7 @@ function renderFeed(
       menu={<p>Filters</p>}
       dates={<p>Any time</p>}
       clear={null}
+      pins={pins}
     />,
   );
 }
@@ -329,5 +352,48 @@ describe("ActivityFeed", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("We could not reach TasKlean.");
     expect(said("Alice Johnson added a task")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
+  });
+
+  it("makes the names in a row the way into the filter", () => {
+    renderFeed({}, NAMED_TASK, BINS, PINS);
+
+    expect(screen.getByRole("link", { name: "Bins" })).toHaveAttribute(
+      "href",
+      `${TRAIL}?type=task&ref=t1`,
+    );
+    expect(screen.getByRole("link", { name: "Alice Johnson" })).toHaveAttribute(
+      "href",
+      `${TRAIL}?actor=u2`,
+    );
+  });
+
+  it("draws no links at all on a trail nothing can narrow", () => {
+    renderFeed({}, NAMED_TASK, BINS);
+
+    expect(screen.queryAllByRole("link")).toEqual([]);
+    expect(said("Alice Johnson updated the Bins task")).toBeInTheDocument();
+  });
+
+  it("draws no link to where the reader already is", () => {
+    renderFeed({ type: "task", ref: "t1" }, NAMED_TASK, BINS, PINS);
+
+    expect(screen.queryByRole("link", { name: "Bins" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Alice Johnson" })).toBeInTheDocument();
+  });
+
+  it("offers a member no actor but their own, the endpoint refusing the rest", () => {
+    renderFeed({}, NAMED_TASK, BINS, { path: TRAIL, onlyActor: "u1" });
+
+    expect(screen.queryByRole("link", { name: "Alice Johnson" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Bins" })).toBeInTheDocument();
+  });
+
+  it("keeps what already narrows the feed when a name is pressed", () => {
+    renderFeed({ actor: "u2", from: "2026-03-01" }, NAMED_TASK, BINS, PINS);
+
+    expect(screen.getByRole("link", { name: "Bins" })).toHaveAttribute(
+      "href",
+      `${TRAIL}?type=task&ref=t1&actor=u2&from=2026-03-01`,
+    );
   });
 });

@@ -151,9 +151,11 @@ export async function taskSubjects(
  * @param groupUid The group in the route.
  * @param query What was typed, which the endpoint matches its own way.
  * @returns The same few the picker offers unsearched, so the panel's list never
- * changes length under the box. Empty where the read would not load.
+ * changes length under the box. **Null where the read would not load**, which
+ * the panel says: an empty list there would read as a household with no such
+ * task, which is a different answer.
  */
-export async function searchTasks(groupUid: string, query: string): Promise<EntityChoice[]> {
+export async function searchTasks(groupUid: string, query: string): Promise<EntityChoice[] | null> {
   try {
     const board = await getBoard(groupUid, {
       size: TASKS_OFFERED,
@@ -166,7 +168,7 @@ export async function searchTasks(groupUid: string, query: string): Promise<Enti
       task.uid && task.name ? [{ ref: task.uid, name: task.name }] : [],
     );
   } catch {
-    return [];
+    return null;
   }
 }
 

@@ -278,6 +278,16 @@ describe("searchTasks", () => {
     expect(asked).toBe("bin");
   });
 
+  it("says nothing at all where the read would not load, which is not no matches", async () => {
+    server.use(
+      http.get(`${BASE}/api/groups/g1/tasks`, () =>
+        HttpResponse.json({ success: false, message: "Nope", data: null }, { status: 500 }),
+      ),
+    );
+
+    expect(await searchTasks("g1", "bin")).toBeNull();
+  });
+
   it("sends no query at all for an empty box", async () => {
     let asked: string | null = "set";
     server.use(

@@ -9,6 +9,7 @@ import { TokenLine } from "@/components/common/activity/token-line";
 import { Avatar } from "@/components/common/avatar/avatar";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditLine } from "@/lib/audit/labels/labels";
+import type { AuditPinning } from "@/lib/audit/pins/pins";
 import { fullTime, shortDate, timeOfDay } from "@/lib/time/day/day";
 
 type ActivityRowProps = {
@@ -25,6 +26,8 @@ type ActivityRowProps = {
   // Set where no heading above the row says which day it belongs to, so the
   // date goes over the time instead.
   dated: boolean;
+  // Where the names in the line lead. Absent on a trail nothing can narrow.
+  pinning?: AuditPinning;
 };
 
 /** Renders one audit entry as a step on the trail. */
@@ -35,6 +38,7 @@ export function ActivityRow({
   names,
   timeZone,
   dated,
+  pinning,
 }: Readonly<ActivityRowProps>) {
   const line = auditLine(entry, viewerUid, names, timeZone);
 
@@ -73,7 +77,7 @@ export function ActivityRow({
           avatar and a line of body text, which centres the two. */}
       <div className="gap-space-xs pb-space-lg flex min-w-0 flex-1 flex-col pt-1 group-last:pb-0">
         <p className="text-body-md text-muted-foreground break-words">
-          <TokenLine tokens={line.sentence} />
+          <TokenLine tokens={line.sentence} pinning={pinning} />
         </p>
 
         {/* Only an account's own rows carry one, and only where the reader is

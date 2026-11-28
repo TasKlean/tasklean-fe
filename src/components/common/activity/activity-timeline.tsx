@@ -8,6 +8,7 @@ import { DaySectionsToggle } from "@/components/common/activity/day-sections-tog
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditDays } from "@/lib/audit/days/days";
 import type { AuditDayRow } from "@/lib/audit/days/days.types";
+import type { AuditPinning } from "@/lib/audit/pins/pins";
 
 type ActivityTimelineProps = {
   entries: AuditEntry[];
@@ -20,6 +21,8 @@ type ActivityTimelineProps = {
   // Whether a heading above each day says which one it is.
   grouped: boolean;
   onFlip: () => void;
+  // Where the names in a row's line lead, which the feed above works out.
+  pinning?: AuditPinning;
 };
 
 // The rule the first day's heading hangs its press off, which is drawn on its
@@ -40,6 +43,7 @@ export function ActivityTimeline({
   timeZone,
   grouped,
   onFlip,
+  pinning,
 }: Readonly<ActivityTimelineProps>) {
   const days = auditDays(entries, now, timeZone);
 
@@ -65,6 +69,7 @@ export function ActivityTimeline({
                   names={names}
                   timeZone={timeZone}
                   dated={false}
+                  pinning={pinning}
                 />
               ))}
             </ol>
@@ -89,6 +94,7 @@ export function ActivityTimeline({
                   names={names}
                   timeZone={timeZone}
                   dated
+                  pinning={pinning}
                 />
               ))}
           </ol>

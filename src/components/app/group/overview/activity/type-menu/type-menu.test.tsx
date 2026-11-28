@@ -28,7 +28,7 @@ type MenuRows = {
   tasks?: EntityChoice[];
   categories?: EntityChoice[];
   tags?: EntityChoice[];
-  onSearchTasks?: (query: string) => Promise<EntityChoice[]>;
+  onSearchTasks?: (query: string) => Promise<EntityChoice[] | null>;
 };
 
 function renderMenu(
@@ -243,6 +243,29 @@ describe("TypeMenu", () => {
 
     expect(onSearchTasks).not.toHaveBeenCalled();
     expect(screen.getByRole("link", { name: "Bins" })).toBeVisible();
+  });
+
+  it("says a search that could not be made was not made, rather than showing nothing", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    renderMenu({ type: null, ref: "" }, { onSearchTasks: async () => null });
+    await open();
+    await press("Choose one task");
+    await user.type(screen.getByRole("searchbox", { name: "Search tasks" }), "win");
+
+    await waitFor(() => expect(screen.getByText(/could not search/)).toBeVisible());
+    expect(screen.queryByText("Nothing matches that.")).toBeNull();
+  });
+
+  it("says nothing matched when the search came back empty", async () => {
+    const user = userEvent.setup({ delay: null });
+
+    renderMenu({ type: null, ref: "" }, { onSearchTasks: async () => [] });
+    await open();
+    await press("Choose one task");
+    await user.type(screen.getByRole("searchbox", { name: "Search tasks" }), "win");
+
+    await waitFor(() => expect(screen.getByText("Nothing matches that.")).toBeVisible());
   });
 
   it("offers a search box on the tasks alone", async () => {

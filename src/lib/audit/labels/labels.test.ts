@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AuditEntry, AuditNames } from "@/lib/audit/audit.types";
 import { auditLine, auditSentence, feedCountLabel } from "@/lib/audit/labels/labels";
+import type { AuditToken } from "@/lib/audit/tokens/tokens";
 import { tokenText } from "@/lib/audit/tokens/tokens";
 
 const ZONE = "Europe/Ljubljana";
@@ -252,6 +253,86 @@ describe("auditSentence naming the round an entry is about", () => {
 
     expect(tokenText(line.sentence)).toBe("Alice Johnson updated the Bins task");
     expect(line.details.map(tokenText)).toEqual(["Due date set to 14 Mar 2026"]);
+  });
+});
+
+describe("auditSentence naming what a press can narrow the feed to", () => {
+  const BINS = { "TASK:t1": { name: "Bins" } };
+
+  function pins(line: AuditToken[]) {
+    return line.flatMap((piece) => (piece.pin ? [piece.pin] : []));
+  }
+
+  it("pins the actor to themselves and the thing to itself, which are two namespaces", () => {
+    const line = auditSentence(
+      entry({ action: "UPDATE", entity: { type: "TASK", ref: "t1" } }),
+      null,
+      BINS,
+      ZONE,
+    );
+
+    expect(pins(line)).toEqual([{ actor: "u1" }, { type: "task", ref: "t1" }]);
+  });
+
+  it("pins nothing to the system, which nobody can filter by", () => {
+    const line = auditSentence(
+      entry({ action: "TASK_MISSED", actor: undefined, entity: { type: "TASK", ref: "t1" } }),
+      null,
+      BINS,
+      ZONE,
+    );
+
+    expect(pins(line)).toEqual([{ type: "task", ref: "t1" }]);
+  });
+
+  it("pins the reader's own row to themselves, which still reads You", () => {
+    const line = auditSentence(
+      entry({ action: "CREATE", entity: { type: "GROUP" } }),
+      "u1",
+      {},
+      ZONE,
+    );
+
+    expect(tokenText(line)).toBe("You created this group");
+    expect(pins(line)).toEqual([{ actor: "u1" }]);
+  });
+
+  it("pins a thing nothing could name, the uid being the whole of what is known", () => {
+    const line = auditSentence(
+      entry({ action: "TASK_ARCHIVED", entity: { type: "TASK", ref: "9b4f1c2e-aaaa" } }),
+      null,
+      {},
+      ZONE,
+    );
+
+    expect(pins(line)).toEqual([{ actor: "u1" }, { type: "task", ref: "9b4f1c2e-aaaa" }]);
+  });
+
+  it("pins the member a row is about, who is not the one who acted", () => {
+    const line = auditSentence(
+      entry({ action: "ROLE_CHANGED", entity: { type: "GROUP_MEMBER", ref: "m2" } }),
+      null,
+      { "GROUP_MEMBER:m2": { name: "Dan Novak" } },
+      ZONE,
+    );
+
+    expect(tokenText(line)).toBe("Alice Johnson changed Dan Novak's role");
+    expect(pins(line)).toEqual([{ actor: "u1" }, { type: "member", ref: "m2" }]);
+  });
+
+  it("pins no round, a date being a fact rather than somewhere to go", () => {
+    const line = auditSentence(
+      entry({
+        action: "COMPLETE",
+        entity: { type: "TASK", ref: "t1" },
+        changedFields: [{ field: "dueDate", from: null, to: "2026-03-14T22:59" }],
+      }),
+      null,
+      BINS,
+      ZONE,
+    );
+
+    expect(pins(line)).toEqual([{ actor: "u1" }, { type: "task", ref: "t1" }]);
   });
 });
 

@@ -88,12 +88,15 @@ export async function loadActivityPageAction(
  *
  * @param uid The group, bound on the server rather than posted.
  * @param query What was typed into the box.
- * @returns The matches, newest first, or none at all: a search that would not
- * load leaves the ten the panel already offers, which is nothing to report.
+ * @returns The matches, newest first, or null where the search could not be
+ * made: an empty list is an answer, so a failure must not be sent as one.
  */
-export async function searchTasksAction(uid: string, query: unknown): Promise<EntityChoice[]> {
+export async function searchTasksAction(
+  uid: string,
+  query: unknown,
+): Promise<EntityChoice[] | null> {
   const parsed = parseTaskSearch({ groupUid: uid, q: query });
-  if (!parsed.ok) return [];
+  if (!parsed.ok) return null;
 
   return searchTasks(parsed.values.groupUid, parsed.values.q ?? "");
 }

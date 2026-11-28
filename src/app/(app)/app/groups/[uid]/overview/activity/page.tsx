@@ -148,6 +148,9 @@ export default async function ActivityPage({
         filter={filter}
         names={names}
         timeZone={timeZone}
+        // A member may only ask for their own actions, so only an admin's
+        // names are offered as actors: `allowedActor` would clear the rest.
+        pins={{ path, onlyActor: admin ? null : (session?.userUid ?? "") }}
         heading={heading}
         menu={menu}
         dates={dates}
